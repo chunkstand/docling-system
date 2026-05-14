@@ -221,9 +221,9 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/hotspot_prevention_classifier.py exceeds the default
-    file budget at 1024 lines after the semantics, CLI, and agent-task schema
-    compatibility-facade gates expanded the hotspot-prevention classifier
-    rules again.
+    file budget at 960 lines after the semantics, CLI, agent-task schema, and
+    oversized-test governance ratchets expanded the hotspot-prevention
+    classifier rules again.
   source:
     source_type: hygiene_finding
     source_ref: hygiene:file-budget:app/hotspot_prevention_classifier.py
@@ -265,11 +265,14 @@ cases:
       also allows only the compact registry-backed __getattr__/__dir__
       compatibility facade used by app/schemas/agent_tasks.py while still
       blocking new schema definitions, broad re-export batches, and
-      export-sink surfaces. The hygiene follow-on remains open.
+      export-sink surfaces. The oversized-test closeout then moved shared
+      rule-classification helpers into app/hotspot_prevention_classifier_support.py
+      and reduced the primary classifier back to 960 lines. The hygiene
+      follow-on remains open.
   measurement:
     metric_name: hotspot_prevention_classifier_line_count
-    current_value: 1024.0
-    measurement_window: 2026-05-14 agent-task schema closeout verification
+    current_value: 960.0
+    measurement_window: 2026-05-14 oversized-test hotspot closeout
     notes: The classifier still carries the earlier registry-composition and
       search-boundary allowances and now also blocks provenance-graph,
       report-lineage, lifecycle, and governance-change-impact growth in
@@ -278,8 +281,10 @@ cases:
       regrowth in app/services/semantics.py, direct session or storage wiring
       plus parser-body or JSON-render scaffolding in app/cli.py, and the
       compact agent-task schema compatibility-facade hooks for
-      app/schemas/agent_tasks.py, leaving the file above the default budget at
-      1024 lines.
+      app/schemas/agent_tasks.py. The oversized-test closeout extracted common
+      hunk and support logic into app/hotspot_prevention_classifier_support.py,
+      but the primary classifier still sits above the default budget at
+      960 lines.
   created_at: '2026-05-13T00:00:00+00:00'
   updated_at: '2026-05-14T05:45:46Z'
 - case_id: IC-9812A0B138D9
@@ -559,8 +564,9 @@ cases:
   title: 'Architecture hotspot: tests/unit/test_agent_tasks_api.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: tests/unit/test_agent_tasks_api.py is an architecture hotspot
-    with risk_score=345.07, line_count=1810, changes_90d=37, hygiene_finding_count=0.
+  observed_failure: tests/unit/test_agent_tasks_api.py previously mixed claim-support
+    routes, lifecycle handling, artifact and provenance endpoints, and auth or
+    capability checks in a single 1810-line route-family test surface.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:tests/unit/test_agent_tasks_api.py
@@ -574,20 +580,45 @@ cases:
     description: Architecture quality owner surface for tests/unit/test_agent_tasks_api.py.
   verification:
     commands:
+    - git diff --check
+    - uv run ruff check tests/unit/test_agent_tasks_api.py
+      tests/unit/test_agent_tasks_api_claim_support.py
+      tests/unit/test_agent_tasks_api_artifacts.py
+      tests/unit/test_agent_tasks_api_lifecycle.py
+      tests/unit/test_agent_tasks_api_auth.py
     - uv run docling-system-architecture-quality-report
+    - uv run pytest -q tests/unit/test_agent_tasks_api.py
+      tests/unit/test_agent_tasks_api_claim_support.py
+      tests/unit/test_agent_tasks_api_artifacts.py
+      tests/unit/test_agent_tasks_api_lifecycle.py
+      tests/unit/test_agent_tasks_api_auth.py
     acceptance_conditions:
-    - Hotspot risk decreases or the surface has a narrower owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    - tests/unit/test_agent_tasks_api.py remains a narrow compatibility and
+      smoke surface at or below 600 lines.
+    - Claim-support, lifecycle, artifact, and auth route families remain
+      routed to focused files instead of regrowing the residual surface.
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
-    notes: null
+    notes: Oversized-test hotspot closeout reduced the residual compatibility
+      file to 92 lines and moved the route families into
+      tests/unit/test_agent_tasks_api_claim_support.py,
+      tests/unit/test_agent_tasks_api_artifacts.py,
+      tests/unit/test_agent_tasks_api_lifecycle.py, and
+      tests/unit/test_agent_tasks_api_auth.py. The broader routed family
+      remains reduced and open because the lifecycle owner still measures 756
+      lines against the default 600-line budget.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: test_agent_tasks_api_hotspot_line_count
+    current_value: 92.0
+    measurement_window: 2026-05-14 oversized-test hotspot closeout
+    notes: The residual compatibility file now measures 92 lines; the focused
+      claim-support, artifacts, lifecycle, and auth files measure 419, 465,
+      756, and 93 lines respectively. The scoped monolith issue is resolved,
+      while the broader family remains reduced and open because the lifecycle
+      owner still exceeds the default 600-line budget.
   created_at: '2026-05-10T01:15:27.810985+00:00'
   updated_at: '2026-05-10T01:15:27.810985+00:00'
 - case_id: IC-5B6430FCB929
@@ -911,10 +942,13 @@ cases:
   updated_at: '2026-05-10T23:10:27Z'
 - case_id: IC-7A628A4CBCAC
   title: 'Architecture hotspot: tests/unit/test_evaluation_service.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
-  observed_failure: tests/unit/test_evaluation_service.py is an architecture hotspot
-    with risk_score=257.65, line_count=2197, changes_90d=21, hygiene_finding_count=0.
+  observed_failure: tests/unit/test_evaluation_service.py was an architecture hotspot
+    at 2197 lines before the evaluation fixture, scoring, and latest-read owner
+    splits. The oversized-test hotspot refresh remeasured the residual file at
+    389 lines, so the file left the active oversized-test scope before this
+    packet needed to move any additional coverage.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:tests/unit/test_evaluation_service.py
@@ -928,29 +962,42 @@ cases:
     description: Architecture quality owner surface for tests/unit/test_evaluation_service.py.
   verification:
     commands:
+    - git diff --check
+    - uv run ruff check tests/unit/test_evaluation_service.py tests/unit/test_evaluation_fixtures.py
+      tests/unit/test_evaluation_scoring.py tests/unit/test_evaluation_reads.py
     - uv run docling-system-architecture-quality-report
+    - uv run pytest -q tests/unit/test_evaluation_service.py tests/unit/test_evaluation_fixtures.py
+      tests/unit/test_evaluation_scoring.py tests/unit/test_evaluation_reads.py
     acceptance_conditions:
-    - Hotspot risk decreases or the surface has a narrower owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    - tests/unit/test_evaluation_service.py remains a narrow compatibility and
+      smoke surface at or below 600 lines.
+    - Focused evaluation fixture, scoring, and latest-read coverage stays in
+      the routed owner files rather than regrowing the residual file.
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: null
+    deployed_ref: "local-worktree-2026-05-14"
+    notes: Live Milestone 0 refresh for the oversized-test hotspot packet
+      remeasured tests/unit/test_evaluation_service.py at 389 lines after the
+      earlier owner splits, so no new decomposition was required in this
+      packet.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: test_evaluation_service_hotspot_line_count
+    current_value: 389.0
+    measurement_window: 2026-05-14 oversized-test hotspot refresh
+    notes: The residual evaluation-service test surface now measures 389 lines
+      and no longer appears in the active oversized-test hotspot queue.
   created_at: '2026-05-10T01:15:27.810985+00:00'
   updated_at: '2026-05-10T01:15:27.810985+00:00'
 - case_id: IC-D49E037D5657
   title: 'Architecture hotspot: tests/integration/test_technical_report_harness_roundtrip.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: tests/integration/test_technical_report_harness_roundtrip.py is
-    an architecture hotspot with risk_score=246.28, line_count=2030, changes_90d=32,
-    hygiene_finding_count=0.
+  observed_failure: tests/integration/test_technical_report_harness_roundtrip.py
+    previously mixed context-pack gates, release-readiness integrity, audit-bundle
+    coverage, provenance and trace checks, immutability triggers, and source-evidence
+    tamper scenarios in a single 2030-line integration test surface.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:tests/integration/test_technical_report_harness_roundtrip.py
@@ -964,20 +1011,52 @@ cases:
     description: Architecture quality owner surface for tests/integration/test_technical_report_harness_roundtrip.py.
   verification:
     commands:
+    - git diff --check
+    - uv run ruff check tests/integration/test_technical_report_harness_roundtrip.py
+      tests/integration/test_technical_report_harness_context_pack.py
+      tests/integration/test_technical_report_harness_audit_surfaces.py
+      tests/integration/test_technical_report_harness_integrity.py
+      tests/integration/test_technical_report_harness_source_evidence.py
+      tests/integration/technical_report_harness_support.py
     - uv run docling-system-architecture-quality-report
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_technical_report_harness_roundtrip.py
+      tests/integration/test_technical_report_harness_context_pack.py
+      tests/integration/test_technical_report_harness_audit_surfaces.py
+      tests/integration/test_technical_report_harness_integrity.py
+      tests/integration/test_technical_report_harness_source_evidence.py
     acceptance_conditions:
-    - Hotspot risk decreases or the surface has a narrower owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    - tests/integration/test_technical_report_harness_roundtrip.py remains a
+      narrow smoke surface at or below 800 lines.
+    - The family-local support module remains at or below 400 lines and 10
+      private helpers.
+    - Focused context-pack, audit, integrity, and source-evidence scenarios do
+      not regrow the residual smoke file.
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
-    notes: null
+    notes: Oversized-test hotspot closeout reduced the residual smoke surface
+      to 93 lines and moved the surrounding scenario families into
+      tests/integration/test_technical_report_harness_context_pack.py,
+      tests/integration/test_technical_report_harness_audit_surfaces.py,
+      tests/integration/test_technical_report_harness_integrity.py, and
+      tests/integration/test_technical_report_harness_source_evidence.py while
+      keeping tests/integration/technical_report_harness_support.py within the
+      400-line family-local support budget. The broader routed family remains
+      reduced and open because the extracted audit surface still measures 799
+      lines against the default 600-line hygiene budget.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: test_technical_report_harness_roundtrip_hotspot_line_count
+    current_value: 93.0
+    measurement_window: 2026-05-14 oversized-test hotspot closeout
+    notes: The residual roundtrip smoke file now measures 93 lines, the local
+      support module measures 396, the context-pack surface measures 315, the
+      audit surface 799, the integrity surface 385, and the source-evidence
+      surface 206. The scoped monolith issue is resolved, while the broader
+      family remains reduced and open because the audit surface still sits
+      above the default 600-line budget.
   created_at: '2026-05-10T01:15:27.810985+00:00'
   updated_at: '2026-05-10T01:15:27.810985+00:00'
 - case_id: IC-23F2C79C8AA7
@@ -1609,3 +1688,218 @@ cases:
       plus tests/unit/test_ui_static_assets.py.
   created_at: '2026-05-10T19:12:35Z'
   updated_at: '2026-05-10T23:10:27Z'
+- case_id: IC-5F0E1C8B0D42
+  title: 'Architecture hotspot: tests/db_model_contract.py'
+  status: deployed
+  cause_class: unclear_ownership
+  observed_failure: tests/db_model_contract.py previously concentrated 3700 lines of
+    shared ORM contract manifests across ingest, document artifact, semantic-memory,
+    agent-task, claim-support, audit, evaluation, and retrieval domains.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-probe:largest-file:tests/db_model_contract.py
+    notes: Refreshed during the oversized-test hotspot packet from the live
+      wc -l and architecture-probe snapshot before and after the domain-manifest
+      split.
+  artifact:
+    artifact_type: test
+    target_path: tests/db_model_contract.py
+    description: Shared ORM contract compatibility manifest for the DB model suites.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check tests/db_model_contract.py tests/db_model_contract_domains
+      tests/integration/test_db_model_metadata.py tests/unit/test_db_model_import_compatibility.py
+      tests/unit/test_db_models_facade_contract.py
+    - uv run pytest -q tests/unit/test_db_model_import_compatibility.py
+      tests/unit/test_db_models_facade_contract.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py
+    acceptance_conditions:
+    - tests/db_model_contract.py remains a narrow shared compatibility manifest
+      at or below 600 lines.
+    - Domain manifests stay routed through tests/db_model_contract_domains/
+      rather than regrowing the residual file.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: "local-worktree-2026-05-14"
+    notes: Oversized-test hotspot closeout reduced tests/db_model_contract.py
+      from 3700 lines to 159 and moved the domain manifests into
+      tests/db_model_contract_domains/ with all extracted files at or below the
+      default 600-line budget.
+  measurement:
+    metric_name: test_db_model_contract_hotspot_line_count
+    current_value: 159.0
+    measurement_window: 2026-05-14 oversized-test hotspot closeout
+    notes: The residual shared manifest now measures 159 lines and the extracted
+      domain files close at 588 lines or below, so the scoped manifest hotspot
+      is retired without leaving a second oversized domain sink.
+  created_at: '2026-05-14T00:00:00+00:00'
+  updated_at: '2026-05-14T00:00:00+00:00'
+- case_id: IC-3B4C9F2A76E1
+  title: 'Architecture hotspot: tests/unit/test_agent_task_context.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: tests/unit/test_agent_task_context.py previously mixed registry,
+    freshness, semantic-generation, semantic-governance, semantic-graph, and
+    technical-report context-builder scenarios in one 2972-line unit surface.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-probe:largest-file:tests/unit/test_agent_task_context.py
+    notes: Refreshed during the oversized-test hotspot packet from the live
+      wc -l and architecture-probe snapshot before and after the context-family split.
+  artifact:
+    artifact_type: test
+    target_path: tests/unit/test_agent_task_context.py
+    description: Residual compatibility and registry test surface for agent-task context builders.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check tests/unit/test_agent_task_context.py
+      tests/unit/test_agent_task_context_freshness.py
+      tests/unit/test_agent_task_context_semantic_generation.py
+      tests/unit/test_agent_task_context_reports_claim_support.py
+      tests/unit/test_agent_task_context_semantic_governance.py
+      tests/unit/test_agent_task_context_semantic_graph.py
+      tests/unit/test_agent_task_context_semantic_graph_promotions.py
+    - uv run pytest -q tests/unit/test_agent_task_context.py
+      tests/unit/test_agent_task_context_freshness.py
+      tests/unit/test_agent_task_context_semantic_generation.py
+      tests/unit/test_agent_task_context_reports_claim_support.py
+      tests/unit/test_agent_task_context_semantic_governance.py
+      tests/unit/test_agent_task_context_semantic_graph.py
+      tests/unit/test_agent_task_context_semantic_graph_promotions.py
+    acceptance_conditions:
+    - tests/unit/test_agent_task_context.py remains a narrow compatibility and
+      registry surface at or below 600 lines.
+    - Context-family coverage stays routed to focused owner files instead of
+      regrowing the residual surface.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: Oversized-test hotspot closeout reduced tests/unit/test_agent_task_context.py
+      to 328 lines and moved the freshness, semantic-generation, reports/claim-support,
+      semantic-governance, semantic-graph, and semantic-graph promotion families
+      into focused files. The broader family remains reduced and open because
+      three extracted files still measure 636, 630, and 653 lines against the
+      default 600-line budget.
+  measurement:
+    metric_name: test_agent_task_context_hotspot_line_count
+    current_value: 328.0
+    measurement_window: 2026-05-14 oversized-test hotspot closeout
+    notes: The residual compatibility file now measures 328 lines; the focused
+      freshness, semantic-generation, reports/claim-support, semantic-governance,
+      semantic-graph, and semantic-graph promotion files measure 569, 384, 636,
+      630, 584, and 653 lines respectively.
+  created_at: '2026-05-14T00:00:00+00:00'
+  updated_at: '2026-05-14T00:00:00+00:00'
+- case_id: IC-908E7A1D2C44
+  title: 'Architecture hotspot: tests/integration/test_retrieval_learning_ledger.py'
+  status: deployed
+  cause_class: unclear_ownership
+  observed_failure: tests/integration/test_retrieval_learning_ledger.py previously mixed
+    dataset lineage, replay-alert corpus governance, candidate evaluation,
+    artifact creation, and audit-bundle tamper scenarios in one 2339-line
+    integration surface.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-probe:largest-file:tests/integration/test_retrieval_learning_ledger.py
+    notes: Refreshed during the oversized-test hotspot packet from the live
+      wc -l and architecture-probe snapshot before and after the retrieval-learning split.
+  artifact:
+    artifact_type: test
+    target_path: tests/integration/test_retrieval_learning_ledger.py
+    description: Residual retrieval-learning integration smoke surface.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check tests/integration/test_retrieval_learning_ledger.py
+      tests/integration/test_retrieval_learning_ledger_datasets.py
+      tests/integration/test_retrieval_learning_ledger_candidates.py
+      tests/integration/test_retrieval_learning_ledger_integrity.py
+      tests/integration/retrieval_learning_ledger_support.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_retrieval_learning_ledger.py
+      tests/integration/test_retrieval_learning_ledger_datasets.py
+      tests/integration/test_retrieval_learning_ledger_candidates.py
+      tests/integration/test_retrieval_learning_ledger_integrity.py
+    acceptance_conditions:
+    - tests/integration/test_retrieval_learning_ledger.py remains a narrow smoke
+      surface at or below 800 lines.
+    - The family-local support module remains at or below 400 lines and 10
+      private helpers.
+    - Dataset, candidate, and integrity scenarios remain routed to focused files.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: "local-worktree-2026-05-14"
+    notes: Oversized-test hotspot closeout reduced the residual retrieval-learning
+      ledger surface to 428 lines, kept the family-local support module at 362 lines,
+      and moved the dataset, candidate, and integrity scenarios into focused files
+      at 413, 597, and 599 lines respectively.
+  measurement:
+    metric_name: test_retrieval_learning_ledger_hotspot_line_count
+    current_value: 428.0
+    measurement_window: 2026-05-14 oversized-test hotspot closeout
+    notes: The retrieval-learning ledger family now closes with a 428-line
+      smoke file, a 362-line support module, and focused scenario files at
+      413, 597, and 599 lines. The family stays within the packet budgets and
+      no longer appears in the top-20 architecture probe hotspot list.
+  created_at: '2026-05-14T00:00:00+00:00'
+  updated_at: '2026-05-14T00:00:00+00:00'
+- case_id: IC-25C1F7B9E4DA
+  title: 'Architecture hotspot: tests/unit/test_search_service.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: tests/unit/test_search_service.py previously mixed query-shape,
+    metadata supplement, ranking, orchestration, and persistence assertions in a
+    single 1845-line unit surface.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-probe:largest-file:tests/unit/test_search_service.py
+    notes: Refreshed during the oversized-test hotspot packet from the live
+      wc -l and architecture-probe snapshot before and after the search test split.
+  artifact:
+    artifact_type: test
+    target_path: tests/unit/test_search_service.py
+    description: Residual search compatibility and smoke surface.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check tests/unit/test_search_service.py
+      tests/unit/test_search_metadata_supplement.py
+      tests/unit/test_search_service_ranking.py
+      tests/unit/test_search_service_orchestration.py
+      tests/unit/test_search_service_persistence.py
+    - uv run pytest -q tests/unit/test_search_service.py
+      tests/unit/test_search_metadata_supplement.py
+      tests/unit/test_search_service_ranking.py
+      tests/unit/test_search_service_orchestration.py
+      tests/unit/test_search_service_persistence.py
+    acceptance_conditions:
+    - tests/unit/test_search_service.py remains a narrow compatibility and
+      smoke surface at or below 600 lines.
+    - Search metadata, ranking, orchestration, and persistence assertions stay
+      routed to focused files instead of regrowing the residual surface.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: Oversized-test hotspot closeout reduced tests/unit/test_search_service.py
+      to 117 lines and moved metadata supplement, ranking, orchestration, and
+      persistence assertions into focused files. The broader family remains
+      reduced and open because the ranking owner still measures 621 lines
+      against the default 600-line budget.
+  measurement:
+    metric_name: test_search_service_hotspot_line_count
+    current_value: 117.0
+    measurement_window: 2026-05-14 oversized-test hotspot closeout
+    notes: The residual compatibility file now measures 117 lines; the focused
+      metadata supplement, ranking, orchestration, and persistence files measure
+      411, 621, 580, and 208 lines respectively.
+  created_at: '2026-05-14T00:00:00+00:00'
+  updated_at: '2026-05-14T00:00:00+00:00'

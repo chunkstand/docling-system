@@ -1,6 +1,6 @@
 # Session Handoff
 
-Date: 2026-05-13 local / 2026-05-14 UTC
+Date: 2026-05-14 local / 2026-05-14 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
@@ -39,16 +39,20 @@ Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
 Active local follow-up owner case: `IC-D9A84C20546B` /
 `tests/unit/test_agent_tasks_api.py`
 Latest planned bounded implementation brief:
-`docs/oversized_test_hotspots_boundary_milestone_plan.md`
+`docs/hygiene_owner_case_routing_boundary_milestone_plan.md`
 Latest resolved bounded implementation brief:
-`docs/agent_task_schema_aggregation_boundary_milestone_plan.md`
-The prior search execution persistence brief remains resolved locally through
-Milestone 1 closeout commit `f55b474`, and the broader search owner case
-`IC-1D03DBFE8492` is now reduced after the orchestration split even though
-`app/services/search.py` still appears in the architecture probe. The broader
-claim-support owner case `IC-E2270F89B397` also remains reduced and open after
-the current closeout because the extracted owner modules still exceed the
-default 600-line budget even though the compatibility facade is now narrow.
+`docs/oversized_test_hotspots_boundary_milestone_plan.md`
+The oversized-test packet is now resolved locally in the 2026-05-14 closeout
+window. Deployed follow-on cases are `IC-5F0E1C8B0D42`,
+`IC-7A628A4CBCAC`, and `IC-908E7A1D2C44`; reduced/open residuals remain
+`IC-D9A84C20546B`, `IC-3B4C9F2A76E1`, `IC-25C1F7B9E4DA`, and
+`IC-D49E037D5657` because their focused successor files still exceed the
+default `600`-line hygiene budget. The broader search owner case
+`IC-1D03DBFE8492` remains reduced after the orchestration split even though
+`app/services/search.py` still appears in the architecture probe, and the
+broader claim-support owner case `IC-E2270F89B397` also remains reduced/open
+because the extracted owner modules still exceed the default `600`-line budget
+even though the compatibility facade is now narrow.
 
 ## Current Position
 
@@ -121,8 +125,10 @@ retired because `app/services/evidence_technical_report_exports.py` measures
 `app/services/evidence_claim_feedback.py` 834, and
 `app/services/evidence_audit_views.py` 699. The hotspot-prevention classifier
 follow-up case `IC-6C1B516A3F92` also remains open after the semantics gate
-and later CLI Milestone 1 facade-prevention ratchet expanded
-`app/hotspot_prevention_classifier.py` to 879 lines.
+and later CLI Milestone 1 facade-prevention ratchet expanded the classifier;
+the oversized-test closeout then split shared classification helpers into
+`app/hotspot_prevention_classifier_support.py`, leaving
+`app/hotspot_prevention_classifier.py` at `960` lines.
 
 `docs/semantics_service_boundary_milestone_plan.md` is now resolved locally
 through closeout commit `a2eb27e`. The scoped semantics service-boundary
@@ -172,20 +178,32 @@ the refreshed architecture-quality evidence measures the facade at
 `IC-24F3558D6091` because the architecture-quality summary still routes the
 facade even though the scoped aggregation issue is closed.
 
-Active stacked follow-on after the agent-task schema packet:
-`docs/oversized_test_hotspots_boundary_milestone_plan.md`. Its Milestone 0 is
-now the next active freshness refresh, and the first routed residual owner
-case is `IC-D9A84C20546B` / `tests/unit/test_agent_tasks_api.py` because the
-live architecture probe still names that file as the top hotspot.
+Resolved stacked follow-on after the agent-task schema packet:
+`docs/oversized_test_hotspots_boundary_milestone_plan.md`. The packet is now
+resolved locally in the 2026-05-14 oversized-test closeout window:
+`tests/db_model_contract.py` is `159` lines,
+`tests/unit/test_agent_task_context.py` is `328`,
+`tests/unit/test_agent_tasks_api.py` is `92`,
+`tests/unit/test_evaluation_service.py` is `389`,
+`tests/unit/test_search_service.py` is `117`,
+`tests/integration/test_retrieval_learning_ledger.py` is `428`, and
+`tests/integration/test_technical_report_harness_roundtrip.py` is `93`. The
+architecture probe no longer lists any of those residual files among the top
+20 hotspots. The broader follow-on routing is now explicit:
+`IC-5F0E1C8B0D42`, `IC-7A628A4CBCAC`, and `IC-908E7A1D2C44` are deployed,
+while `IC-D9A84C20546B`, `IC-3B4C9F2A76E1`, `IC-25C1F7B9E4DA`, and
+`IC-D49E037D5657` remain reduced/open because focused successor files still
+measure `756`, `636` or `630` or `653`, `621`, and `799` lines respectively.
 
-Queued stacked follow-on after the oversized-test packet:
+Active stacked follow-on after the oversized-test packet:
 `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`. Its Milestone 0
-assumes the claim-support, evaluations, evidence provenance-export, semantics,
-CLI, agent-task schema, and oversized-test closeouts are all complete and
-committed first, then refreshes live system state before replacing every
-remaining `owner_milestone=residual-weakness-milestone-2` hygiene ratchet with
-explicit owner-case routing and removing the milestone-owned fallback from the
-active hygiene contract.
+is now the next required refresh. It assumes the claim-support, evaluations,
+evidence provenance-export, semantics, CLI, agent-task schema, and
+oversized-test closeouts are all complete, then refreshes live system state
+before replacing every remaining
+`owner_milestone=residual-weakness-milestone-2` hygiene ratchet with explicit
+owner-case routing and removing the milestone-owned fallback from the active
+hygiene contract.
 
 Queued stacked follow-on after the hygiene owner-case routing packet:
 `docs/architecture_governance_cycle_boundary_milestone_plan.md`. Its
@@ -204,31 +222,63 @@ Additional committed later-stack follow-ons now exist for
 earlier routed packets closing first, and the broader coordination queue now
 also sits behind the architecture-governance cycle packet above.
 
-The live alignment snapshot after the CLI closeout is:
+The live alignment snapshot after the oversized-test closeout is:
 
-- `uv run docling-system-improvement-case-summary`: `case_count=29`,
-  `status_counts.open=21`, `status_counts.deployed=7`,
-  `status_counts.measured=1`, `measured_case_count=20`,
+- `uv run docling-system-improvement-case-summary`: `case_count=33`,
+  `status_counts.open=22`, `status_counts.deployed=10`,
+  `status_counts.measured=1`, `measured_case_count=28`,
   `oldest_open_case_id=IC-9812A0B138D9`
 - `uv run docling-system-architecture-quality-report --summary`:
+  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
   `hotspot_count=10`, `max_hotspot_risk_score=501.06`
-- full architecture-quality report row for `app/cli.py`: `line_count=375`,
-  `changes_90d=56`, `risk_score=425.5`, `hygiene_finding_count=0`
-- `uv run docling-system-architecture-inspect`: `valid=true`,
-  `violation_count=0`
-- `uv run docling-system-capability-contracts`: `valid=true`,
-  `facade_count=6`, `function_count=110`
 - `uv run docling-system-improvement-case-validate`: `valid=true`,
   `issue_count=0`
 - `uv run docling-system-hotspot-prevention-check --strict`:
-  `known_hotspots=11`, `changed_hotspots=0`, `blocked=0`, `allowed=0`,
-  `exceptions=0`
+  `known_hotspots=21`, `changed_hotspots=6`, `blocked=0`, `allowed=39`,
+  `exceptions=2`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
-- `uv run pytest -q tests/unit/test_cli.py tests/unit/test_cli_entrypoints.py tests/unit/test_cli_runtime.py tests/unit/test_cli_improvement_cases.py tests/unit/test_cli_search_harness.py tests/unit/test_cli_ingest.py tests/unit/test_hotspot_prevention.py`: `73 passed`
-- architecture probe top hotspot is now `tests/unit/test_agent_tasks_api.py`;
-  `app/cli.py` is absent from the top 12 churn hotspots; the Python cycle
-  component count remains `5`
-- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1939 passed`
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py tests/unit/test_db_models_facade_contract.py tests/unit/test_agent_task_context.py tests/unit/test_agent_task_context_*.py tests/unit/test_agent_tasks_api.py tests/unit/test_agent_tasks_api_*.py tests/unit/test_agent_tasks.py tests/unit/test_agent_task_worker.py tests/unit/test_cli_agent_tasks.py tests/unit/test_evaluation_service.py tests/unit/test_evaluation_fixtures.py tests/unit/test_evaluation_scoring.py tests/unit/test_evaluation_reads.py tests/unit/test_search_service.py tests/unit/test_search_hydration.py tests/unit/test_search_execution_persistence.py tests/unit/test_search_execution_orchestration.py tests/unit/test_search_metadata_supplement.py tests/unit/test_search_service_ranking.py tests/unit/test_search_service_orchestration.py tests/unit/test_search_service_persistence.py tests/unit/test_hotspot_prevention.py`: `741 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py tests/integration/test_retrieval_learning_ledger.py tests/integration/retrieval_learning_ledger_support.py tests/integration/test_retrieval_learning_ledger_*.py tests/integration/test_technical_report_harness_roundtrip.py tests/integration/test_technical_report_harness_*.py tests/integration/test_semantic_governance_ledger.py`: `339 passed`
+- architecture probe top hotspot is now `app/services/search.py`; none of the
+  seven selected residual files remain in the top 20 hotspot list; the Python
+  cycle component count remains `5`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1957 passed`
+
+## Oversized Test Hotspots Boundary Local Closeout
+
+Milestones 0 through 6 are resolved locally in the 2026-05-14 oversized-test
+closeout window. The scoped oversized-test knot is closed: all seven selected
+residual files now sit below their packet thresholds, their replacement
+families are routed explicitly, and the architecture probe no longer lists any
+of the seven residual files among the top 20 hotspots.
+
+Results:
+
+- reduced `tests/db_model_contract.py` to `159` lines and moved the shared ORM
+  contract families into `tests/db_model_contract_domains/`, with all extracted
+  domain files at `588` lines or below
+- reduced `tests/unit/test_agent_task_context.py` to `328` lines and
+  `tests/unit/test_agent_tasks_api.py` to `92` lines while moving the owner
+  families into focused files; the broader owner cases remain reduced/open
+  because focused successors still measure `636`, `630`, `653`, and `756`
+  lines
+- confirmed `tests/unit/test_evaluation_service.py` was already at `389` lines
+  after the earlier evaluation-owner packet, so this closeout only refreshed
+  the owner-case evidence rather than moving more assertions
+- reduced `tests/unit/test_search_service.py` to `117` lines and moved the
+  metadata supplement, ranking, orchestration, and persistence assertions into
+  focused files; the broader case remains reduced/open because the ranking
+  owner still measures `621` lines
+- reduced `tests/integration/test_retrieval_learning_ledger.py` to `428` lines
+  and `tests/integration/test_technical_report_harness_roundtrip.py` to
+  `93` lines, kept the family-local support modules at `362` and `396` lines,
+  and moved the scenario families into focused integration files; the
+  retrieval-learning owner case is deployed, while the technical-report owner
+  case remains reduced/open because the audit surface still measures `799`
+  lines
+- refreshed hotspot-prevention, hygiene, and improvement-case routing so the
+  next bounded follow-on is now
+  `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`
 
 At the time of this evaluations Milestone 4 closeout, the reduced or routed
 follow-on cases were `IC-1D03DBFE8492` / `app/services/search.py`,

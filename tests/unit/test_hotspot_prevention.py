@@ -83,7 +83,16 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "app/services/evidence_provenance_exports.py",
         "app/services/search.py",
         "app/services/semantics.py",
+        "tests/db_model_contract.py",
+        "tests/integration/retrieval_learning_ledger_support.py",
+        "tests/integration/technical_report_harness_support.py",
+        "tests/integration/test_retrieval_learning_ledger.py",
+        "tests/integration/test_technical_report_harness_roundtrip.py",
+        "tests/unit/test_agent_task_context.py",
+        "tests/unit/test_agent_tasks_api.py",
         "tests/unit/test_cli.py",
+        "tests/unit/test_evaluation_service.py",
+        "tests/unit/test_search_service.py",
     ]
     for rule in policy.known_hotspots.values():
         assert rule.preferred_owner_modules
@@ -201,6 +210,26 @@ def test_analyzer_flags_obvious_implementation_growth_for_each_hotspot() -> None
             ["def test_new_command_group():", "    assert True"],
             "broad_new_test_group",
         ),
+        (
+            "tests/db_model_contract.py",
+            ["def _build_contract_group():", "    return []"],
+            "broad_helper",
+        ),
+        (
+            "tests/unit/test_agent_tasks_api.py",
+            ["def test_new_route_family_case():", "    assert True"],
+            "broad_new_test_group",
+        ),
+        (
+            "tests/integration/test_technical_report_harness_roundtrip.py",
+            ["def test_new_audit_branch():", "    assert True"],
+            "broad_new_test_group",
+        ),
+        (
+            "tests/integration/technical_report_harness_support.py",
+            ["def _build_extra_support_fixture():", "    return {}"],
+            "broad_helper",
+        ),
     ]
     for path, added_lines, category in cases:
         report = build_hotspot_prevention_report(
@@ -227,6 +256,34 @@ def test_context_hotspot_blocks_private_helper_growth() -> None:
 
     assert report["summary"]["blocked_count"] == 1
     assert report["findings"][0]["category"] == "context_family_helper"
+
+
+def test_residual_test_hotspots_allow_smoke_compatibility_assertions() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "tests/integration/test_technical_report_harness_roundtrip.py",
+            ["def test_roundtrip_smoke_contract():", "    assert True"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 0
+    assert report["findings"][0]["category"] == "compatibility_assertion"
+
+
+def test_support_hotspot_blocks_new_helper_sink_growth() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "tests/integration/retrieval_learning_ledger_support.py",
+            ["def _build_unrelated_support_helper():", "    return {}"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 1
+    assert report["findings"][0]["category"] == "broad_helper"
 
 
 def test_search_hotspot_blocks_persistence_and_operator_trace_growth() -> None:
@@ -370,10 +427,7 @@ def test_claim_support_hotspot_blocks_views_replay_and_closure_growth() -> None:
     )
 
     assert views_report["summary"]["blocked_count"] == 1
-    assert (
-        views_report["findings"][0]["category"]
-        == "alert_projection_or_escalation_logic"
-    )
+    assert views_report["findings"][0]["category"] == "alert_projection_or_escalation_logic"
     assert replay_report["summary"]["blocked_count"] == 1
     assert replay_report["findings"][0]["category"] == "replay_lifecycle_logic"
     assert closure_report["summary"]["blocked_count"] == 1
@@ -549,9 +603,9 @@ def test_analyzer_allows_agent_task_schema_registry_composition() -> None:
     )
 
     assert report["summary"]["blocked_count"] == 0
-    assert {
-        finding["category"] for finding in report["findings"]
-    } == {"compatibility_registry_declaration"}
+    assert {finding["category"] for finding in report["findings"]} == {
+        "compatibility_registry_declaration"
+    }
 
 
 def test_analyzer_allows_compact_agent_task_schema_facade_hunk() -> None:
@@ -585,9 +639,9 @@ def test_analyzer_allows_compact_agent_task_schema_facade_hunk() -> None:
     )
 
     assert report["summary"]["blocked_count"] == 0
-    assert {
-        finding["category"] for finding in report["findings"]
-    } == {"compatibility_registry_declaration"}
+    assert {finding["category"] for finding in report["findings"]} == {
+        "compatibility_registry_declaration"
+    }
 
 
 def test_analyzer_allows_agent_task_schema_alias_forwarders() -> None:
@@ -605,9 +659,7 @@ def test_analyzer_allows_agent_task_schema_alias_forwarders() -> None:
     )
 
     assert report["summary"]["blocked_count"] == 0
-    assert {finding["category"] for finding in report["findings"]} == {
-        "schema_alias_forwarder"
-    }
+    assert {finding["category"] for finding in report["findings"]} == {"schema_alias_forwarder"}
 
 
 def test_agent_task_schema_facade_blocks_broad_reexport_batches() -> None:
@@ -626,9 +678,7 @@ def test_agent_task_schema_facade_blocks_broad_reexport_batches() -> None:
     )
 
     assert report["summary"]["blocked_count"] == 4
-    assert {finding["category"] for finding in report["findings"]} == {
-        "broad_reexport_batch"
-    }
+    assert {finding["category"] for finding in report["findings"]} == {"broad_reexport_batch"}
 
 
 def test_agent_task_schema_facade_blocks_new_export_sink_surfaces() -> None:
@@ -646,9 +696,8 @@ def test_agent_task_schema_facade_blocks_new_export_sink_surfaces() -> None:
     )
 
     assert report["summary"]["blocked_count"] == 3
-    assert {finding["category"] for finding in report["findings"]} == {
-        "export_sink_surface"
-    }
+    assert {finding["category"] for finding in report["findings"]} == {"export_sink_surface"}
+
 
 def test_analyzer_allows_parenthesized_alias_forwarding_hunks() -> None:
     report = build_hotspot_prevention_report(
@@ -917,9 +966,7 @@ def test_cli_direct_session_or_storage_wiring_is_blocked() -> None:
     )
 
     assert report["summary"]["blocked_count"] == 3
-    assert {finding["category"] for finding in report["findings"]} == {
-        "session_or_storage_wiring"
-    }
+    assert {finding["category"] for finding in report["findings"]} == {"session_or_storage_wiring"}
 
 
 def test_cli_parser_body_and_json_render_scaffolding_is_blocked() -> None:

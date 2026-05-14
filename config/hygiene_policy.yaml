@@ -222,7 +222,7 @@ file_budgets:
       owner_case_id: IC-F2A8110185EB
     app/hotspot_prevention_classifier.py:
       max_lines: 600
-      ratchet_max_lines: 1024
+      ratchet_max_lines: 960
       max_private_helpers: 20
       owner_case_id: IC-6C1B516A3F92
     app/schemas/agent_tasks.py:
@@ -578,3 +578,93 @@ file_budgets:
     app/services/technical_reports.py:
       max_lines: 1193
       max_private_helpers: 10
+    tests/db_model_contract.py:
+      max_lines: 159
+      ratchet_max_lines: 159
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-5F0E1C8B0D42
+    tests/unit/test_agent_task_context.py:
+      max_lines: 328
+      ratchet_max_lines: 328
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-3B4C9F2A76E1
+    tests/unit/test_agent_task_context_reports_claim_support.py:
+      max_lines: 636
+      ratchet_max_lines: 636
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-3B4C9F2A76E1
+    tests/unit/test_agent_task_context_semantic_governance.py:
+      max_lines: 630
+      ratchet_max_lines: 630
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-3B4C9F2A76E1
+    tests/unit/test_agent_task_context_semantic_graph_promotions.py:
+      max_lines: 653
+      ratchet_max_lines: 653
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-3B4C9F2A76E1
+    tests/unit/test_agent_tasks_api.py:
+      max_lines: 92
+      ratchet_max_lines: 92
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-D9A84C20546B
+    tests/unit/test_agent_tasks_api_lifecycle.py:
+      max_lines: 756
+      ratchet_max_lines: 756
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-D9A84C20546B
+    tests/unit/test_evaluation_service.py:
+      max_lines: 389
+      ratchet_max_lines: 389
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-7A628A4CBCAC
+    tests/unit/test_search_service.py:
+      max_lines: 117
+      ratchet_max_lines: 117
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-25C1F7B9E4DA
+    tests/unit/test_search_service_ranking.py:
+      max_lines: 621
+      ratchet_max_lines: 621
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-25C1F7B9E4DA
+    tests/integration/retrieval_learning_ledger_support.py:
+      max_lines: 362
+      ratchet_max_lines: 362
+      max_private_helpers: 10
+      ratchet_max_private_helpers: 10
+      owner_case_id: IC-908E7A1D2C44
+    tests/integration/test_retrieval_learning_ledger.py:
+      max_lines: 428
+      ratchet_max_lines: 428
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-908E7A1D2C44
+    tests/integration/technical_report_harness_support.py:
+      max_lines: 396
+      ratchet_max_lines: 396
+      max_private_helpers: 10
+      ratchet_max_private_helpers: 10
+      owner_case_id: IC-D49E037D5657
+    tests/integration/test_technical_report_harness_roundtrip.py:
+      max_lines: 93
+      ratchet_max_lines: 93
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-D49E037D5657
+    tests/integration/test_technical_report_harness_audit_surfaces.py:
+      max_lines: 799
+      ratchet_max_lines: 799
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-D49E037D5657

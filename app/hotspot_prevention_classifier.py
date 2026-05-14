@@ -2,21 +2,44 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Any
 
+from app.hotspot_prevention_classifier_support import (
+    LOCAL_TEST_SUPPORT_PATHS,
+    RESIDUAL_TEST_COMPATIBILITY_PATHS,
+    ClassifiedLine,
+    allowed_category_for_forwarder,
+    allowed_category_for_import,
+    blocked,
+    classified_surface_decision,
+    classify_cli_test_surface_addition,
+    classify_local_test_support_surface_addition,
+    classify_residual_test_surface_addition,
+    exception_for_additions,
+    fallback_block_category,
+    finding_payload,
+    is_agent_task_schema_alias_line,
+    is_agent_task_schema_broad_reexport_hunk,
+    is_agent_task_schema_export_sink_line,
+    is_agent_task_schema_registry_hunk,
+    is_agent_task_schema_registry_line,
+    is_alias_only_hunk,
+    is_comment_or_blank,
+    is_compatibility_test_hunk,
+    is_forwarding_call_line,
+    is_forwarding_hunk,
+    is_import_or_alias,
+    is_multiline_import_continuation,
+    is_registry_composition_hunk,
+    is_test_signature_continuation_hunk,
+    significant_unclassified_lines,
+)
 from app.hotspot_prevention_diff import ChangedFile, ChangedLine, DiffStat
-from app.hotspot_prevention_policy import HotspotException, HotspotRule
+from app.hotspot_prevention_policy import HotspotRule
 
-
-@dataclass(frozen=True)
-class ClassifiedLine:
-    line: ChangedLine
-    status: str
-    category: str
-    message: str
-    policy_rule: str
 _CLASS_RE = re.compile(r"class\s+([A-Za-z_][A-Za-z0-9_]*)\b")
+
+
 def classify_changed_file(
     *,
     rule: HotspotRule,
@@ -29,11 +52,15 @@ def classify_changed_file(
     alias_hunk_ids = alias_only_hunk_ids(rule, changed_file)
     registry_hunk_ids = registry_composition_hunk_ids(rule, changed_file)
     forwarding_body_hunk_ids = forwarding_only_body_hunk_ids(rule, changed_file)
+    compatibility_test_hunk_ids = compatibility_test_only_hunk_ids(rule, changed_file)
+    signature_hunk_ids = test_signature_continuation_hunk_ids(rule, changed_file)
     classified_lines: list[ClassifiedLine] = []
     forwarding_hunk_ids: set[int] = set()
     reported_alias_hunks: set[int] = set()
     reported_registry_hunks: set[int] = set()
     reported_forwarding_body_hunks: set[int] = set()
+    reported_compatibility_test_hunks: set[int] = set()
+    reported_signature_hunks: set[int] = set()
     findings: list[dict[str, Any]] = []
     for line in changed_file.added_lines:
         if line.hunk_id in alias_hunk_ids:
@@ -80,9 +107,8 @@ def classify_changed_file(
             continue
         if line.hunk_id in forwarding_body_hunk_ids:
             forwarding_hunk_ids.add(line.hunk_id)
-            if (
-                line.hunk_id not in reported_forwarding_body_hunks
-                and is_forwarding_call_line(line.text.strip())
+            if line.hunk_id not in reported_forwarding_body_hunks and is_forwarding_call_line(
+                line.text.strip()
             ):
                 classified = ClassifiedLine(
                     line=line,
@@ -102,6 +128,46 @@ def classify_changed_file(
                 )
                 reported_forwarding_body_hunks.add(line.hunk_id)
             continue
+        if line.hunk_id in compatibility_test_hunk_ids:
+            if line.hunk_id not in reported_compatibility_test_hunks:
+                classified = ClassifiedLine(
+                    line=line,
+                    status="allowed",
+                    category="compatibility_assertion",
+                    message="residual compatibility or smoke test hunk is allowed",
+                    policy_rule="allow.compatibility_assertion",
+                )
+                classified_lines.append(classified)
+                findings.append(
+                    finding_payload(
+                        classified=classified,
+                        rule=rule,
+                        diff_stat=diff_stat,
+                        exception=exception,
+                    )
+                )
+                reported_compatibility_test_hunks.add(line.hunk_id)
+            continue
+        if line.hunk_id in signature_hunk_ids:
+            if line.hunk_id not in reported_signature_hunks:
+                classified = ClassifiedLine(
+                    line=line,
+                    status="allowed",
+                    category="compatibility_assertion",
+                    message="residual test signature maintenance is allowed",
+                    policy_rule="allow.compatibility_assertion",
+                )
+                classified_lines.append(classified)
+                findings.append(
+                    finding_payload(
+                        classified=classified,
+                        rule=rule,
+                        diff_stat=diff_stat,
+                        exception=exception,
+                    )
+                )
+                reported_signature_hunks.add(line.hunk_id)
+            continue
         classified = classify_python_addition(rule=rule, changed_file=changed_file, line=line)
         if classified is None:
             continue
@@ -119,7 +185,13 @@ def classify_changed_file(
     significant = significant_unclassified_lines(
         changed_file.added_lines,
         classified_lines,
-        ignored_hunk_ids=forwarding_hunk_ids | alias_hunk_ids | registry_hunk_ids,
+        ignored_hunk_ids=(
+            forwarding_hunk_ids
+            | alias_hunk_ids
+            | registry_hunk_ids
+            | compatibility_test_hunk_ids
+            | signature_hunk_ids
+        ),
     )
     if len(significant) >= 8:
         classified = blocked(
@@ -136,20 +208,48 @@ def classify_changed_file(
             )
         )
     return findings
+
+
 def forwarding_only_body_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
-    return set() if allowed_category_for_forwarder(rule) is None else hunk_ids_matching(
-        changed_file, is_forwarding_hunk
+    return (
+        set()
+        if allowed_category_for_forwarder(rule) is None
+        else hunk_ids_matching(changed_file, is_forwarding_hunk)
     )
+
+
 def alias_only_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
-    return set() if allowed_category_for_import(rule) is None else hunk_ids_matching(
-        changed_file, is_alias_only_hunk
+    return (
+        set()
+        if allowed_category_for_import(rule) is None
+        else hunk_ids_matching(changed_file, is_alias_only_hunk)
     )
+
+
 def registry_composition_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
     return (
         set()
         if "registry_composition" not in rule.allow
         else hunk_ids_matching(changed_file, is_registry_composition_hunk)
     )
+
+
+def compatibility_test_only_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
+    return (
+        set()
+        if "compatibility_assertion" not in rule.allow
+        else hunk_ids_matching(changed_file, is_compatibility_test_hunk)
+    )
+
+
+def test_signature_continuation_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
+    return (
+        set()
+        if "compatibility_assertion" not in rule.allow
+        else hunk_ids_matching(changed_file, is_test_signature_continuation_hunk)
+    )
+
+
 def hunk_ids_matching(
     changed_file: ChangedFile,
     predicate: Callable[[tuple[str, ...]], bool],
@@ -160,6 +260,8 @@ def hunk_ids_matching(
     return {
         hunk_id for hunk_id, hunk_lines in lines_by_hunk.items() if predicate(tuple(hunk_lines))
     }
+
+
 def deletion_finding(*, rule: HotspotRule, diff_stat: DiffStat) -> dict[str, Any]:
     return {
         "status": "allowed",
@@ -172,8 +274,12 @@ def deletion_finding(*, rule: HotspotRule, diff_stat: DiffStat) -> dict[str, Any
         "added_line_count": diff_stat.added_line_count,
         "deleted_line_count": diff_stat.deleted_line_count,
         "message": "deletion-only hotspot reduction is allowed",
-        "added_line": None, "exception_id": None, "remediation": None,
+        "added_line": None,
+        "exception_id": None,
+        "remediation": None,
     }
+
+
 def classify_python_addition(
     *,
     rule: HotspotRule,
@@ -182,9 +288,7 @@ def classify_python_addition(
 ) -> ClassifiedLine | None:
     path = changed_file.relative_path
     stripped = line.text.strip()
-    hunk_lines = tuple(
-        row.text for row in changed_file.added_lines if row.hunk_id == line.hunk_id
-    )
+    hunk_lines = tuple(row.text for row in changed_file.added_lines if row.hunk_id == line.hunk_id)
     if is_comment_or_blank(line.text):
         return None
     if path == "app/schemas/agent_tasks.py":
@@ -195,8 +299,7 @@ def classify_python_addition(
         )
     import_category = allowed_category_for_import(rule)
     if import_category and (
-        is_import_or_alias(line.text)
-        or is_multiline_import_continuation(stripped, hunk_lines)
+        is_import_or_alias(line.text) or is_multiline_import_continuation(stripped, hunk_lines)
     ):
         return ClassifiedLine(
             line=line,
@@ -218,6 +321,8 @@ def classify_python_addition(
             policy_rule=f"allow.{forwarding_category}",
         )
     return classify_hotspot_implementation(path=path, stripped=stripped, line=line, rule=rule)
+
+
 def classify_hotspot_implementation(
     *,
     path: str,
@@ -227,6 +332,10 @@ def classify_hotspot_implementation(
 ) -> ClassifiedLine | None:
     if path == "app/cli.py":
         return classify_cli_addition(stripped=stripped, line=line, rule=rule)
+    if path in RESIDUAL_TEST_COMPATIBILITY_PATHS:
+        return classify_residual_test_addition(stripped=stripped, line=line)
+    if path in LOCAL_TEST_SUPPORT_PATHS:
+        return classify_local_test_support_addition(stripped=stripped, line=line)
     classifiers = {
         "app/db/models.py": classify_model_addition,
         "app/services/evidence.py": classify_evidence_addition,
@@ -245,6 +354,8 @@ def classify_hotspot_implementation(
     }
     classifier = classifiers.get(path)
     return classifier(stripped=stripped, line=line) if classifier else None
+
+
 def classify_model_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
     if "relationship(" in stripped:
         return blocked(
@@ -258,6 +369,8 @@ def classify_model_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLi
         if stripped.startswith(("def ", "async def "))
         else None
     )
+
+
 def classify_evidence_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
     if stripped.startswith(("def _", "async def _")):
         return blocked(line, "private_helper", "new evidence helpers belong in evidence_* modules")
@@ -270,6 +383,8 @@ def classify_evidence_addition(*, stripped: str, line: ChangedLine) -> Classifie
             line, "artifact_assembly", "new evidence assembly belongs in evidence_* modules"
         )
     return None
+
+
 def classify_agent_task_schema_facade_addition(
     *,
     stripped: str,
@@ -324,6 +439,8 @@ def classify_agent_task_schema_facade_addition(
         "new schema-facade behavior belongs in the focused owner modules or a "
         "compact registry declaration",
     )
+
+
 def classify_evidence_provenance_export_addition(
     *,
     stripped: str,
@@ -407,6 +524,8 @@ def classify_evidence_provenance_export_addition(
             "new provenance-export behavior belongs in the focused provenance owner modules",
         )
     return None
+
+
 def classify_cli_addition(
     *,
     stripped: str,
@@ -464,6 +583,8 @@ def classify_cli_addition(
             "parser-body and JSON-render scaffolding belongs in app/cli_commands/",
         )
     return None
+
+
 def classify_agent_action_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
     if stripped.startswith("class "):
         return blocked(
@@ -484,6 +605,8 @@ def classify_agent_action_addition(*, stripped: str, line: ChangedLine) -> Class
             "new executor implementations belong in app/services/agent_actions/",
         )
     return None
+
+
 def classify_agent_task_context_addition(
     *,
     stripped: str,
@@ -514,6 +637,8 @@ def classify_agent_task_context_addition(
             "new context composition belongs in app/services/agent_task_context_*.py",
         )
     return None
+
+
 def classify_search_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
     lowered = stripped.lower()
     if re.match(r"(async def |def )_load_.*candidate", stripped):
@@ -715,310 +840,121 @@ def classify_claim_support_policy_impact_addition(
             "claim_support_policy_impact_*.py",
         )
     return None
+
+
 def classify_evaluations_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
     lowered = stripped.lower()
     if re.match(r"(async def |def )(get_latest_|_to_evaluation_summary)", stripped):  # noqa: E501
-        return blocked(line, "latest_read_logic", "latest-evaluation reads belong in app/services/evaluation_reads.py")  # noqa: E501
-    if re.match(r"(async def |def )_((summarize|evaluate)_structural_checks|table_matches_merge_expectation|figure_(provenance|artifact)_count)", stripped) or any(token in lowered for token in ("structural_passed", "expected_merged_tables", "overlay_family_key", "minimum_figures_with_provenance", "maximum_unexpected_merges")):  # noqa: E501
-        return blocked(line, "structural_check_logic", "structural evaluation checks belong in app/services/evaluation_scoring.py")  # noqa: E501
-    if re.match(r"(async def |def )_((evaluate_(retrieval|answer)_case)|summarize_retrieval_rank_metrics|retrieval_failure_kind|rank_delta|classify_delta|reciprocal_rank)", stripped) or any(token in lowered for token in ("retrieval_rank_metrics", "candidate_rank", "baseline_rank", "rank_delta", "minimum_citation_count", "maximum_foreign_citations")):  # noqa: E501
-        return blocked(line, "scoring_logic", "evaluation scoring belongs in app/services/evaluation_scoring.py")  # noqa: E501
-    if re.match(r"(async def |def )(_(load_corpus_documents|write_corpus_documents|normalize_fixture_|fixture_|auto_|source_filename_queries)|load_evaluation_fixtures|fixture_for_document|build_auto_evaluation_fixture_document|ensure_auto_evaluation_fixture)", stripped) or any(token in lowered for token in ("fixture", "corpus_path", "yaml.safe_dump", "load_corpus_documents_cached(", "auto_generated_document")):  # noqa: E501
-        return blocked(line, "fixture_corpus_logic", "fixture and corpus logic belong in app/services/evaluation_fixtures.py")  # noqa: E501
+        return blocked(
+            line,
+            "latest_read_logic",
+            "latest-evaluation reads belong in app/services/evaluation_reads.py",
+        )  # noqa: E501
+    structural_pattern = (
+        r"(async def |def )_((summarize|evaluate)_structural_checks|"
+        r"table_matches_merge_expectation|figure_(provenance|artifact)_count)"
+    )
+    if re.match(
+        structural_pattern,
+        stripped,
+    ) or any(
+        token in lowered
+        for token in (
+            "structural_passed",
+            "expected_merged_tables",
+            "overlay_family_key",
+            "minimum_figures_with_provenance",
+            "maximum_unexpected_merges",
+        )
+    ):  # noqa: E501
+        return blocked(
+            line,
+            "structural_check_logic",
+            "structural evaluation checks belong in app/services/evaluation_scoring.py",
+        )  # noqa: E501
+    scoring_pattern = (
+        r"(async def |def )_((evaluate_(retrieval|answer)_case)|"
+        r"summarize_retrieval_rank_metrics|retrieval_failure_kind|"
+        r"rank_delta|classify_delta|reciprocal_rank)"
+    )
+    if re.match(
+        scoring_pattern,
+        stripped,
+    ) or any(
+        token in lowered
+        for token in (
+            "retrieval_rank_metrics",
+            "candidate_rank",
+            "baseline_rank",
+            "rank_delta",
+            "minimum_citation_count",
+            "maximum_foreign_citations",
+        )
+    ):  # noqa: E501
+        return blocked(
+            line,
+            "scoring_logic",
+            "evaluation scoring belongs in app/services/evaluation_scoring.py",
+        )  # noqa: E501
+    fixture_pattern = (
+        r"(async def |def )(_(load_corpus_documents|write_corpus_documents|"
+        r"normalize_fixture_|fixture_|auto_|source_filename_queries)|"
+        r"load_evaluation_fixtures|fixture_for_document|"
+        r"build_auto_evaluation_fixture_document|ensure_auto_evaluation_fixture)"
+    )
+    if re.match(
+        fixture_pattern,
+        stripped,
+    ) or any(
+        token in lowered
+        for token in (
+            "fixture",
+            "corpus_path",
+            "yaml.safe_dump",
+            "load_corpus_documents_cached(",
+            "auto_generated_document",
+        )
+    ):  # noqa: E501
+        return blocked(
+            line,
+            "fixture_corpus_logic",
+            "fixture and corpus logic belong in app/services/evaluation_fixtures.py",
+        )  # noqa: E501
     if stripped.startswith(("def _", "async def _")):
-        return blocked(line, "fixture_corpus_logic", "new evaluation helpers belong in focused evaluation owner modules")  # noqa: E501
-    return blocked(line, "latest_read_logic", "new evaluation service behavior belongs in focused evaluation owner modules") if stripped.startswith(("def ", "async def ")) else None  # noqa: E501
+        return blocked(
+            line,
+            "fixture_corpus_logic",
+            "new evaluation helpers belong in focused evaluation owner modules",
+        )  # noqa: E501
+    return (
+        blocked(
+            line,
+            "latest_read_logic",
+            "new evaluation service behavior belongs in focused evaluation owner modules",
+        )
+        if stripped.startswith(("def ", "async def "))
+        else None
+    )  # noqa: E501
+
+
 def classify_cli_test_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
-    if not stripped.startswith("def test_"):
-        return None
-    lowered = stripped.lower()
-    if any(token in lowered for token in ("compat", "entrypoint", "forward")):
-        return ClassifiedLine(
-            line=line,
-            status="allowed",
-            category="compatibility_assertion",
-            message="legacy CLI compatibility assertion is allowed",
-            policy_rule="allow.compatibility_assertion",
-        )
-    return blocked(
-        line,
-        "broad_new_test_group",
-        "new CLI command tests belong in focused tests/unit/test_cli_*.py files",
-    )
-def is_comment_or_blank(text: str) -> bool:
-    stripped = text.strip()
-    return not stripped or stripped.startswith("#")
-def is_import_or_alias(text: str) -> bool:
-    stripped = text.strip()
-    return stripped.startswith(("from ", "import ", "__all__")) or bool(
-        re.match(r"[A-Za-z_][A-Za-z0-9_]*\s*=\s*[A-Za-z_][A-Za-z0-9_.]*$", stripped)
+    return classified_surface_decision(
+        line=line,
+        decision=classify_cli_test_surface_addition(stripped=stripped),
     )
 
 
-def is_multiline_import_continuation(text: str, hunk_lines: tuple[str, ...]) -> bool:
-    if not re.match(
-        r"[A-Za-z_][A-Za-z0-9_]*(\s+as\s+[A-Za-z_][A-Za-z0-9_]*)?,?$",
-        text,
-    ):
-        return False
-    return any(
-        re.match(r"(from\s+[A-Za-z_][A-Za-z0-9_.]*\s+import|import)\s+\($", raw.strip())
-        for raw in hunk_lines
-    )
-def is_alias_only_hunk(lines: tuple[str, ...]) -> bool:
-    significant = [text.strip() for text in lines if not is_comment_or_blank(text)]
-    saw_alias = False
-    index = 0
-    while index < len(significant):
-        stripped = significant[index]
-        if is_import_or_alias(stripped):
-            saw_alias = True
-            index += 1
-            continue
-        if re.match(r"from\s+[A-Za-z_][A-Za-z0-9_.]*\s+import\s+\($", stripped):
-            saw_alias = True
-            index += 1
-            while index < len(significant) and significant[index] != ")":
-                if not re.match(
-                    r"[A-Za-z_][A-Za-z0-9_]*(\s+as\s+[A-Za-z_][A-Za-z0-9_]*)?,?$",
-                    significant[index],
-                ):
-                    return False
-                index += 1
-            if index >= len(significant) or significant[index] != ")":
-                return False
-            index += 1
-            continue
-        if not re.match(r"[A-Za-z_][A-Za-z0-9_]*\s*=\s*\($", stripped):
-            return False
-        if index + 2 >= len(significant):
-            return False
-        target = significant[index + 1]
-        closing = significant[index + 2]
-        if not re.match(r"[A-Za-z_][A-Za-z0-9_.]*,?$", target):
-            return False
-        if closing != ")":
-            return False
-        saw_alias = True
-        index += 3
-    return saw_alias
-def is_forwarding_hunk(lines: tuple[str, ...]) -> bool:
-    significant: list[str] = []
-    in_signature = False
-    for text in lines:
-        stripped = text.strip()
-        if (
-            not stripped
-            or stripped.startswith(("#", "@"))
-            or stripped in {'"""', "'''", ")"}
-            or is_import_or_alias(text)
-        ):
-            continue
-        if stripped.startswith(("def ", "async def ")):
-            in_signature = not stripped.endswith(":")
-            continue
-        if in_signature:
-            if stripped.endswith(":") or stripped == "):":
-                in_signature = False
-            continue
-        significant.append(stripped)
-    has_forwarding_call = False
-    for stripped in significant:
-        if re.match(r"\)(\s*->\s*[^:]+)?:", stripped):
-            continue
-        if re.match(r"return\s+[A-Za-z_][A-Za-z0-9_.]*\(", stripped):
-            has_forwarding_call = True
-            continue
-        if stripped.startswith("raise SystemExit("):
-            has_forwarding_call = True
-            continue
-        if re.match(r"[A-Za-z_][A-Za-z0-9_.]*,?$", stripped):
-            continue
-        if re.match(
-            r"[A-Za-z_][A-Za-z0-9_]*\s*=\s*[A-Za-z_][A-Za-z0-9_.]*,?$",
-            stripped,
-        ):
-            continue
-        return False
-    return has_forwarding_call
-def is_forwarding_call_line(stripped: str) -> bool:
-    return bool(re.match(r"return\s+[A-Za-z_][A-Za-z0-9_.]*\(", stripped)) or stripped.startswith(
-        "raise SystemExit("
-    )
-def is_agent_task_schema_alias_line(stripped: str) -> bool:
-    return bool(
-        re.match(
-            r"import\s+app\.schemas\.agent_task_[A-Za-z0-9_]+\s+as\s+_[A-Za-z_][A-Za-z0-9_]*$",
-            stripped,
-        )
-        or re.match(
-            r"from\s+app\.schemas\s+import\s+agent_task_[A-Za-z0-9_]+\s+as\s+_[A-Za-z_][A-Za-z0-9_]*$",
-            stripped,
-        )
-        or re.match(
-            r"from\s+app\.schemas\.agent_task_[A-Za-z0-9_]+\s+import\s+__all__\s+as\s+_[A-Za-z_][A-Za-z0-9_]*$",
-            stripped,
-        )
-        or re.match(
-            r"[A-Za-z_][A-Za-z0-9_]*\s*=\s*_[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+$",
-            stripped,
-        )
+def classify_residual_test_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
+    return classified_surface_decision(
+        line=line,
+        decision=classify_residual_test_surface_addition(stripped=stripped),
     )
 
 
-def is_agent_task_schema_registry_line(stripped: str) -> bool:
-    return bool(
-        stripped in {"}", "},"}
-        or stripped == "from typing import Any as _Any"
-        or re.match(r"_[A-Z][A-Z0-9_]*\s*=\s*[\[{(]$", stripped)
-        or re.match(r"_[A-Z][A-Z0-9_]*:\s*tuple\[object,\s*\.\.\.\]\s*=\s*[\[(]$", stripped)
-        or re.match(r"_[A-Za-z0-9_]+,?$", stripped)
-        or re.match(r"__all__\s*=\s*[\[(].*$", stripped)
-        or re.match(r"__all__\s*=\s*sorted\(_EXPORT_REGISTRY\)$", stripped)
-        or re.match(r"\*_[A-Za-z0-9_]+\.__all__,?$", stripped)
-        or ("for module in _" in stripped and "module.__all__" in stripped)
-        or "for name in module.__all__" in stripped
-        or (
-            "for module in _OWNER_MODULES" in stripped
-            and 'getattr(module, "__all__", ())' in stripped
-        )
-        or stripped == "globals().update("
-        or ("globals()[name]" in stripped and "getattr(module, name)" in stripped)
-        or re.match(r"def __getattr__\(name: str\) -> _[A-Za-z0-9_]+:$", stripped)
-        or stripped == "module = _EXPORT_REGISTRY.get(name)"
-        or stripped == "if module is None:"
-        or stripped.startswith("raise AttributeError(")
-        or stripped == "value = getattr(module, name)"
-        or stripped == "globals()[name] = value"
-        or stripped == "return value"
-        or stripped == "def __dir__() -> list[str]:"
-        or stripped == "return sorted(set(globals()) | set(__all__))"
+def classify_local_test_support_addition(
+    *, stripped: str, line: ChangedLine
+) -> ClassifiedLine | None:
+    return classified_surface_decision(
+        line=line,
+        decision=classify_local_test_support_surface_addition(stripped=stripped),
     )
-
-
-def is_agent_task_schema_registry_hunk(lines: tuple[str, ...]) -> bool:
-    significant = [raw.strip() for raw in lines if not is_comment_or_blank(raw)]
-    if not significant:
-        return False
-    has_registry_marker = False
-    for stripped in significant:
-        if stripped in {"(", ")", "{", "}", "[", "]", "),", "},", "],"}:
-            continue
-        if is_agent_task_schema_registry_line(stripped):
-            has_registry_marker = True
-            continue
-        return False
-    return has_registry_marker
-def is_agent_task_schema_export_sink_line(stripped: str) -> bool:
-    return bool(
-        re.match(r"(from|import)\s+app\.schemas\._[A-Za-z0-9_.]+", stripped)
-        or re.match(r"(from|import)\s+app\.schemas\.agent_task_public", stripped)
-        or "_agent_task_schema_exports" in stripped
-        or "agent_task_public" in stripped
-    )
-def is_agent_task_schema_broad_reexport_hunk(lines: tuple[str, ...]) -> bool:
-    significant = [raw.strip() for raw in lines if not is_comment_or_blank(raw)]
-    if not significant:
-        return False
-    return any(
-        re.match(
-            r"from\s+app\.schemas\.agent_task_[A-Za-z0-9_]+\s+import(\s+\(|\s+[A-Za-z_][A-Za-z0-9_]*)",
-            stripped,
-        )
-        or re.match(r"__all__\s*=\s*[\[(]$", stripped)
-        or bool(re.match(r"[\"'][A-Za-z_][A-Za-z0-9_]*[\"'],?$", stripped))
-        for stripped in significant
-    )
-def is_significant_added_text(text: str) -> bool:
-    return not is_comment_or_blank(text) and not is_import_or_alias(text)
-def is_registry_composition_hunk(lines: tuple[str, ...]) -> bool:
-    significant = [raw.strip() for raw in lines if is_significant_added_text(raw)]
-    if not significant:
-        return False
-    has_composition_marker = False
-    allowed_tokens = ("compose_action_registries(", "compose_context_builder_registries(",
-        "build_", "_REGISTRY", "_BUILDERS", "_executor", "globals()", "build_generic_task_context")
-    for stripped in significant:
-        if stripped.startswith(("def ", "async def ", "class ")):
-            return False
-        if stripped in {"(", ")", "),"}:
-            continue
-        if any(token in stripped for token in allowed_tokens):
-            has_composition_marker = True
-            continue
-        return False
-    return has_composition_marker
-def allowed_category_for_import(rule: HotspotRule) -> str | None:
-    return first_allowed_category(rule, "import_forwarder", "alias_forwarder", "registry_composition")  # noqa: E501
-def allowed_category_for_forwarder(rule: HotspotRule) -> str | None:
-    return first_allowed_category(rule, "explicit_forwarding_function", "alias_forwarder", "import_forwarder")  # noqa: E501
-def first_allowed_category(rule: HotspotRule, *categories: str) -> str | None:
-    return next((category for category in categories if category in rule.allow), None)
-def significant_unclassified_lines(
-    lines: tuple[ChangedLine, ...],
-    classified_lines: list[ClassifiedLine],
-    *,
-    ignored_hunk_ids: set[int] | None = None,
-) -> list[ChangedLine]:
-    ignored_hunk_ids = ignored_hunk_ids or set()
-    classified_keys = {
-        (classified.line.new_lineno, classified.line.text)
-        for classified in classified_lines
-    }
-    return [
-        line
-        for line in lines
-        if line.hunk_id not in ignored_hunk_ids
-        and (line.new_lineno, line.text) not in classified_keys
-        and is_significant_added_text(line.text)
-    ]
-def fallback_block_category(rule: HotspotRule) -> str:
-    return next(
-        (category for category in (
-            "export_sink_surface", "broad_reexport_batch", "schema_definition",
-            "broad_helper", "artifact_assembly", "broad_parser_logic",
-            "executor_implementation", "ranking_logic", "broad_new_test_group",
-        ) if category in rule.block_new),
-        rule.block_new[0],
-    )
-def exception_for_additions(
-    rule: HotspotRule,
-    added_lines: tuple[ChangedLine, ...],
-) -> HotspotException | None:
-    raw_lines = tuple(line.text for line in added_lines)
-    return next((exception for exception in rule.exceptions if exception.matches(raw_lines)), None)
-def blocked(line: ChangedLine, category: str, message: str) -> ClassifiedLine:
-    return ClassifiedLine(line, "blocked", category, message, f"block_new.{category}")
-def finding_payload(
-    *,
-    classified: ClassifiedLine,
-    rule: HotspotRule,
-    diff_stat: DiffStat,
-    exception: HotspotException | None = None,
-) -> dict[str, Any]:
-    status = (
-        "allowed_exception"
-        if exception is not None and classified.status == "blocked"
-        else classified.status
-    )
-    message = classified.message
-    if exception is not None and classified.status == "blocked":
-        message = f"{message}; allowed by exception {exception.exception_id}"
-    return {
-        "status": status,
-        "category": classified.category,
-        "relative_path": rule.relative_path,
-        "line": classified.line.new_lineno,
-        "policy_rule": classified.policy_rule,
-        "target_role": rule.target_role,
-        "preferred_owner_modules": list(rule.preferred_owner_modules),
-        "added_line_count": diff_stat.added_line_count,
-        "deleted_line_count": diff_stat.deleted_line_count,
-        "message": message,
-        "added_line": classified.line.text.strip(),
-        "exception_id": exception.exception_id if exception else None,
-        "remediation": (
-            f"Move the implementation to {', '.join(rule.preferred_owner_modules)} "
-            f"and keep {rule.relative_path} as {rule.target_role}."
-        ),
-    }

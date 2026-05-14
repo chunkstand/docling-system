@@ -186,3 +186,123 @@ known_hotspots:
     allow:
       - compatibility_assertion
       - deletion
+  tests/db_model_contract.py:
+    target_role: shared ORM contract compatibility manifest
+    preferred_owner_modules:
+      - tests/db_model_contract_domains/
+    block_new:
+      - broad_new_test_group
+      - broad_helper
+    allow:
+      - import_forwarder
+      - compatibility_assertion
+      - deletion
+    exceptions:
+      - exception_id: db-model-contract-domain-manifest-aggregation
+        case_id: IC-5F0E1C8B0D42
+        owner_module: tests/db_model_contract_domains/
+        follow_up_condition: Keep the residual file limited to domain manifest
+          imports plus aggregate constant and contract maps.
+        match_tokens:
+          - '    "ingest": _ingest.MODEL_SYMBOLS,'
+          - '    **_ingest.REQUIRED_TABLE_INDEX_NAMES,'
+  tests/unit/test_agent_task_context.py:
+    target_role: agent-task context compatibility and registry tests
+    preferred_owner_modules:
+      - tests/unit/test_agent_task_context_*.py
+    block_new:
+      - broad_new_test_group
+      - broad_helper
+    allow:
+      - import_forwarder
+      - compatibility_assertion
+      - deletion
+    exceptions:
+      - exception_id: agent-task-context-registry-fixture-scaffold
+        case_id: IC-3B4C9F2A76E1
+        owner_module: tests/unit/test_agent_task_context_*.py
+        follow_up_condition: Keep the residual file limited to registry and
+          compatibility checks plus the local fake session scaffold they require.
+        match_tokens:
+          - class FakeScalarResult:
+          - def test_context_builder_registry_is_composed_from_owner_modules() -> None:
+  tests/unit/test_agent_tasks_api.py:
+    target_role: agent-task API compatibility and route-smoke tests
+    preferred_owner_modules:
+      - tests/unit/test_agent_tasks_api_*.py
+    block_new:
+      - broad_new_test_group
+      - broad_helper
+    allow:
+      - import_forwarder
+      - compatibility_assertion
+      - deletion
+  tests/unit/test_evaluation_service.py:
+    target_role: evaluation service compatibility and smoke tests
+    preferred_owner_modules:
+      - tests/unit/test_evaluation_*.py
+    block_new:
+      - broad_new_test_group
+      - broad_helper
+    allow:
+      - import_forwarder
+      - compatibility_assertion
+      - deletion
+  tests/unit/test_search_service.py:
+    target_role: search service compatibility and smoke tests
+    preferred_owner_modules:
+      - tests/unit/test_search_*.py
+    block_new:
+      - broad_new_test_group
+      - broad_helper
+    allow:
+      - import_forwarder
+      - compatibility_assertion
+      - deletion
+  tests/integration/test_retrieval_learning_ledger.py:
+    target_role: retrieval-learning integration smoke surface
+    preferred_owner_modules:
+      - tests/integration/test_retrieval_learning_ledger_*.py
+    block_new:
+      - broad_new_test_group
+      - broad_helper
+    allow:
+      - import_forwarder
+      - compatibility_assertion
+      - deletion
+    exceptions:
+      - exception_id: retrieval-learning-smoke-audit-closeout
+        case_id: IC-908E7A1D2C44
+        owner_module: tests/integration/test_retrieval_learning_ledger_*.py
+        follow_up_condition: Keep the residual file limited to the end-to-end
+          smoke path plus audit and candidate-closeout assertions after the
+          dataset, candidate, and integrity families move out.
+        match_tokens:
+          - 'training_audit_payload["retrieval_hard_negatives"]'
+  tests/integration/test_technical_report_harness_roundtrip.py:
+    target_role: technical-report integration smoke surface
+    preferred_owner_modules:
+      - tests/integration/test_technical_report_harness_*.py
+    block_new:
+      - broad_new_test_group
+      - broad_helper
+    allow:
+      - import_forwarder
+      - compatibility_assertion
+      - deletion
+  tests/integration/retrieval_learning_ledger_support.py:
+    target_role: retrieval-learning family-local support module
+    preferred_owner_modules:
+      - tests/integration/test_retrieval_learning_ledger_*.py
+    block_new:
+      - broad_helper
+    allow:
+      - deletion
+  tests/integration/technical_report_harness_support.py:
+    target_role: technical-report family-local support module
+    preferred_owner_modules:
+      - tests/integration/test_technical_report_harness_*.py
+    block_new:
+      - broad_helper
+    allow:
+      - deletion

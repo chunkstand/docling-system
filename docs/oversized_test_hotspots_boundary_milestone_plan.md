@@ -1,21 +1,75 @@
 # Oversized Test Hotspots Boundary Milestone Plan
 
-Date: 2026-05-13 local / 2026-05-13 UTC
-Status: stacked follow-on after
-`docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
-`docs/evaluations_service_boundary_milestone_plan.md`,
-`docs/evidence_provenance_exports_boundary_milestone_plan.md`,
-`docs/semantics_service_boundary_milestone_plan.md`,
-`docs/cli_command_dispatch_boundary_milestone_plan.md`, and
-`docs/agent_task_schema_aggregation_boundary_milestone_plan.md`; all six prior
-packets are now closed locally, so Milestone 0 is the next active freshness
-refresh before any test-boundary implementation begins
-Owner context: queued follow-on coordination packet for the remaining oversized
-test hotspots named in the architecture probe and the high-value paydown plan.
-The claim-support, evaluations, evidence provenance-export, semantics, CLI,
-and agent-task schema packets are now complete; the next step is to refresh
-live system state in Milestone 0 and then activate the dedicated test-hotspot
-decomposition work from current evidence.
+Date: 2026-05-14 local / 2026-05-14 UTC
+Status: resolved locally in the 2026-05-14 oversized-test closeout window
+after the Milestone 0 refresh; the scoped oversized-test hotspot issue is
+closed, the broader owner cases now remain explicitly `deployed` or
+`reduced/open` from refreshed evidence, and the next bounded follow-on routes
+to `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`
+Owner context: closeout under `IC-5F0E1C8B0D42`,
+`IC-3B4C9F2A76E1`, `IC-D9A84C20546B`, `IC-7A628A4CBCAC`,
+`IC-25C1F7B9E4DA`, `IC-908E7A1D2C44`, and `IC-D49E037D5657`.
+Milestone 0 refreshed the post-schema state, Milestones 1 through 6 reduced
+or retired the selected test surfaces, and the next follow-on is hygiene
+owner-case routing rather than another oversized-test umbrella.
+
+## Local Closeout
+
+Milestones 0 through 6 are resolved locally in the 2026-05-14 oversized-test
+closeout window. The scoped oversized-test knot is closed: all seven selected
+residual files now sit below their packet thresholds, the architecture probe no
+longer lists any of the selected residual files among the top 20 hotspots, and
+the remaining broad follow-on debt is routed explicitly instead of being left
+as an unlabeled oversized-test bucket.
+
+Local closeout results:
+
+- reduced `tests/db_model_contract.py` from `3700` lines to `159` and moved the
+  shared ORM contract families into `tests/db_model_contract_domains/`, where
+  the extracted domain files now top out at `588` lines
+- reduced `tests/unit/test_agent_task_context.py` to `328` lines and moved the
+  freshness, reports and claim-support, semantic-generation,
+  semantic-governance, semantic-graph, and semantic-graph promotion scenarios
+  into focused files; the broader owner case remains reduced and open because
+  three focused successors still measure `636`, `630`, and `653` lines against
+  the default `600`-line hygiene budget
+- reduced `tests/unit/test_agent_tasks_api.py` to `92` lines and moved the
+  claim-support, lifecycle, artifacts, and auth or capability route families
+  into focused files; the broader owner case remains reduced and open because
+  `tests/unit/test_agent_tasks_api_lifecycle.py` still measures `756` lines
+- confirmed `tests/unit/test_evaluation_service.py` was already down to
+  `389` lines at the Milestone 0 refresh after the earlier evaluation-owner
+  splits, so no new decomposition was required and the owner case remains
+  deployed
+- reduced `tests/unit/test_search_service.py` to `117` lines and moved
+  metadata supplement, ranking, orchestration, and persistence assertions into
+  focused files; the broader owner case remains reduced and open because
+  `tests/unit/test_search_service_ranking.py` still measures `621` lines
+- reduced `tests/integration/test_retrieval_learning_ledger.py` to `428` lines
+  and `tests/integration/test_technical_report_harness_roundtrip.py` to
+  `93` lines, added family-local support modules at `362` and `396` lines, and
+  moved the scenario families into focused integration files; the
+  retrieval-learning owner case is now deployed, while the broader
+  technical-report owner case remains reduced and open because the audit
+  surface still measures `799` lines
+- updated hotspot-prevention, hygiene, and improvement-case routing so the four
+  previously unowned hotspots now have explicit owner cases and exact residual
+  budgets, while the next bounded implementation brief now routes to
+  `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`
+
+Local closeout verification:
+
+- `git diff --check`: pass
+- `uv run ruff check app/hotspot_prevention_classifier.py app/hotspot_prevention_classifier_support.py tests/db_model_contract.py tests/db_model_contract_domains tests/integration/test_db_model_metadata.py tests/unit/test_db_model_import_compatibility.py tests/unit/test_db_models_facade_contract.py tests/unit/test_agent_task_context.py tests/unit/test_agent_task_context_*.py tests/unit/test_agent_tasks_api.py tests/unit/test_agent_tasks_api_*.py tests/unit/test_agent_tasks.py tests/unit/test_agent_task_worker.py tests/unit/test_cli_agent_tasks.py tests/unit/test_evaluation_service.py tests/unit/test_evaluation_fixtures.py tests/unit/test_evaluation_scoring.py tests/unit/test_evaluation_reads.py tests/unit/test_search_service.py tests/unit/test_search_hydration.py tests/unit/test_search_execution_persistence.py tests/unit/test_search_execution_orchestration.py tests/unit/test_search_metadata_supplement.py tests/unit/test_search_service_ranking.py tests/unit/test_search_service_orchestration.py tests/unit/test_search_service_persistence.py tests/integration/test_retrieval_learning_ledger.py tests/integration/retrieval_learning_ledger_support.py tests/integration/test_retrieval_learning_ledger_*.py tests/integration/test_technical_report_harness_roundtrip.py tests/integration/technical_report_harness_support.py tests/integration/test_technical_report_harness_*.py tests/unit/test_hotspot_prevention.py config/improvement_cases.yaml config/hygiene_policy.yaml config/hotspot_prevention.yaml`: pass
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py tests/unit/test_db_models_facade_contract.py tests/unit/test_agent_task_context.py tests/unit/test_agent_task_context_*.py tests/unit/test_agent_tasks_api.py tests/unit/test_agent_tasks_api_*.py tests/unit/test_agent_tasks.py tests/unit/test_agent_task_worker.py tests/unit/test_cli_agent_tasks.py tests/unit/test_evaluation_service.py tests/unit/test_evaluation_fixtures.py tests/unit/test_evaluation_scoring.py tests/unit/test_evaluation_reads.py tests/unit/test_search_service.py tests/unit/test_search_hydration.py tests/unit/test_search_execution_persistence.py tests/unit/test_search_execution_orchestration.py tests/unit/test_search_metadata_supplement.py tests/unit/test_search_service_ranking.py tests/unit/test_search_service_orchestration.py tests/unit/test_search_service_persistence.py tests/unit/test_hotspot_prevention.py`: `741 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py tests/integration/test_retrieval_learning_ledger.py tests/integration/retrieval_learning_ledger_support.py tests/integration/test_retrieval_learning_ledger_*.py tests/integration/test_technical_report_harness_roundtrip.py tests/integration/test_technical_report_harness_*.py tests/integration/test_semantic_governance_ledger.py`: `339 passed`
+- `uv run docling-system-hotspot-prevention-check --strict`: `known_hotspots=21`, `changed_hotspots=6`, `blocked=0`, `allowed=39`, `exceptions=2`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-improvement-case-validate`: `valid=true`, `issue_count=0`
+- `uv run docling-system-improvement-case-summary`: `case_count=33`, `status_counts.open=22`, `status_counts.deployed=10`, `status_counts.measured=1`, `measured_case_count=28`, `oldest_open_case_id=IC-9812A0B138D9`
+- `uv run docling-system-architecture-quality-report --summary`: `agent_legibility_average_score=90.0`, `broad_facade_count=2`, `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`: top hotspot remains `app/services/search.py`; none of the seven selected residual files remain in the top 20 hotspot list; Python cycle components=`5`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1957 passed`
 
 ## Purpose
 
@@ -47,8 +101,8 @@ generic helper sink, `conftest.py` sprawl, or another oversized support file.
 
 ## Current Evidence
 
-Live repo evidence refreshed from the current local checkout on 2026-05-13
-local / 2026-05-13 UTC:
+Milestone 0 refresh baseline captured from the local checkout on 2026-05-13
+local / 2026-05-13 UTC before the owner-case bootstrap and file decomposition:
 
 ```text
 git status -sb
@@ -323,7 +377,7 @@ starts.
 
 ### Milestone 0 - Post-Schema System-State Refresh
 
-Status: drafted
+Status: resolved locally in the 2026-05-14 oversized-test closeout window
 Outcome label: `resolved`
 
 Purpose:
@@ -366,7 +420,7 @@ Acceptance:
 
 ### Milestone 1 - Owner-Case And Gate Bootstrap
 
-Status: drafted
+Status: resolved locally in the 2026-05-14 oversized-test closeout window
 Outcome label: `resolved`
 
 Implementation:
@@ -399,7 +453,7 @@ Acceptance:
 
 ### Milestone 2 - Shared ORM Contract Harness Decomposition
 
-Status: drafted
+Status: reduced locally in the 2026-05-14 oversized-test closeout window
 Outcome label: `reduced`
 
 Implementation:
@@ -426,7 +480,7 @@ Acceptance:
 
 ### Milestone 3 - Agent-Task Test Family Decomposition
 
-Status: drafted
+Status: reduced locally in the 2026-05-14 oversized-test closeout window
 Outcome label: `reduced`
 
 Implementation:
@@ -452,7 +506,7 @@ Acceptance:
 
 ### Milestone 4 - Evaluations And Search Unit Test Decomposition
 
-Status: drafted
+Status: reduced locally in the 2026-05-14 oversized-test closeout window
 Outcome label: `reduced`
 
 Implementation:
@@ -484,7 +538,9 @@ Acceptance:
 
 ### Milestone 5 - Retrieval-Learning And Technical-Report Integration Decomposition
 
-Status: drafted
+Status: resolved locally for the scoped integration-monolith issue in the
+2026-05-14 oversized-test closeout window; broader owner routing is now
+`deployed` for retrieval-learning and `reduced/open` for technical-report
 Outcome label: `resolved` for the scoped integration-monolith issue and
 `reduced` for the broader owner cases unless live hotspot routing fully retires
 
@@ -514,7 +570,7 @@ Acceptance:
 
 ### Milestone 6 - Closeout, Ratchets, And Residual Routing
 
-Status: drafted
+Status: reduced locally in the 2026-05-14 oversized-test closeout window
 Outcome label: `reduced`
 
 Implementation:
