@@ -120,7 +120,7 @@ def test_hygiene_tolerates_ratcheted_inherited_budget_debt(tmp_path: Path) -> No
                 "      ratchet_max_lines: 5",
                 "      max_private_helpers: 1",
                 "      ratchet_max_private_helpers: 2",
-                "      owner_milestone: residual-weakness-milestone-2",
+                "      owner_case_id: IC-ALPHA12345678",
             ]
         )
         + "\n",
@@ -169,7 +169,7 @@ def test_hygiene_fails_ratcheted_budget_growth(tmp_path: Path) -> None:
                 "      ratchet_max_lines: 5",
                 "      max_private_helpers: 1",
                 "      ratchet_max_private_helpers: 2",
-                "      owner_milestone: residual-weakness-milestone-2",
+                "      owner_case_id: IC-ALPHA12345678",
             ]
         )
         + "\n",
@@ -184,7 +184,7 @@ def test_hygiene_fails_ratcheted_budget_growth(tmp_path: Path) -> None:
     assert blocking_kinds == {"file_budget_regression", "helper_budget_regression"}
 
 
-def test_hygiene_requires_ratchet_owner(tmp_path: Path) -> None:
+def test_hygiene_requires_owner_case_id_for_ratchet(tmp_path: Path) -> None:
     _write(tmp_path / "app" / "alpha.py", "VALUE = 1\n")
     _write(
         tmp_path / "config" / "policy.yaml",
@@ -209,8 +209,47 @@ def test_hygiene_requires_ratchet_owner(tmp_path: Path) -> None:
         policy_path=Path("config/policy.yaml"),
     )
 
-    assert [(finding.kind, finding.relative_path) for finding in findings] == [
-        ("hygiene_policy", "app/alpha.py")
+    assert [(finding.kind, finding.relative_path, finding.message) for finding in findings] == [
+        (
+            "hygiene_policy",
+            "app/alpha.py",
+            "lines ratchet ceiling requires owner_case_id",
+        )
+    ]
+
+
+def test_hygiene_rejects_owner_milestone_ratchet_owner(tmp_path: Path) -> None:
+    _write(tmp_path / "app" / "alpha.py", "VALUE = 1\n")
+    _write(
+        tmp_path / "config" / "policy.yaml",
+        "\n".join(
+            [
+                "duplicate_helper_names: []",
+                "file_budgets:",
+                "  defaults:",
+                "    max_lines: 50",
+                "    max_private_helpers: 5",
+                "  overrides:",
+                "    app/alpha.py:",
+                "      max_lines: 4",
+                "      ratchet_max_lines: 5",
+                "      owner_milestone: residual-weakness-milestone-2",
+            ]
+        )
+        + "\n",
+    )
+
+    findings = run_python_hygiene_checks(
+        tmp_path,
+        policy_path=Path("config/policy.yaml"),
+    )
+
+    assert [(finding.kind, finding.relative_path, finding.message) for finding in findings] == [
+        (
+            "hygiene_policy",
+            "app/alpha.py",
+            "lines ratchet ceiling must use owner_case_id; owner_milestone is no longer supported",
+        )
     ]
 
 
@@ -247,7 +286,7 @@ def test_hygiene_cli_reports_inherited_and_regression_sections(
                 "      ratchet_max_lines: 5",
                 "      max_private_helpers: 1",
                 "      ratchet_max_private_helpers: 2",
-                "      owner_milestone: residual-weakness-milestone-2",
+                "      owner_case_id: IC-ALPHA12345678",
             ]
         )
         + "\n",

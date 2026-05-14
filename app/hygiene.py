@@ -313,14 +313,24 @@ def find_hygiene_policy_contract_findings(policy: HygienePolicy) -> list[Hygiene
                         ),
                     )
                 )
-            if budget.owner_reference is None:
+            if budget.owner_milestone is not None:
                 findings.append(
                     HygieneFinding(
                         kind="hygiene_policy",
                         relative_path=relative_path,
                         message=(
-                            f"{field} ratchet ceiling requires owner_case_id "
-                            "or owner_milestone"
+                            f"{field} ratchet ceiling must use owner_case_id; "
+                            "owner_milestone is no longer supported"
+                        ),
+                    )
+                )
+            elif budget.owner_case_id is None:
+                findings.append(
+                    HygieneFinding(
+                        kind="hygiene_policy",
+                        relative_path=relative_path,
+                        message=(
+                            f"{field} ratchet ceiling requires owner_case_id"
                         ),
                     )
                 )

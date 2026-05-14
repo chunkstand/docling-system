@@ -22,7 +22,7 @@ class FileBudget:
 
     @property
     def owner_reference(self) -> str | None:
-        return self.owner_case_id or self.owner_milestone
+        return self.owner_case_id
 
 
 @dataclass(frozen=True)

@@ -13,8 +13,9 @@ packets are now closed locally, Milestone 0 is resolved from the live
 post-stack refresh through baseline commit `08a1a75`, Milestone 1 owner-case
 bootstrap is resolved locally through checkpoint `d4f082c`, Milestone 2
 owner-case binding conversion is resolved locally through closeout commit
-`7ef99cd`, and Milestone 3 owner-case-only hygiene-contract enforcement is now
-the next active code-changing slice
+`7ef99cd`, Milestone 3 owner-case-only hygiene-contract enforcement is
+resolved locally in the current worktree, and Milestone 4 routing-packet
+closeout is now the next active slice
 Owner context: active governance-first follow-on for the remaining
 milestone-owned hygiene debt in `config/hygiene_policy.yaml`. This packet
 assumes the earlier boundary and test packets have already reduced the major
@@ -33,8 +34,9 @@ The stacked queue assumptions were revalidated against the live repo state,
 the exact remaining residual owner set is now frozen in the active docs, the
 three required family owner cases are now present in the registry, the live
 hygiene policy now binds all eight residual files through explicit
-`owner_case_id` values, and Milestone 3 owner-case-only hygiene-contract
-enforcement is the next active slice.
+`owner_case_id` values, the hygiene contract now rejects
+`owner_milestone`, and Milestone 4 routing-packet closeout is the next active
+slice.
 
 Local Milestone 0 results:
 
@@ -161,6 +163,46 @@ Local Milestone 2 verification:
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
 - `uv run docling-system-improvement-case-import --source hygiene --dry-run`:
   pass
+- `uv run docling-system-architecture-quality-report --summary`:
+  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+  `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`:
+  top hotspot `app/services/search.py`; Python cycle components=`5`
+- `rg -n "owner_milestone:" config/hygiene_policy.yaml`: no hits
+
+Local Milestone 3 results:
+
+- removed the live `owner_milestone` fallback from the executable hygiene
+  contract while preserving the existing `owner_case_id`-backed inherited debt
+  behavior
+- updated `app/hygiene_types.py` so `owner_reference` now resolves only through
+  `owner_case_id`
+- updated `app/hygiene.py` so ratcheted budgets fail closed when
+  `owner_milestone` appears and require `owner_case_id` even if a legacy
+  milestone label is present
+- converted the focused hygiene fixtures to explicit `owner_case_id` values and
+  added the negative policy test proving `owner_milestone` is rejected
+- updated `docs/improvement_loop.md` so the durable repo contract now documents
+  `owner_case_id` as the sole valid ratchet owner reference
+- refreshed the active routing docs so this plan, the handoff, and the
+  architecture index agree that Milestone 3 is resolved locally and Milestone 4
+  closeout is next
+
+Local Milestone 3 verification:
+
+- `git diff --check`: pass
+- `uv run ruff check app/hygiene.py app/hygiene_types.py tests/unit/test_hygiene.py tests/unit/test_improvement_case_intake.py`:
+  pass
+- `uv run pytest -q tests/unit/test_hygiene.py tests/unit/test_improvement_case_intake.py`:
+  pass
+- `uv run docling-system-improvement-case-summary`: `case_count=36`,
+  `status_counts.open=25`, `status_counts.deployed=10`,
+  `status_counts.measured=1`, `measured_case_count=31`
+- `uv run docling-system-improvement-case-validate`: `valid=true`,
+  `issue_count=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-improvement-case-import --source hygiene --dry-run`:
+  `candidate_count=0`, `imported_count=0`, `skipped_count=0`
 - `uv run docling-system-architecture-quality-report --summary`:
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
   `hotspot_count=10`, `max_hotspot_risk_score=501.06`
@@ -508,7 +550,7 @@ Local result:
 
 ### Milestone 3 - Remove the fallback from the hygiene contract and prove the negative case
 
-Status: next active code-changing slice
+Status: resolved locally in the current worktree
 
 Outcome label: resolved
 
@@ -533,7 +575,17 @@ Acceptance signal:
 - The active docs no longer tell future sessions that `owner_milestone` is a
   valid live owner reference.
 
+Local result:
+
+- `app/hygiene.py`, `app/hygiene_types.py`, `tests/unit/test_hygiene.py`, and
+  `docs/improvement_loop.md` now agree that ratcheted inherited debt requires
+  `owner_case_id`.
+- The hygiene import path still ignores inherited budget debt while keeping
+  blocking policy failures observable.
+
 ### Milestone 4 - Close out the routing packet and record the new owner map
+
+Status: next active slice
 
 Outcome label: resolved
 
