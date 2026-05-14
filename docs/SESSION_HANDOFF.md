@@ -13,7 +13,7 @@ Evaluations Service Boundary Milestone 2 checkpoint: `3817659`
 Evaluations Service Boundary Milestone 3 checkpoint:
 `b05def0`
 Evaluations Service Boundary Milestone 4 checkpoint:
-`pending_local_milestone_4_commit`
+`1159297`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -72,8 +72,7 @@ subsystem-knot for `IC-E2270F89B397` is resolved:
 11 private helpers.
 
 `docs/evaluations_service_boundary_milestone_plan.md` is now resolved locally
-through Milestone 4 closeout commit
-`pending_local_milestone_4_commit`. The scoped subsystem-knot for
+through Milestone 4 closeout commit `1159297`. The scoped subsystem-knot for
 `IC-BF180637814C` is resolved locally:
 `app/services/evaluations.py` is now a 283-line / 1-private-helper
 orchestration and compatibility facade, the fixture/corpus owner remains in
@@ -237,9 +236,8 @@ Results:
   still excludes the evaluation facade, and the architecture probe top 15 no
   longer lists `app/services/evaluations.py` or the remaining Python cycle
   components
-- local closeout commit placeholder:
-  `pending_local_milestone_4_commit`; a one-line alignment follow-up is still
-  required to replace the placeholder with the exact commit hash
+- local closeout commit:
+  `1159297`
 - next routed stacked follow-on after the evaluations packet now begins with
   `docs/evidence_provenance_exports_boundary_milestone_plan.md`
 

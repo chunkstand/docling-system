@@ -1109,18 +1109,16 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "pending_local_milestone_4_commit"
+    deployed_ref: "1159297"
     notes: >-
-      Milestone 4 latest-read extraction is committed locally as
-      pending_local_milestone_4_commit: app/services/evaluations.py is now a
+      Milestone 4 latest-read extraction is committed locally as 1159297:
+      app/services/evaluations.py is now a
       283-line / 1-private-helper orchestration and compatibility facade,
       latest-evaluation summary and detail reads now live in
       app/services/evaluation_reads.py at 154 lines / 1 private helper, and
       the architecture probe no longer lists the facade among the top 15 churn
-      hotspots or in the remaining Python cycle components. The exact local
-      closeout hash must be recorded by the post-commit alignment pass because
-      this milestone commit cannot self-reference its final hash before it
-      exists.
+      hotspots or in the remaining Python cycle components. Local closeout
+      commit: 1159297.
   measurement:
     metric_name: evaluation_hotspot_line_count
     current_value: 283.0
@@ -1137,7 +1135,7 @@ cases:
       routes the evaluations facade in the top 15 churn hotspots or remaining
       Python cycle components.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-13T23:59:59Z'
+  updated_at: '2026-05-14T00:08:00Z'
 - case_id: IC-E52B6C7B22FD
   title: 'Architecture hotspot: app/services/agent_task_context.py'
   status: deployed

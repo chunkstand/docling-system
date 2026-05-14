@@ -7,7 +7,7 @@ closed as `dae5e4f`,
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md` closed as
 `3d7d090`, Milestone 1 closed locally as `9e3a8e4`, Milestone 2 closed
 locally as `3817659`, Milestone 3 closed locally as `b05def0`, and
-Milestone 4 closed locally as `pending_local_milestone_4_commit`
+Milestone 4 closed locally as `1159297`
 Owner context: active follow-on under `IC-BF180637814C` /
 `app/services/evaluations.py`. This plan assumes the current search execution
 orchestration packet closed first as `dae5e4f`, the claim-support boundary
@@ -56,7 +56,7 @@ Local Milestone 4 snapshot:
   remaining Python cycle components
 - broader owner case `IC-BF180637814C` is now resolved locally as a deployed
   facade-reduction result rather than remaining an open reduced hotspot case
-- local closeout commit: `pending_local_milestone_4_commit`
+- local closeout commit: `1159297`
 - next routed stacked follow-on: `docs/evidence_provenance_exports_boundary_milestone_plan.md`
 
 ## Purpose
@@ -503,7 +503,7 @@ Results:
   lists `app/services/evaluations.py` or the remaining Python cycle
   components, so the broader owner case is resolved locally rather than merely
   reduced
-- local closeout commit: `pending_local_milestone_4_commit`
+- local closeout commit: `1159297`
 - next routed stacked follow-on:
   `docs/evidence_provenance_exports_boundary_milestone_plan.md`
 
