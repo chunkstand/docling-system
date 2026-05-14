@@ -1,16 +1,17 @@
 # Hygiene Owner-Case Routing Boundary Milestone Plan
 
-Date: 2026-05-13 local / 2026-05-13 UTC
-Status: drafted on 2026-05-13 as a stacked follow-on after
+Date: 2026-05-14 local / 2026-05-14 UTC
+Status: active stacked follow-on after
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
 `docs/evaluations_service_boundary_milestone_plan.md`,
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`,
 `docs/semantics_service_boundary_milestone_plan.md`,
 `docs/cli_command_dispatch_boundary_milestone_plan.md`,
 `docs/agent_task_schema_aggregation_boundary_milestone_plan.md`, and
-`docs/oversized_test_hotspots_boundary_milestone_plan.md`; do not start
-implementation until those prior packets close locally
-Owner context: queued governance-first follow-on for the remaining
+`docs/oversized_test_hotspots_boundary_milestone_plan.md`; all seven prior
+packets are now closed locally, so Milestone 0 is the next required
+post-stack refresh before owner-routing edits start
+Owner context: active governance-first follow-on for the remaining
 milestone-owned hygiene debt in `config/hygiene_policy.yaml`. This packet
 assumes the earlier boundary and test packets have already reduced the major
 service and test hotspots first. Milestone 0 must refresh the live post-stack
@@ -43,16 +44,17 @@ active hygiene policy.
 
 ## Current Evidence
 
-Live repo evidence refreshed from the current local checkout on 2026-05-13
-local / 2026-05-13 UTC:
+Live repo evidence refreshed from the current local checkout after
+oversized-test closeout commit `65c0c67` on 2026-05-14 local / 2026-05-14
+UTC:
 
 ```text
 uv run docling-system-improvement-case-summary
-  case_count=28
-  status_counts.open=21
-  status_counts.deployed=6
+  case_count=33
+  status_counts.open=22
+  status_counts.deployed=10
   status_counts.measured=1
-  actionable_buckets.open_unconverted_count=21
+  actionable_buckets.open_unconverted_count=22
 
 uv run docling-system-improvement-case-validate
   valid=true
@@ -64,14 +66,14 @@ uv run docling-system-hygiene-check
   inherited budget debt still includes milestone-owned ratchets
 
 rg -n "owner_milestone: residual-weakness-milestone-2" config/hygiene_policy.yaml
-  151: owner_milestone: residual-weakness-milestone-2
-  156: owner_milestone: residual-weakness-milestone-2
-  326: owner_milestone: residual-weakness-milestone-2
-  331: owner_milestone: residual-weakness-milestone-2
+  150: owner_milestone: residual-weakness-milestone-2
+  155: owner_milestone: residual-weakness-milestone-2
+  343: owner_milestone: residual-weakness-milestone-2
   348: owner_milestone: residual-weakness-milestone-2
-  411: owner_milestone: residual-weakness-milestone-2
-  416: owner_milestone: residual-weakness-milestone-2
-  489: owner_milestone: residual-weakness-milestone-2
+  369: owner_milestone: residual-weakness-milestone-2
+  472: owner_milestone: residual-weakness-milestone-2
+  477: owner_milestone: residual-weakness-milestone-2
+  550: owner_milestone: residual-weakness-milestone-2
 
 rg target residual paths in config/improvement_cases.yaml
   no explicit owner cases currently exist for:
@@ -102,6 +104,11 @@ python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/arch
 ```
 
 Repo-current structural evidence:
+
+- `docs/oversized_test_hotspots_boundary_milestone_plan.md` is now resolved
+  locally through closeout commit `65c0c67`, so this hygiene-routing packet is
+  no longer blocked on the prior oversized-test follow-on and Milestone 0 is
+  the active next refresh rather than a hypothetical future rebaseline step.
 
 - `docs/claim_support_policy_impacts_boundary_milestone_plan.md` already calls
   out that `app/services/claim_support_policy_governance.py` and

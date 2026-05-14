@@ -43,7 +43,8 @@ Latest planned bounded implementation brief:
 Latest resolved bounded implementation brief:
 `docs/oversized_test_hotspots_boundary_milestone_plan.md`
 The oversized-test packet is now resolved locally in the 2026-05-14 closeout
-window. Deployed follow-on cases are `IC-5F0E1C8B0D42`,
+window through closeout commit `65c0c67`. Deployed follow-on cases are
+`IC-5F0E1C8B0D42`,
 `IC-7A628A4CBCAC`, and `IC-908E7A1D2C44`; reduced/open residuals remain
 `IC-D9A84C20546B`, `IC-3B4C9F2A76E1`, `IC-25C1F7B9E4DA`, and
 `IC-D49E037D5657` because their focused successor files still exceed the
@@ -180,7 +181,8 @@ facade even though the scoped aggregation issue is closed.
 
 Resolved stacked follow-on after the agent-task schema packet:
 `docs/oversized_test_hotspots_boundary_milestone_plan.md`. The packet is now
-resolved locally in the 2026-05-14 oversized-test closeout window:
+resolved locally through closeout commit `65c0c67` in the 2026-05-14
+oversized-test closeout window:
 `tests/db_model_contract.py` is `159` lines,
 `tests/unit/test_agent_task_context.py` is `328`,
 `tests/unit/test_agent_tasks_api.py` is `92`,
@@ -246,11 +248,12 @@ The live alignment snapshot after the oversized-test closeout is:
 
 ## Oversized Test Hotspots Boundary Local Closeout
 
-Milestones 0 through 6 are resolved locally in the 2026-05-14 oversized-test
-closeout window. The scoped oversized-test knot is closed: all seven selected
-residual files now sit below their packet thresholds, their replacement
-families are routed explicitly, and the architecture probe no longer lists any
-of the seven residual files among the top 20 hotspots.
+Milestones 0 through 6 are resolved locally through closeout commit `65c0c67`
+in the 2026-05-14 oversized-test closeout window. The scoped oversized-test
+knot is closed: all seven selected residual files now sit below their packet
+thresholds, their replacement families are routed explicitly, and the
+architecture probe no longer lists any of the seven residual files among the
+top 20 hotspots.
 
 Results:
 

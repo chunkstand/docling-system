@@ -977,7 +977,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "local-worktree-2026-05-14"
+    deployed_ref: "65c0c67"
     notes: Live Milestone 0 refresh for the oversized-test hotspot packet
       remeasured tests/unit/test_evaluation_service.py at 389 lines after the
       earlier owner splits, so no new decomposition was required in this
@@ -1723,7 +1723,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "local-worktree-2026-05-14"
+    deployed_ref: "65c0c67"
     notes: Oversized-test hotspot closeout reduced tests/db_model_contract.py
       from 3700 lines to 159 and moved the domain manifests into
       tests/db_model_contract_domains/ with all extracted files at or below the
@@ -1835,7 +1835,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "local-worktree-2026-05-14"
+    deployed_ref: "65c0c67"
     notes: Oversized-test hotspot closeout reduced the residual retrieval-learning
       ledger surface to 428 lines, kept the family-local support module at 362 lines,
       and moved the dataset, candidate, and integrity scenarios into focused files

@@ -1,11 +1,11 @@
 # Oversized Test Hotspots Boundary Milestone Plan
 
 Date: 2026-05-14 local / 2026-05-14 UTC
-Status: resolved locally in the 2026-05-14 oversized-test closeout window
-after the Milestone 0 refresh; the scoped oversized-test hotspot issue is
-closed, the broader owner cases now remain explicitly `deployed` or
-`reduced/open` from refreshed evidence, and the next bounded follow-on routes
-to `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`
+Status: resolved locally through closeout commit `65c0c67` after the
+Milestone 0 refresh; the scoped oversized-test hotspot issue is closed, the
+broader owner cases now remain explicitly `deployed` or `reduced/open` from
+refreshed evidence, and the next bounded follow-on routes to
+`docs/hygiene_owner_case_routing_boundary_milestone_plan.md`
 Owner context: closeout under `IC-5F0E1C8B0D42`,
 `IC-3B4C9F2A76E1`, `IC-D9A84C20546B`, `IC-7A628A4CBCAC`,
 `IC-25C1F7B9E4DA`, `IC-908E7A1D2C44`, and `IC-D49E037D5657`.
@@ -15,12 +15,13 @@ owner-case routing rather than another oversized-test umbrella.
 
 ## Local Closeout
 
-Milestones 0 through 6 are resolved locally in the 2026-05-14 oversized-test
-closeout window. The scoped oversized-test knot is closed: all seven selected
-residual files now sit below their packet thresholds, the architecture probe no
-longer lists any of the selected residual files among the top 20 hotspots, and
-the remaining broad follow-on debt is routed explicitly instead of being left
-as an unlabeled oversized-test bucket.
+Milestones 0 through 6 are resolved locally through closeout commit `65c0c67`
+in the 2026-05-14 oversized-test closeout window. The scoped oversized-test
+knot is closed: all seven selected residual files now sit below their packet
+thresholds, the architecture probe no longer lists any of the selected
+residual files among the top 20 hotspots, and the remaining broad follow-on
+debt is routed explicitly instead of being left as an unlabeled oversized-test
+bucket.
 
 Local closeout results:
 
@@ -377,7 +378,7 @@ starts.
 
 ### Milestone 0 - Post-Schema System-State Refresh
 
-Status: resolved locally in the 2026-05-14 oversized-test closeout window
+Status: resolved locally through closeout commit `65c0c67`
 Outcome label: `resolved`
 
 Purpose:
@@ -420,7 +421,7 @@ Acceptance:
 
 ### Milestone 1 - Owner-Case And Gate Bootstrap
 
-Status: resolved locally in the 2026-05-14 oversized-test closeout window
+Status: resolved locally through closeout commit `65c0c67`
 Outcome label: `resolved`
 
 Implementation:
@@ -453,7 +454,7 @@ Acceptance:
 
 ### Milestone 2 - Shared ORM Contract Harness Decomposition
 
-Status: reduced locally in the 2026-05-14 oversized-test closeout window
+Status: reduced locally through closeout commit `65c0c67`
 Outcome label: `reduced`
 
 Implementation:
@@ -480,7 +481,7 @@ Acceptance:
 
 ### Milestone 3 - Agent-Task Test Family Decomposition
 
-Status: reduced locally in the 2026-05-14 oversized-test closeout window
+Status: reduced locally through closeout commit `65c0c67`
 Outcome label: `reduced`
 
 Implementation:
@@ -506,7 +507,7 @@ Acceptance:
 
 ### Milestone 4 - Evaluations And Search Unit Test Decomposition
 
-Status: reduced locally in the 2026-05-14 oversized-test closeout window
+Status: reduced locally through closeout commit `65c0c67`
 Outcome label: `reduced`
 
 Implementation:
@@ -538,8 +539,8 @@ Acceptance:
 
 ### Milestone 5 - Retrieval-Learning And Technical-Report Integration Decomposition
 
-Status: resolved locally for the scoped integration-monolith issue in the
-2026-05-14 oversized-test closeout window; broader owner routing is now
+Status: resolved locally through closeout commit `65c0c67` for the scoped
+integration-monolith issue; broader owner routing is now
 `deployed` for retrieval-learning and `reduced/open` for technical-report
 Outcome label: `resolved` for the scoped integration-monolith issue and
 `reduced` for the broader owner cases unless live hotspot routing fully retires
@@ -570,7 +571,7 @@ Acceptance:
 
 ### Milestone 6 - Closeout, Ratchets, And Residual Routing
 
-Status: reduced locally in the 2026-05-14 oversized-test closeout window
+Status: reduced locally through closeout commit `65c0c67`
 Outcome label: `reduced`
 
 Implementation:
