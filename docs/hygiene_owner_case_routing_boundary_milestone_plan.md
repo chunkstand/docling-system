@@ -11,8 +11,10 @@ Status: active stacked follow-on after
 `docs/oversized_test_hotspots_boundary_milestone_plan.md`; all seven prior
 packets are now closed locally, Milestone 0 is resolved from the live
 post-stack refresh through baseline commit `08a1a75`, Milestone 1 owner-case
-bootstrap is resolved locally through checkpoint `d4f082c`, and Milestone 2
-owner-case binding conversion is now the next active code-changing slice
+bootstrap is resolved locally through checkpoint `d4f082c`, Milestone 2
+owner-case binding conversion is resolved locally in the current worktree, and
+Milestone 3 owner-case-only hygiene-contract enforcement is now the next
+active code-changing slice
 Owner context: active governance-first follow-on for the remaining
 milestone-owned hygiene debt in `config/hygiene_policy.yaml`. This packet
 assumes the earlier boundary and test packets have already reduced the major
@@ -25,11 +27,14 @@ hygiene contract so future sessions cannot hide debt behind milestone labels.
 
 Milestone 0 is resolved locally through baseline commit `08a1a75`, and
 Milestone 1 owner-case bootstrap is resolved locally through checkpoint
-`d4f082c`.
+`d4f082c`. Milestone 2 owner-case binding conversion is resolved locally in
+the current worktree.
 The stacked queue assumptions were revalidated against the live repo state,
 the exact remaining residual owner set is now frozen in the active docs, the
-three required family owner cases are now present in the registry, and
-Milestone 2 owner-case binding conversion is the next active slice.
+three required family owner cases are now present in the registry, the live
+hygiene policy now binds all eight residual files through explicit
+`owner_case_id` values, and Milestone 3 owner-case-only hygiene-contract
+enforcement is the next active slice.
 
 Local Milestone 0 results:
 
@@ -104,9 +109,9 @@ Local Milestone 1 results:
   `case_count=36`, `status_counts.open=25`, `status_counts.deployed=10`,
   `status_counts.measured=1`, `measured_case_count=31`
 - left the live hygiene policy unchanged for this milestone, so the eight
-  residual `owner_milestone` entries still remain in
-  `config/hygiene_policy.yaml` and Milestone 2 is now the next active
-  code-changing slice
+  residual `owner_milestone` entries still remained in
+  `config/hygiene_policy.yaml` at checkpoint time, and Milestone 2 became the
+  next active code-changing slice
 
 Local Milestone 1 verification:
 
@@ -124,6 +129,44 @@ Local Milestone 1 verification:
   `hotspot_count=10`, `max_hotspot_risk_score=501.06`
 - `rg -n "app/architecture_inspection.py|app/architecture_inspection_rules.py|app/services/claim_support_evaluations.py|app/services/claim_support_policy_governance.py|app/services/claim_support_replay_alert_fixture_corpus.py|app/services/improvement_case_intake.py|app/services/improvement_cases.py|app/services/semantic_governance.py|IC-08C078FD4F45|IC-7C73737C689F|IC-81C531769EB3" config/improvement_cases.yaml`:
   all eight residual files now resolve through the three new family case IDs
+
+Local Milestone 2 results:
+
+- replaced all eight live
+  `owner_milestone=residual-weakness-milestone-2` entries in
+  `config/hygiene_policy.yaml` with explicit `owner_case_id` bindings
+- bound `app/architecture_inspection.py`,
+  `app/architecture_inspection_rules.py`,
+  `app/services/improvement_case_intake.py`, and
+  `app/services/improvement_cases.py` to `IC-08C078FD4F45`
+- bound `app/services/claim_support_evaluations.py`,
+  `app/services/claim_support_policy_governance.py`, and
+  `app/services/claim_support_replay_alert_fixture_corpus.py` to
+  `IC-7C73737C689F`
+- bound `app/services/semantic_governance.py` to `IC-81C531769EB3`
+- preserved every existing `max_*` and `ratchet_max_*` ceiling while removing
+  milestone-owned routing from the live hygiene policy
+- refreshed the active routing docs so this plan, the handoff, and the
+  architecture index agree that Milestone 2 is resolved locally and
+  Milestone 3 is now the next active code-changing slice
+
+Local Milestone 2 verification:
+
+- `git diff --check`: pass
+- `uv run docling-system-improvement-case-summary`: `case_count=36`,
+  `status_counts.open=25`, `status_counts.deployed=10`,
+  `status_counts.measured=1`, `measured_case_count=31`
+- `uv run docling-system-improvement-case-validate`: `valid=true`,
+  `issue_count=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-improvement-case-import --source hygiene --dry-run`:
+  pass
+- `uv run docling-system-architecture-quality-report --summary`:
+  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+  `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`:
+  top hotspot `app/services/search.py`; Python cycle components=`5`
+- `rg -n "owner_milestone:" config/hygiene_policy.yaml`: no hits
 
 ## Purpose
 
@@ -431,7 +474,7 @@ Local result:
 
 ### Milestone 2 - Convert the live hygiene policy to `owner_case_id` only
 
-Status: next active code-changing slice
+Status: resolved locally in the current worktree
 
 Outcome label: resolved
 
@@ -456,7 +499,16 @@ Acceptance signal:
 - `uv run docling-system-improvement-case-validate` stays valid after the case
   binding change.
 
+Local result:
+
+- `config/hygiene_policy.yaml` now uses `owner_case_id` for all eight
+  previously milestone-owned residual files.
+- The active routing docs no longer describe
+  `residual-weakness-milestone-2` as a live hygiene owner.
+
 ### Milestone 3 - Remove the fallback from the hygiene contract and prove the negative case
+
+Status: next active code-changing slice
 
 Outcome label: resolved
 
