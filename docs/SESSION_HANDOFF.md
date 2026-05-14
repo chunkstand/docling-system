@@ -42,6 +42,8 @@ Architecture Governance Cycle Milestone 1 checkpoint:
 `4338d4e`
 Architecture Governance Cycle closeout checkpoint:
 `7a4c5b0`
+Runtime Health Orchestration Milestone 0 checkpoint:
+`289f15a`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -85,7 +87,7 @@ packages/trace-store.
 The next active slice is
 `docs/runtime_health_orchestration_milestone_plan.md` Milestone 1 gate-first
 health contract. Runtime-health Milestone 0 refresh / owner-case bootstrap is
-now resolved locally in the current worktree: `IC-0F89DBB1CF9F` now anchors
+now committed locally as checkpoint `289f15a`: `IC-0F89DBB1CF9F` now anchors
 the production-orchestration health gap across
 `app/api/routers/system.py`, `app/services/runtime.py`,
 `app/workers/poller.py`, `app/workers/agent_poller.py`, and

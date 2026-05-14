@@ -13,8 +13,8 @@ Status: active stacked follow-on after
 `docs/architecture_governance_cycle_boundary_milestone_plan.md`; those prior
 packets are now closed locally, including architecture-governance closeout
 commit `7a4c5b0`, and Milestone 0 refresh / owner-case bootstrap is now
-resolved locally in the current worktree through `IC-0F89DBB1CF9F`. Milestone
-1 gate-first health contract is now the next active slice
+committed locally as checkpoint `289f15a` through `IC-0F89DBB1CF9F`.
+Milestone 1 gate-first health contract is now the next active slice
 Owner context: active follow-on for the production-orchestration health gap
 across `app/api/routers/system.py`, `app/services/runtime.py`,
 `app/workers/poller.py`, `app/workers/agent_poller.py`, and
@@ -25,8 +25,8 @@ code-changing slice.
 
 ## Local Progress
 
-Milestone 0 is resolved locally in the current worktree. The stacked packet is
-now refreshed to the live post-`7a4c5b0` repo state, and
+Milestone 0 is committed locally as checkpoint `289f15a`. The stacked packet
+is now refreshed to the live post-`7a4c5b0` repo state, and
 `IC-0F89DBB1CF9F` binds the runtime-health orchestration gap before any code
 motion. The refreshed baseline confirms the targeted health surfaces still
 measure `85 / 194 / 15 / 15 / 307 / 110` lines for
@@ -278,7 +278,7 @@ surfaces into different owners.
 
 Outcome label: `reduced`
 
-Current local state: resolved locally in the current worktree. The prior
+Current local state: committed locally as checkpoint `289f15a`. The prior
 stacked packets are committed, the runtime-health gap remains open on the
 refreshed checkout, and `IC-0F89DBB1CF9F` now binds this packet before code
 moves. Milestone 1 gate-first health contract is the next active slice.

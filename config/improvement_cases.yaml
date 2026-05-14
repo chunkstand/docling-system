@@ -2014,7 +2014,7 @@ cases:
   deployment:
     deployed_ref: null
     notes: Runtime-health Milestone 0 refresh / owner-case bootstrap is
-      resolved locally in the current worktree. The case now anchors
+      committed locally as checkpoint 289f15a. The case now anchors
       docs/runtime_health_orchestration_milestone_plan.md before any code
       motion, but the shared runtime-health contract, process-heartbeat
       freshness, and Compose healthchecks remain unimplemented.
@@ -2026,7 +2026,7 @@ cases:
       app/workers/poller.py=15, app/workers/agent_poller.py=15,
       tests/unit/test_health.py=307, docker-compose.yml=110.
   created_at: '2026-05-14T20:58:15Z'
-  updated_at: '2026-05-14T20:58:15Z'
+  updated_at: '2026-05-14T21:07:38Z'
 - case_id: IC-7C73737C689F
   title: 'Architecture hotspot: app/services/claim_support_policy_governance.py'
   status: open
