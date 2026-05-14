@@ -28,8 +28,8 @@ CLI Command Dispatch closeout checkpoint:
 `4a79a82`
 Agent Task Schema Aggregation Milestone 0 checkpoint:
 `5436f6f`
-Agent Task Schema Aggregation local closeout:
-commit pending routing alignment
+Agent Task Schema Aggregation closeout checkpoint:
+`efe6d4e`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -163,7 +163,7 @@ gate stays green at `changed_hotspots=2`, `blocked=0`, `allowed=3`,
 
 Resolved stacked follow-on after the CLI packet:
 `docs/agent_task_schema_aggregation_boundary_milestone_plan.md`. The packet is
-now resolved locally in the current closeout window: `app/schemas/agent_tasks.py`
+now resolved locally through closeout commit `efe6d4e`: `app/schemas/agent_tasks.py`
 is reduced to a `38` line compatibility facade, production `app/` import
 fan-in is now `0`, local test and integration import fan-in is now `30`, and
 the refreshed architecture-quality evidence measures the facade at
@@ -512,10 +512,10 @@ Verification:
 
 ## Agent Task Schema Aggregation Boundary Local Closeout
 
-Milestones 1 through 4 are now resolved locally in the current closeout
-window for `IC-24F3558D6091`. The scoped schema-aggregation knot is closed,
-the broader owner case remains reduced/open, and the next routed packet is the
-oversized test hotspot decomposition follow-on.
+Milestones 1 through 4 are now resolved locally through closeout commit
+`efe6d4e` for `IC-24F3558D6091`. The scoped schema-aggregation knot is
+closed, the broader owner case remains reduced/open, and the next routed
+packet is the oversized test hotspot decomposition follow-on.
 
 Results:
 

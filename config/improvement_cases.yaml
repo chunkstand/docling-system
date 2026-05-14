@@ -251,7 +251,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "efe6d4e"
     notes: Residual ratchet increase was first recorded in the search execution
       persistence closeout commit f55b474 and refreshed during the local
       provenance-export closeout after adding the dedicated
@@ -537,7 +537,7 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "efe6d4e"
     notes: The schema aggregation packet reduced app/schemas/agent_tasks.py to
       a 38-line compatibility facade backed by owner-module export contracts,
       eliminated production app/ import fan-in through the facade, and

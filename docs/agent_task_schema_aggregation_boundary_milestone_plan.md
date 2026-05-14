@@ -1,8 +1,8 @@
 # Agent Task Schema Aggregation Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-14 UTC
-Status: resolved locally in the current closeout window after the Milestone 0
-refresh closeout `5436f6f`; the scoped aggregation issue is closed, the
+Status: resolved locally through closeout commit `efe6d4e` after the Milestone
+0 refresh closeout `5436f6f`; the scoped aggregation issue is closed, the
 broader owner case remains reduced/open from refreshed architecture evidence,
 and the next bounded follow-on now routes to
 `docs/oversized_test_hotspots_boundary_milestone_plan.md`
@@ -16,7 +16,7 @@ the same local implementation window.
 
 ## Local Closeout
 
-Milestones 0 through 4 are resolved locally in the current closeout window.
+Milestones 0 through 4 are resolved locally through closeout commit `efe6d4e`.
 The scoped schema-aggregation knot is closed: `app/schemas/agent_tasks.py` is
 now a compact compatibility facade, production `app/` code no longer imports
 through it, and the broader owner case is explicitly reduced rather than
@@ -377,7 +377,7 @@ Acceptance:
 
 ### Milestone 1 - Facade Governance Ratchet
 
-Status: resolved locally in the current closeout window
+Status: resolved locally through closeout commit `efe6d4e`
 Outcome label: `resolved`
 
 Implementation:
@@ -410,7 +410,7 @@ Acceptance:
 
 ### Milestone 2 - Production Import Fan-In Reduction
 
-Status: resolved locally in the current closeout window
+Status: resolved locally through closeout commit `efe6d4e`
 Outcome label: `reduced`
 
 Implementation:
@@ -447,7 +447,7 @@ Acceptance:
 
 ### Milestone 3 - Compatibility Facade Compaction
 
-Status: resolved locally in the current closeout window
+Status: resolved locally through closeout commit `efe6d4e`
 Outcome label: `resolved` for the scoped aggregation issue and `reduced` for
 the broader owner case unless the live hotspot fully retires
 
@@ -480,7 +480,7 @@ Acceptance:
 
 ### Milestone 4 - Closeout, Ratchets, And Residual Routing
 
-Status: resolved locally in the current closeout window
+Status: resolved locally through closeout commit `efe6d4e`
 Outcome label: `reduced`
 
 Implementation:
