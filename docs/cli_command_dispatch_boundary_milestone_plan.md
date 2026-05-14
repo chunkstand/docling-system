@@ -42,6 +42,14 @@ Local Milestone 2 snapshot:
   `926` lines / `score 50930` while the broader owner case remains open
   because `app/cli.py` still appears in the architecture-quality top-hotspot
   routing and still exceeds the default `600`-line budget
+- post-closeout alignment ratcheted `app/cli.py` in
+  `config/hygiene_policy.yaml` from the stale `1231`-line ceiling down to the
+  verified `926`-line seam against the default `600`-line budget, and
+  refreshed `IC-9812A0B138D9` so its verification contract now matches the
+  implemented Milestone 2 surfaces instead of the queued
+  `app/cli_commands/search_harness.py` follow-on. The current architecture
+  probe now measures `app/cli.py` at `56` revisions / `926` lines /
+  `score 51856`, while strict hotspot-prevention reports `changed_hotspots=0`
 - Milestone 3 is now the next routed CLI slice for retrieval-learning and
   search-harness command-owner extraction
 - local closeout commit:

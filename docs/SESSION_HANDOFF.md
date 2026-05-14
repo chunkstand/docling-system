@@ -139,7 +139,15 @@ JSON-render scaffolding in `app/cli.py`, runtime and maintenance command
 ownership now lives in `app/cli_commands/runtime.py` at `463` lines,
 `app/cli.py` is reduced to `926` lines, and Milestone 3 is now the next
 active CLI retrieval-learning and search-harness command-owner extraction
-slice under `IC-9812A0B138D9`.
+slice under `IC-9812A0B138D9`. Post-closeout alignment now also ratchets
+`app/cli.py` at that verified `926`-line seam against the default
+`600`-line budget in `config/hygiene_policy.yaml` and refreshes
+`config/improvement_cases.yaml` so the CLI owner-case verification contract
+matches the implemented Milestone 2 surfaces instead of the queued
+`app/cli_commands/search_harness.py` follow-on. The current architecture probe
+now measures `app/cli.py` at `56` revisions / `926` lines / `score 51856`,
+and the docs-and-governance refresh keeps the strict hotspot gate at
+`changed_hotspots=0`, `blocked=0`, `allowed=0`, `exceptions=0`.
 
 Queued stacked follow-on after the CLI packet:
 `docs/agent_task_schema_aggregation_boundary_milestone_plan.md`. Its
@@ -189,7 +197,8 @@ Additional committed later-stack follow-ons now exist for
 earlier routed packets closing first, and the broader coordination queue now
 also sits behind the architecture-governance cycle packet above.
 
-The live alignment snapshot after the CLI Milestone 2 verification window is:
+The live alignment snapshot after the CLI Milestone 2 post-closeout alignment
+refresh is:
 
 - `uv run docling-system-improvement-case-summary`: `case_count=29`,
   `status_counts.open=21`, `status_counts.deployed=7`,
@@ -204,14 +213,12 @@ The live alignment snapshot after the CLI Milestone 2 verification window is:
 - `uv run docling-system-improvement-case-validate`: `valid=true`,
   `issue_count=0`
 - `uv run docling-system-hotspot-prevention-check --strict`:
-  `known_hotspots=11`, `changed_hotspots=2`, `blocked=0`, `allowed=2`,
+  `known_hotspots=11`, `changed_hotspots=0`, `blocked=0`, `allowed=0`,
   `exceptions=0`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
-- `uv run pytest -q tests/unit/test_cli.py tests/unit/test_cli_entrypoints.py tests/unit/test_cli_runtime.py tests/unit/test_cli_improvement_cases.py tests/unit/test_cli_search_harness.py tests/unit/test_cli_ingest.py tests/unit/test_hotspot_prevention.py`: `66 passed`
-- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
-  `1932 passed`
+- `uv run pytest -q tests/unit/test_hotspot_prevention.py`: `31 passed`
 - architecture probe top hotspot is now `tests/unit/test_agent_tasks_api.py`;
-  `app/cli.py` measures `55` revisions / `926` lines / `score 50930`; the
+  `app/cli.py` measures `56` revisions / `926` lines / `score 51856`; the
   Python cycle component count remains `5`
 
 At the time of this evaluations Milestone 4 closeout, the reduced or routed
