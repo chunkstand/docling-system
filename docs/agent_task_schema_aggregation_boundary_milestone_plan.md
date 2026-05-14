@@ -1,21 +1,20 @@
 # Agent Task Schema Aggregation Boundary Milestone Plan
 
-Date: 2026-05-13 local / 2026-05-13 UTC
-Status: active bounded follow-on after
+Date: 2026-05-13 local / 2026-05-14 UTC
+Status: Milestone 0 refreshed the live post-CLI state after
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
 `docs/evaluations_service_boundary_milestone_plan.md`,
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`,
 `docs/semantics_service_boundary_milestone_plan.md`, and
 `docs/cli_command_dispatch_boundary_milestone_plan.md` all closed locally
 through commits `3d7d090`, `1159297`, `1aa8378`, `a2eb27e`, and `4a79a82`;
-Milestone 0 is now the next active refresh slice before any schema-facade
-work begins
+Milestone 1 is now the next active governance-ratchet slice
 Owner context: active follow-on under `IC-24F3558D6091` /
 `app/schemas/agent_tasks.py`. The prior claim-support packet completed first,
 the evaluations packet completed second, the evidence provenance-export packet
 completed third, the semantics packet completed fourth, the CLI packet
-completed fifth, and Milestone 0 now refreshes the live system state before
-any schema-facade work begins.
+completed fifth, Milestone 0 refreshed the live system state, and Milestone 1
+now governs the first schema-facade code change.
 
 ## Purpose
 
@@ -39,23 +38,12 @@ catalog file or another new `app/schemas/agent_task_*.py` sink.
 
 ## Current Evidence
 
-This section preserves the drafted baseline captured when the packet was first
-written. Milestone 0 is now the active refresh step and must replace this
-baseline with current live checkout evidence before any schema-facade changes
-begin.
-
-Draft baseline captured from the local checkout on 2026-05-13 local /
-2026-05-13 UTC:
+Live repo evidence refreshed from the current local checkout on 2026-05-13
+local / 2026-05-14 UTC:
 
 ```text
 git status -sb
-  ## main...origin/main [ahead 10]
-   M config/improvement_cases.yaml
-   M docs/SESSION_HANDOFF.md
-   M docs/agentic_architecture_index.md
-   M docs/claim_support_policy_impacts_boundary_milestone_plan.md
-   M docs/search_execution_orchestration_boundary_milestone_plan.md
-  ?? docs/cli_command_dispatch_boundary_milestone_plan.md
+  ## main...origin/main [ahead 36]
 
 wc -l app/schemas/agent_tasks.py app/schemas/agent_task_core.py app/schemas/agent_task_claim_support.py app/schemas/agent_task_reports.py app/schemas/agent_task_search_workflows.py app/schemas/agent_task_semantic_generation.py app/schemas/agent_task_semantic_graph.py app/schemas/agent_task_semantics.py
    461 app/schemas/agent_tasks.py
@@ -75,7 +63,7 @@ PY
 
 uv run docling-system-architecture-quality-report --summary
   hotspot_count=10
-  max_hotspot_risk_score=531.06
+  max_hotspot_risk_score=501.06
   top_hotspot_paths=[
     app/db/models.py,
     app/services/agent_task_actions.py,
@@ -85,15 +73,16 @@ uv run docling-system-architecture-quality-report --summary
   ]
 
 uv run docling-system-improvement-case-summary
-  case_count=28
+  case_count=29
   status_counts.open=21
-  status_counts.deployed=6
+  status_counts.deployed=7
   status_counts.measured=1
   actionable_buckets.oldest_open_case_id=IC-9812A0B138D9
 
 python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
-  app.schemas.agent_tasks imported by 90 local modules
-  Python cycle components=3
+  top hotspot remains tests/unit/test_agent_tasks_api.py
+  app.schemas.agent_tasks imported by 92 local modules
+  Python cycle components=5
 
 config/improvement_cases.yaml
   IC-24F3558D6091 remains open for app/schemas/agent_tasks.py with
@@ -137,10 +126,18 @@ Repo-current structural evidence:
   `app/services/semantic_generation.py`,
   `app/services/eval_workbench.py`, and
   `app/services/search_harness_optimization.py`.
-- The current queued follow-on chain already extends through claim-support,
-  evaluations, evidence provenance-export, semantics, and CLI. Because those
-  packets are still ahead in the user-requested stack, Milestone 0 must refresh
-  the live state before this plan becomes active.
+- The five upstream packets are no longer drafted or in flight. They are now
+  committed local closeouts at `3d7d090`, `1159297`, `1aa8378`, `a2eb27e`, and
+  `4a79a82`, so this schema-facade packet is now the active bounded follow-on.
+- The live post-stack refresh confirms the scoped schema-aggregation issue
+  still exists unchanged: the facade is still 461 lines, still exports 221
+  names, still appears in the architecture-quality top-hotspot set, and still
+  routes 92 production or test imports through one aggregation surface.
+- The current live config still leaves the schema-facade governance gap open:
+  `config/hygiene_policy.yaml` still allows `app/schemas/agent_tasks.py` at
+  `2061` lines with no `owner_case_id`, and `config/improvement_cases.yaml`
+  still records the older 409.07-risk snapshot without any post-refresh
+  measurement or deployment note.
 
 ## Goal
 
@@ -293,7 +290,7 @@ Milestone 0 is mandatory and must run before any schema code changes start.
 
 ### Milestone 0 - Post-CLI System-State Refresh
 
-Status: drafted
+Status: resolved locally in this refresh closeout
 Outcome label: `resolved`
 
 Purpose:
@@ -334,7 +331,7 @@ Acceptance:
 
 ### Milestone 1 - Facade Governance Ratchet
 
-Status: drafted
+Status: next active implementation slice
 Outcome label: `resolved`
 
 Implementation:

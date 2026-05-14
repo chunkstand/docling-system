@@ -159,8 +159,9 @@ gate stays green at `changed_hotspots=2`, `blocked=0`, `allowed=3`,
 
 Active stacked follow-on after the CLI packet:
 `docs/agent_task_schema_aggregation_boundary_milestone_plan.md`. Its
-Milestone 0 is now the next active bounded refresh slice for
-`IC-24F3558D6091` / `app/schemas/agent_tasks.py`.
+Milestone 0 refreshed the live post-CLI state, and Milestone 1 is now the
+next active governance-ratchet slice for `IC-24F3558D6091` /
+`app/schemas/agent_tasks.py`.
 
 Queued stacked follow-on after the agent-task schema packet:
 `docs/oversized_test_hotspots_boundary_milestone_plan.md`. Its Milestone 0
@@ -462,6 +463,51 @@ Verification:
 - `uv run docling-system-improvement-case-summary`: `case_count=29`, `status_counts.open=21`, `status_counts.deployed=7`, `status_counts.measured=1`, `measured_case_count=20`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`: top hotspot remains `tests/unit/test_agent_tasks_api.py`; `app/cli.py` is absent from the top 12 churn hotspots; Python cycle components=`5`
 - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1939 passed`
+
+## Agent Task Schema Aggregation Boundary Milestone 0 Local Refresh
+
+Milestone 0 refreshed the live post-CLI state and promoted the schema
+aggregation packet from a stacked drafted baseline to the active bounded
+follow-on. The scoped schema-facade knot under `IC-24F3558D6091` remains
+unresolved, and Milestone 1 is now the next active governance-ratchet slice.
+
+Results:
+
+- confirmed the five upstream packets are no longer drafted or in flight:
+  `docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
+  `docs/evaluations_service_boundary_milestone_plan.md`,
+  `docs/evidence_provenance_exports_boundary_milestone_plan.md`,
+  `docs/semantics_service_boundary_milestone_plan.md`, and
+  `docs/cli_command_dispatch_boundary_milestone_plan.md` are all committed
+  local closeouts at `3d7d090`, `1159297`, `1aa8378`, `a2eb27e`, and
+  `4a79a82`
+- replaced the schema packet's drafted baseline with the live post-CLI
+  evidence: `app/schemas/agent_tasks.py` remains a `461` line aggregation
+  facade, its seven owner modules remain unchanged, the facade still exports
+  `221` names, and the live architecture probe now records
+  `app.schemas.agent_tasks` imported by `92` local modules with `5` Python
+  cycle components across the repo
+- confirmed the scoped issue still exists after the earlier closeouts:
+  `app/schemas/agent_tasks.py` remains in the architecture-quality top-hotspot
+  set even though the current top churn hotspot is
+  `tests/unit/test_agent_tasks_api.py`
+- refreshed the packet routing so the handoff and architecture index now agree
+  that the schema aggregation plan is active and that Milestone 1, not
+  Milestone 0, is the next code-changing slice
+- recorded the remaining governance gap explicitly in the refreshed plan:
+  `config/hygiene_policy.yaml` still allows `app/schemas/agent_tasks.py` at
+  `2061` lines with no `owner_case_id`, and `config/improvement_cases.yaml`
+  still carries the older `risk_score=409.07` snapshot for
+  `IC-24F3558D6091`
+
+Verification:
+
+- `git status -sb`: `## main...origin/main [ahead 36]`
+- `wc -l app/schemas/agent_tasks.py app/schemas/agent_task_core.py app/schemas/agent_task_claim_support.py app/schemas/agent_task_reports.py app/schemas/agent_task_search_workflows.py app/schemas/agent_task_semantic_generation.py app/schemas/agent_task_semantic_graph.py app/schemas/agent_task_semantics.py`: refreshed live size baseline
+- `python - <<'PY' ... len(agent_tasks.__all__) ... PY`: `221`
+- `uv run docling-system-architecture-quality-report --summary`: `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `uv run docling-system-improvement-case-summary`: `case_count=29`, `status_counts.open=21`, `status_counts.deployed=7`, `status_counts.measured=1`, `oldest_open_case_id=IC-9812A0B138D9`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`: top hotspot `tests/unit/test_agent_tasks_api.py`; `app.schemas.agent_tasks` imported by `92` local modules; Python cycle components=`5`
 
 ## Evidence Provenance Exports Boundary Local Closeout
 
