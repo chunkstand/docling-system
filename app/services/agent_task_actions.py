@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.models import AgentTask
-from app.schemas.agent_tasks import EnqueueDocumentReprocessTaskInput
+from app.schemas.agent_task_search_workflows import EnqueueDocumentReprocessTaskInput
 from app.services.agent_actions.claim_support_actions import (
     build_claim_support_action_definitions,
 )

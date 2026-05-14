@@ -117,7 +117,7 @@ def _technical_report_integrity_payload(
     exports: list[EvidencePackageExport],
     derivations: list[ClaimEvidenceDerivation],
 ) -> dict:
-    from app.schemas.agent_tasks import TechnicalReportDraftPayload
+    from app.schemas.agent_task_reports import TechnicalReportDraftPayload
 
     canonical_draft_payload = (
         TechnicalReportDraftPayload.model_validate(draft_payload).model_dump(mode="json")

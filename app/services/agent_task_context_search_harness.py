@@ -11,14 +11,11 @@ from app.db.models import (
     AgentTaskVerification,
     SearchReplayRun,
 )
-from app.schemas.agent_tasks import (
+from app.schemas import agent_task_core as task_core
+from app.schemas.agent_task_search_workflows import (
     ApplyHarnessConfigUpdateTaskOutput,
-    ContextFreshnessStatus,
-    ContextRef,
     DraftHarnessConfigUpdateTaskOutput,
     EvaluateSearchHarnessTaskOutput,
-    TaskContextEnvelope,
-    TaskContextSummary,
     TriageReplayRegressionTaskOutput,
     VerifyDraftHarnessConfigTaskOutput,
     VerifySearchHarnessEvaluationTaskOutput,
@@ -56,10 +53,10 @@ def _build_draft_harness_config_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = DraftHarnessConfigUpdateTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
     if output.draft.source_task_id is not None:
         source_task = session.get(AgentTask, output.draft.source_task_id)
@@ -69,14 +66,14 @@ def _build_draft_harness_config_context(
             source_action = get_agent_task_action(source_task.task_type)
             source_context_row = get_context_artifact_row(session, source_task.id)
             if source_context_row is not None:
-                source_context = TaskContextEnvelope.model_validate(
+                source_context = task_core.TaskContextEnvelope.model_validate(
                     source_context_row.payload_json or {}
                 )
                 observed_payload = source_context.output
             else:
                 observed_payload = source_task.result_json or {}
             refs.append(
-                ContextRef(
+                task_core.ContextRef(
                     ref_key="source_task",
                     ref_kind="task_output",
                     summary="Source task that motivated this harness draft.",
@@ -86,14 +83,14 @@ def _build_draft_harness_config_context(
                     observed_sha256=payload_sha256(observed_payload),
                     source_updated_at=source_task.updated_at,
                     checked_at=now,
-                    freshness_status=ContextFreshnessStatus.FRESH,
+                    freshness_status=task_core.ContextFreshnessStatus.FRESH,
                 )
             )
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="draft_artifact",
                 ref_kind="artifact",
                 summary="Persisted draft-harness artifact for operator review.",
@@ -105,11 +102,11 @@ def _build_draft_harness_config_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Draft harness {output.draft.draft_harness_name} derived from "
             f"{output.draft.base_harness_name}."
@@ -142,7 +139,7 @@ def _build_draft_harness_config_context(
             "reranker_override_count": len(output.draft.override_spec.reranker_overrides),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -151,7 +148,7 @@ def _build_draft_harness_config_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -164,10 +161,10 @@ def _build_evaluate_search_harness_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = EvaluateSearchHarnessTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
     evaluation_ref = search_harness_evaluation_context_ref(
         session,
@@ -181,7 +178,7 @@ def _build_evaluate_search_harness_context(
         baseline_run = session.get(SearchReplayRun, source.baseline_replay_run_id)
         if baseline_run is not None:
             refs.append(
-                ContextRef(
+                task_core.ContextRef(
                     ref_key=f"{source.source_type}_baseline_replay_run",
                     ref_kind="replay_run",
                     summary=(
@@ -192,13 +189,13 @@ def _build_evaluate_search_harness_context(
                     observed_sha256=payload_sha256(search_replay_run_payload(baseline_run)),
                     source_updated_at=baseline_run.completed_at or baseline_run.created_at,
                     checked_at=now,
-                    freshness_status=ContextFreshnessStatus.FRESH,
+                    freshness_status=task_core.ContextFreshnessStatus.FRESH,
                 )
             )
         candidate_run = session.get(SearchReplayRun, source.candidate_replay_run_id)
         if candidate_run is not None:
             refs.append(
-                ContextRef(
+                task_core.ContextRef(
                     ref_key=f"{source.source_type}_candidate_replay_run",
                     ref_kind="replay_run",
                     summary=(
@@ -209,11 +206,11 @@ def _build_evaluate_search_harness_context(
                     observed_sha256=payload_sha256(search_replay_run_payload(candidate_run)),
                     source_updated_at=candidate_run.completed_at or candidate_run.created_at,
                     checked_at=now,
-                    freshness_status=ContextFreshnessStatus.FRESH,
+                    freshness_status=task_core.ContextFreshnessStatus.FRESH,
                 )
             )
 
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Evaluated {output.candidate_harness_name} against "
             f"{output.baseline_harness_name} across {len(output.evaluation.sources)} replay "
@@ -233,7 +230,7 @@ def _build_evaluate_search_harness_context(
             "total_regressed_count": output.evaluation.total_regressed_count,
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -242,7 +239,7 @@ def _build_evaluate_search_harness_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -255,10 +252,10 @@ def _build_verify_draft_harness_config_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = VerifyDraftHarnessConfigTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
     draft_context = resolve_required_task_output_context(
         session,
@@ -274,7 +271,7 @@ def _build_verify_draft_harness_config_context(
         ),
     )
     refs.append(
-        ContextRef(
+        task_core.ContextRef(
             ref_key="draft_task_output",
             ref_kind="task_output",
             summary="Migrated draft-harness output consumed by this verification.",
@@ -284,7 +281,7 @@ def _build_verify_draft_harness_config_context(
             observed_sha256=payload_sha256(draft_context.output),
             source_updated_at=draft_context.task_updated_at,
             checked_at=now,
-            freshness_status=ContextFreshnessStatus.FRESH,
+            freshness_status=task_core.ContextFreshnessStatus.FRESH,
         )
     )
 
@@ -292,7 +289,7 @@ def _build_verify_draft_harness_config_context(
         if ref.ref_key != "draft_artifact":
             continue
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="draft_artifact",
                 ref_kind="artifact",
                 summary="Persisted draft artifact used as verification evidence.",
@@ -304,7 +301,7 @@ def _build_verify_draft_harness_config_context(
                 observed_sha256=ref.observed_sha256,
                 source_updated_at=ref.source_updated_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
         break
@@ -320,7 +317,7 @@ def _build_verify_draft_harness_config_context(
     verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
     if verification_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="verification_record",
                 ref_kind="verification_record",
                 summary="Verifier record persisted for the draft review gate.",
@@ -329,7 +326,7 @@ def _build_verify_draft_harness_config_context(
                 observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
@@ -340,7 +337,7 @@ def _build_verify_draft_harness_config_context(
         if comprehension_gate is not None
         else []
     )
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Verified draft harness {output.draft.draft_harness_name} against "
             f"{output.evaluation.get('baseline_harness_name') or output.draft.base_harness_name}."
@@ -386,7 +383,7 @@ def _build_verify_draft_harness_config_context(
             ),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -395,7 +392,7 @@ def _build_verify_draft_harness_config_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -408,10 +405,10 @@ def _build_verify_search_harness_evaluation_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = VerifySearchHarnessEvaluationTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
     target_context = resolve_required_dependency_task_output_context(
         session,
@@ -431,7 +428,7 @@ def _build_verify_search_harness_evaluation_context(
         ),
     )
     refs.append(
-        ContextRef(
+        task_core.ContextRef(
             ref_key="target_task_output",
             ref_kind="task_output",
             summary="Migrated evaluation output consumed by the rollout gate verifier.",
@@ -441,7 +438,7 @@ def _build_verify_search_harness_evaluation_context(
             observed_sha256=payload_sha256(target_context.output),
             source_updated_at=target_context.task_updated_at,
             checked_at=now,
-            freshness_status=ContextFreshnessStatus.FRESH,
+            freshness_status=task_core.ContextFreshnessStatus.FRESH,
         )
     )
     evaluation_ref = search_harness_evaluation_context_ref(
@@ -455,7 +452,7 @@ def _build_verify_search_harness_evaluation_context(
     verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
     if verification_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="verification_record",
                 ref_kind="verification_record",
                 summary="Verifier record persisted for the evaluation rollout gate.",
@@ -464,12 +461,12 @@ def _build_verify_search_harness_evaluation_context(
                 observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
     thresholds = (output.verification.details or {}).get("thresholds") or {}
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Verified {output.evaluation.candidate_harness_name} against "
             f"{output.evaluation.baseline_harness_name} rollout thresholds."
@@ -501,7 +498,7 @@ def _build_verify_search_harness_evaluation_context(
             "min_total_shared_query_count": thresholds.get("min_total_shared_query_count"),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -510,7 +507,7 @@ def _build_verify_search_harness_evaluation_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -523,10 +520,10 @@ def _build_triage_replay_regression_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = TriageReplayRegressionTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
     evaluation_ref = search_harness_evaluation_context_ref(
         session,
@@ -540,7 +537,7 @@ def _build_triage_replay_regression_context(
         baseline_run = session.get(SearchReplayRun, source.baseline_replay_run_id)
         if baseline_run is not None:
             refs.append(
-                ContextRef(
+                task_core.ContextRef(
                     ref_key=f"{source.source_type}_baseline_replay_run",
                     ref_kind="replay_run",
                     summary=(f"Baseline replay run for {source.source_type} used by triage."),
@@ -548,13 +545,13 @@ def _build_triage_replay_regression_context(
                     observed_sha256=payload_sha256(search_replay_run_payload(baseline_run)),
                     source_updated_at=baseline_run.completed_at or baseline_run.created_at,
                     checked_at=now,
-                    freshness_status=ContextFreshnessStatus.FRESH,
+                    freshness_status=task_core.ContextFreshnessStatus.FRESH,
                 )
             )
         candidate_run = session.get(SearchReplayRun, source.candidate_replay_run_id)
         if candidate_run is not None:
             refs.append(
-                ContextRef(
+                task_core.ContextRef(
                     ref_key=f"{source.source_type}_candidate_replay_run",
                     ref_kind="replay_run",
                     summary=(f"Candidate replay run for {source.source_type} used by triage."),
@@ -562,14 +559,14 @@ def _build_triage_replay_regression_context(
                     observed_sha256=payload_sha256(search_replay_run_payload(candidate_run)),
                     source_updated_at=candidate_run.completed_at or candidate_run.created_at,
                     checked_at=now,
-                    freshness_status=ContextFreshnessStatus.FRESH,
+                    freshness_status=task_core.ContextFreshnessStatus.FRESH,
                 )
             )
 
     verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
     if verification_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="verification_record",
                 ref_kind="verification_record",
                 summary="Verifier record captured for the shadow-mode triage gate.",
@@ -578,14 +575,14 @@ def _build_triage_replay_regression_context(
                 observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="triage_summary_artifact",
                 ref_kind="artifact",
                 summary="Deep triage evidence artifact with recommendation and supporting details.",
@@ -597,7 +594,7 @@ def _build_triage_replay_regression_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
@@ -605,7 +602,7 @@ def _build_triage_replay_regression_context(
         repair_case_artifact_row = session.get(AgentTaskArtifact, output.repair_case_artifact_id)
         if repair_case_artifact_row is not None:
             refs.append(
-                ContextRef(
+                task_core.ContextRef(
                     ref_key="repair_case_artifact",
                     ref_kind="artifact",
                     summary=(
@@ -619,12 +616,12 @@ def _build_triage_replay_regression_context(
                     observed_sha256=payload_sha256(repair_case_artifact_row.payload_json or {}),
                     source_updated_at=repair_case_artifact_row.created_at,
                     checked_at=now,
-                    freshness_status=ContextFreshnessStatus.FRESH,
+                    freshness_status=task_core.ContextFreshnessStatus.FRESH,
                 )
             )
 
     repair_case = output.repair_case
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Triage recommends {output.recommendation.next_action} for "
             f"{output.candidate_harness_name}."
@@ -658,7 +655,7 @@ def _build_triage_replay_regression_context(
             "total_regressed_count": output.evaluation.total_regressed_count,
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -667,7 +664,7 @@ def _build_triage_replay_regression_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -680,10 +677,10 @@ def _build_apply_harness_config_update_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = ApplyHarnessConfigUpdateTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
     draft_context = resolve_required_dependency_task_output_context(
         session,
@@ -704,7 +701,7 @@ def _build_apply_harness_config_update_context(
         ),
     )
     refs.append(
-        ContextRef(
+        task_core.ContextRef(
             ref_key="draft_task_output",
             ref_kind="task_output",
             summary="Migrated draft-harness output applied to the live override store.",
@@ -714,7 +711,7 @@ def _build_apply_harness_config_update_context(
             observed_sha256=payload_sha256(draft_context.output),
             source_updated_at=draft_context.task_updated_at,
             checked_at=now,
-            freshness_status=ContextFreshnessStatus.FRESH,
+            freshness_status=task_core.ContextFreshnessStatus.FRESH,
         )
     )
 
@@ -735,7 +732,7 @@ def _build_apply_harness_config_update_context(
         ),
     )
     refs.append(
-        ContextRef(
+        task_core.ContextRef(
             ref_key="verification_task_output",
             ref_kind="task_output",
             summary="Migrated verification output that approved this live apply step.",
@@ -745,14 +742,14 @@ def _build_apply_harness_config_update_context(
             observed_sha256=payload_sha256(verification_context.output),
             source_updated_at=verification_context.task_updated_at,
             checked_at=now,
-            freshness_status=ContextFreshnessStatus.FRESH,
+            freshness_status=task_core.ContextFreshnessStatus.FRESH,
         )
     )
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="applied_artifact",
                 ref_kind="artifact",
                 summary="Persisted apply artifact for the live harness override.",
@@ -764,7 +761,7 @@ def _build_apply_harness_config_update_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
@@ -772,7 +769,7 @@ def _build_apply_harness_config_update_context(
         follow_up_artifact_row = session.get(AgentTaskArtifact, output.follow_up_artifact_id)
         if follow_up_artifact_row is not None:
             refs.append(
-                ContextRef(
+                task_core.ContextRef(
                     ref_key="follow_up_evaluation_artifact",
                     ref_kind="artifact",
                     summary="Post-apply replay/evaluation evidence for the published harness.",
@@ -784,7 +781,7 @@ def _build_apply_harness_config_update_context(
                     observed_sha256=payload_sha256(follow_up_artifact_row.payload_json or {}),
                     source_updated_at=follow_up_artifact_row.created_at,
                     checked_at=now,
-                    freshness_status=ContextFreshnessStatus.FRESH,
+                    freshness_status=task_core.ContextFreshnessStatus.FRESH,
                 )
             )
 
@@ -792,7 +789,7 @@ def _build_apply_harness_config_update_context(
         verification_context.output
     )
     follow_up_summary = output.follow_up_summary or {}
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=f"Applied verified harness {output.draft_harness_name} to live search.",
         goal="Publish a verified draft harness after approval without changing the workflow model.",
         decision=(
@@ -842,7 +839,7 @@ def _build_apply_harness_config_update_context(
             "follow_up_recommendation": follow_up_summary.get("recommendation"),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -851,7 +848,7 @@ def _build_apply_harness_config_update_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),

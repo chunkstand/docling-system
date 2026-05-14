@@ -24,7 +24,7 @@ from app.api.routers.claim_support_policy_impacts import (
     router as claim_support_policy_impacts_router,
 )
 from app.db.session import get_db_session
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_core import (
     AgentTaskActionDefinitionResponse,
     AgentTaskApprovalRequest,
     AgentTaskArtifactResponse,

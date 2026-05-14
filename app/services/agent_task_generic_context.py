@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
 from app.db.models import AgentTask
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_core import (
     ContextFreshnessStatus,
     TaskContextEnvelope,
     TaskContextSummary,

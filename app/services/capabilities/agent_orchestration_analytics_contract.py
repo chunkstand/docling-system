@@ -4,7 +4,7 @@ from typing import Protocol
 
 from sqlalchemy.orm import Session
 
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_core import (
     AgentTaskAnalyticsSummaryResponse,
     AgentTaskApprovalTrendResponse,
     AgentTaskCostSummaryResponse,

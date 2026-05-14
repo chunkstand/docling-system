@@ -13,7 +13,7 @@ from app.db.models import (
     AgentTaskStatus,
     AgentTaskVerificationOutcome,
 )
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_core import (
     AgentTaskRecommendationSummaryResponse,
     AgentTaskRecommendationTrendPointResponse,
     AgentTaskRecommendationTrendResponse,

@@ -6,14 +6,14 @@ from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
 from app.db.models import AgentTask, AgentTaskArtifact, AgentTaskVerification
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_core import (
     ContextFreshnessStatus,
     ContextRef,
     TaskContextEnvelope,
     TaskContextSummary,
-    TriageSemanticCandidateDisagreementsTaskOutput,
-    TriageSemanticPassTaskOutput,
 )
+from app.schemas.agent_task_semantic_graph import TriageSemanticCandidateDisagreementsTaskOutput
+from app.schemas.agent_task_semantics import TriageSemanticPassTaskOutput
 from app.services.agent_task_context_registry import (
     AgentTaskContextBuilder,
     resolve_context_builder_registry,

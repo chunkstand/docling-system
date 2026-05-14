@@ -7,7 +7,7 @@ from uuid import UUID
 
 from app.core.coercion import unique_strings as _unique_strings
 from app.core.hashes import payload_sha256 as _payload_sha256
-from app.schemas.agent_tasks import TechnicalReportDraftPayload
+from app.schemas.agent_task_reports import TechnicalReportDraftPayload
 
 CLAIM_SUPPORT_VERDICTS = {"supported", "unsupported", "insufficient_evidence"}
 _CLAIM_SUPPORT_JUDGE_SCHEMA_NAME = "technical_report_claim_support_judgment"

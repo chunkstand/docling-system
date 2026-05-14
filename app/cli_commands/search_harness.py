@@ -6,7 +6,7 @@ from uuid import UUID
 
 from app.cli_commands.common import lazy_service_attr
 from app.db.session import get_session_factory
-from app.schemas.agent_tasks import VerifySearchHarnessEvaluationTaskInput
+from app.schemas.agent_task_search_workflows import VerifySearchHarnessEvaluationTaskInput
 from app.schemas.search import (
     AuditBundleValidationReceiptRequest,
     RetrievalLearningCandidateEvaluationRequest,

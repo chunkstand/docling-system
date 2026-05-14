@@ -6,21 +6,25 @@ from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 
 from app.db.models import AgentTask
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_search_workflows import (
     DraftHarnessConfigUpdateTaskOutput,
-    DraftSemanticGroundedDocumentTaskOutput,
-    DraftSemanticRegistryUpdateTaskOutput,
     EvaluateSearchHarnessTaskOutput,
     OptimizeSearchHarnessFromCaseTaskOutput,
     RepairCasePayload,
     TriageReplayRegressionTaskOutput,
     VerifyDraftHarnessConfigTaskInput,
-    VerifyDraftSemanticRegistryUpdateTaskInput,
-    VerifyDraftSemanticRegistryUpdateTaskOutput,
     VerifySearchHarnessEvaluationTaskInput,
     VerifySearchHarnessEvaluationTaskOutput,
+)
+from app.schemas.agent_task_semantic_generation import (
+    DraftSemanticGroundedDocumentTaskOutput,
     VerifySemanticGroundedDocumentTaskInput,
     VerifySemanticGroundedDocumentTaskOutput,
+)
+from app.schemas.agent_task_semantics import (
+    DraftSemanticRegistryUpdateTaskOutput,
+    VerifyDraftSemanticRegistryUpdateTaskInput,
+    VerifyDraftSemanticRegistryUpdateTaskOutput,
 )
 from app.schemas.search import SearchHarnessEvaluationRequest, SearchHarnessEvaluationResponse
 from app.services.agent_task_context import (

@@ -543,6 +543,7 @@ class EvaluateClaimSupportJudgeTaskOutput(BaseModel):
 
 
 __all__ = [
+    "REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_MAX_HOURS",
     "ClaimSupportEvaluationFixture",
     "ClaimSupportEvaluationCaseResult",
     "EvaluateClaimSupportJudgeTaskInput",

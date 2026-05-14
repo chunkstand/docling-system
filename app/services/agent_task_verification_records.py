@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.errors import api_error
 from app.core.time import utcnow
 from app.db.models import AgentTask, AgentTaskVerification
-from app.schemas.agent_tasks import AgentTaskVerificationResponse
+from app.schemas.agent_task_core import AgentTaskVerificationResponse
 
 
 def _to_verification_response(row: AgentTaskVerification) -> AgentTaskVerificationResponse:

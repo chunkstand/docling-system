@@ -3,18 +3,15 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.db.models import AgentTask
-from app.schemas.agent_tasks import (
-    EvaluateSemanticCandidateExtractorTaskOutput,
-    EvaluateSemanticRelationExtractorTaskOutput,
-    LatestSemanticPassTaskOutput,
-    TriageSemanticCandidateDisagreementsTaskInput,
-    TriageSemanticCandidateDisagreementsTaskOutput,
-    TriageSemanticGraphDisagreementsTaskInput,
-    TriageSemanticGraphDisagreementsTaskOutput,
-    TriageSemanticPassTaskInput,
-    TriageSemanticPassTaskOutput,
+from app.schemas import agent_task_semantic_graph as graph_schemas
+from app.schemas.agent_task_semantic_generation import (
     VerifySemanticGroundedDocumentTaskInput,
     VerifySemanticGroundedDocumentTaskOutput,
+)
+from app.schemas.agent_task_semantics import (
+    LatestSemanticPassTaskOutput,
+    TriageSemanticPassTaskInput,
+    TriageSemanticPassTaskOutput,
 )
 from app.services.agent_actions.types import AgentTaskActionDefinition
 from app.services.agent_task_artifacts import create_agent_task_artifact
@@ -116,7 +113,7 @@ def _triage_semantic_pass_executor(
 def _triage_semantic_graph_disagreements_executor(
     session: Session,
     task: AgentTask,
-    payload: TriageSemanticGraphDisagreementsTaskInput,
+    payload: graph_schemas.TriageSemanticGraphDisagreementsTaskInput,
 ) -> dict:
     target_context = resolve_required_dependency_task_output_context(
         session,
@@ -134,7 +131,7 @@ def _triage_semantic_graph_disagreements_executor(
             "Graph evaluation task must be rerun after the context migration before triage."
         ),
     )
-    evaluation_output = EvaluateSemanticRelationExtractorTaskOutput.model_validate(
+    evaluation_output = graph_schemas.EvaluateSemanticRelationExtractorTaskOutput.model_validate(
         target_context.output
     )
     disagreement_report = triage_semantic_graph_disagreements(
@@ -193,7 +190,7 @@ def _triage_semantic_graph_disagreements_executor(
 def _triage_semantic_candidate_disagreements_executor(
     session: Session,
     task: AgentTask,
-    payload: TriageSemanticCandidateDisagreementsTaskInput,
+    payload: graph_schemas.TriageSemanticCandidateDisagreementsTaskInput,
 ) -> dict:
     target_context = resolve_required_dependency_task_output_context(
         session,
@@ -211,7 +208,7 @@ def _triage_semantic_candidate_disagreements_executor(
             "Candidate evaluation task must be rerun after the context migration before triage."
         ),
     )
-    evaluation_output = EvaluateSemanticCandidateExtractorTaskOutput.model_validate(
+    evaluation_output = graph_schemas.EvaluateSemanticCandidateExtractorTaskOutput.model_validate(
         target_context.output
     )
     disagreement_report, verification_outcome, recommendation = (
@@ -304,9 +301,9 @@ def build_semantic_verification_action_definitions() -> dict[str, AgentTaskActio
                 "Compact shadow semantic disagreements into typed issues and "
                 "bounded follow-up recommendations."
             ),
-            payload_model=TriageSemanticCandidateDisagreementsTaskInput,
+            payload_model=graph_schemas.TriageSemanticCandidateDisagreementsTaskInput,
             executor=_triage_semantic_candidate_disagreements_executor,
-            output_model=TriageSemanticCandidateDisagreementsTaskOutput,
+            output_model=graph_schemas.TriageSemanticCandidateDisagreementsTaskOutput,
             output_schema_name="triage_semantic_candidate_disagreements_output",
             output_schema_version="1.0",
             input_example={
@@ -324,9 +321,9 @@ def build_semantic_verification_action_definitions() -> dict[str, AgentTaskActio
                 "Compact shadow semantic graph disagreements into typed issues and "
                 "promotion follow-ups."
             ),
-            payload_model=TriageSemanticGraphDisagreementsTaskInput,
+            payload_model=graph_schemas.TriageSemanticGraphDisagreementsTaskInput,
             executor=_triage_semantic_graph_disagreements_executor,
-            output_model=TriageSemanticGraphDisagreementsTaskOutput,
+            output_model=graph_schemas.TriageSemanticGraphDisagreementsTaskOutput,
             output_schema_name="triage_semantic_graph_disagreements_output",
             output_schema_version="1.0",
             input_example={

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
 from app.db.models import AgentTask, AgentTaskArtifact
-from app.schemas.agent_tasks import TaskContextEnvelope
+from app.schemas.agent_task_core import TaskContextEnvelope
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.agent_task_context_core import build_core_context_builders
 from app.services.agent_task_context_registry import (

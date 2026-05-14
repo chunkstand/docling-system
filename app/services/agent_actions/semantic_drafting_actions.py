@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.db.models import AgentTask, AgentTaskSideEffectLevel
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_semantic_generation import (
     DraftSemanticGroundedDocumentTaskInput,
     DraftSemanticGroundedDocumentTaskOutput,
     PrepareSemanticGenerationBriefTaskInput,

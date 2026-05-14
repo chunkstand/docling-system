@@ -18,11 +18,11 @@ from app.db.models import (
     SemanticGovernanceEvent,
     SemanticGovernanceEventKind,
 )
-from app.schemas.agent_tasks import (
-    AgentTaskCreateRequest,
+from app.schemas.agent_task_claim_support import (
     ClaimSupportPolicyChangeImpactReplayResponse,
     ClaimSupportPolicyChangeImpactReplayTaskResponse,
 )
+from app.schemas.agent_task_core import AgentTaskCreateRequest
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.claim_support_policy_impact_views import (
     REPLAY_OPEN_STATUSES,

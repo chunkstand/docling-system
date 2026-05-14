@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.db.models import AgentTaskAttempt
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_core import (
     AgentTaskCostSummaryResponse,
     AgentTaskCostTrendPointResponse,
     AgentTaskCostTrendResponse,

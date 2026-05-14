@@ -28,20 +28,20 @@ CLI Command Dispatch closeout checkpoint:
 `4a79a82`
 Agent Task Schema Aggregation Milestone 0 checkpoint:
 `5436f6f`
-Agent Task Schema Aggregation Milestone 1 implementation:
-closeout commit pending
+Agent Task Schema Aggregation local closeout:
+commit pending routing alignment
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
 remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
 Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
-Active local follow-up owner case: `IC-24F3558D6091` /
-`app/schemas/agent_tasks.py`
+Active local follow-up owner case: `IC-D9A84C20546B` /
+`tests/unit/test_agent_tasks_api.py`
 Latest planned bounded implementation brief:
-`docs/agent_task_schema_aggregation_boundary_milestone_plan.md`
+`docs/oversized_test_hotspots_boundary_milestone_plan.md`
 Latest resolved bounded implementation brief:
-`docs/cli_command_dispatch_boundary_milestone_plan.md`
+`docs/agent_task_schema_aggregation_boundary_milestone_plan.md`
 The prior search execution persistence brief remains resolved locally through
 Milestone 1 closeout commit `f55b474`, and the broader search owner case
 `IC-1D03DBFE8492` is now reduced after the orchestration split even though
@@ -161,26 +161,22 @@ owner case remains reduced/open under `IC-9812A0B138D9`. The strict hotspot
 gate stays green at `changed_hotspots=2`, `blocked=0`, `allowed=3`,
 `exceptions=0`.
 
-Active stacked follow-on after the CLI packet:
-`docs/agent_task_schema_aggregation_boundary_milestone_plan.md`. Its
-Milestone 0 is now closed locally as `5436f6f`, Milestone 1 is implemented and
-verified locally in the working tree, and Milestone 2 is now the next active
-import-fan-in reduction slice for `IC-24F3558D6091` /
-`app/schemas/agent_tasks.py`.
+Resolved stacked follow-on after the CLI packet:
+`docs/agent_task_schema_aggregation_boundary_milestone_plan.md`. The packet is
+now resolved locally in the current closeout window: `app/schemas/agent_tasks.py`
+is reduced to a `38` line compatibility facade, production `app/` import
+fan-in is now `0`, local test and integration import fan-in is now `30`, and
+the refreshed architecture-quality evidence measures the facade at
+`risk_score=363.75`, `line_count=38`, `changes_90d=58`,
+`hygiene_finding_count=0`. The broader owner case remains reduced/open under
+`IC-24F3558D6091` because the architecture-quality summary still routes the
+facade even though the scoped aggregation issue is closed.
 
-Queued stacked follow-on after the agent-task schema packet:
-`docs/oversized_test_hotspots_boundary_milestone_plan.md`. Its Milestone 0
-assumes the claim-support, evaluations, evidence provenance-export, semantics,
-CLI, and agent-task schema closeouts are all complete and committed first,
-then refreshes live system state before activating the dedicated decomposition
-packet for the remaining oversized test hotspots in
-`tests/db_model_contract.py`,
-`tests/unit/test_agent_task_context.py`,
-`tests/integration/test_retrieval_learning_ledger.py`,
-`tests/integration/test_technical_report_harness_roundtrip.py`,
-`tests/unit/test_evaluation_service.py`,
-`tests/unit/test_search_service.py`, and
-`tests/unit/test_agent_tasks_api.py`.
+Active stacked follow-on after the agent-task schema packet:
+`docs/oversized_test_hotspots_boundary_milestone_plan.md`. Its Milestone 0 is
+now the next active freshness refresh, and the first routed residual owner
+case is `IC-D9A84C20546B` / `tests/unit/test_agent_tasks_api.py` because the
+live architecture probe still names that file as the top hotspot.
 
 Queued stacked follow-on after the oversized-test packet:
 `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`. Its Milestone 0
@@ -514,39 +510,49 @@ Verification:
 - `uv run docling-system-improvement-case-summary`: `case_count=29`, `status_counts.open=21`, `status_counts.deployed=7`, `status_counts.measured=1`, `oldest_open_case_id=IC-9812A0B138D9`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`: top hotspot `tests/unit/test_agent_tasks_api.py`; `app.schemas.agent_tasks` imported by `92` local modules; Python cycle components=`5`
 
-## Agent Task Schema Aggregation Boundary Milestone 1 Working-Tree Progress
+## Agent Task Schema Aggregation Boundary Local Closeout
 
-Milestone 1 is implemented and verified locally in the working tree. It is the
-schema-facade governance-ratchet slice for `IC-24F3558D6091`, and Milestone 2
-is now the next active import-fan-in reduction slice.
+Milestones 1 through 4 are now resolved locally in the current closeout
+window for `IC-24F3558D6091`. The scoped schema-aggregation knot is closed,
+the broader owner case remains reduced/open, and the next routed packet is the
+oversized test hotspot decomposition follow-on.
 
 Results:
 
-- added a dedicated hotspot-prevention policy entry for
-  `app/schemas/agent_tasks.py` with the existing seven
-  `app/schemas/agent_task_*.py` files as the preferred owner modules
-- blocked new schema definitions, broad direct re-export batches, and export
-  sinks in the facade while allowing only compact compatibility-registry
-  declarations and explicit schema alias forwarders
-- updated `config/hygiene_policy.yaml` so `app/schemas/agent_tasks.py` now
-  routes immediately through `owner_case_id: IC-24F3558D6091`
-- expanded `app/hotspot_prevention_classifier.py` to `1011` lines so the
-  analyzer recognizes the new schema-facade compatibility pattern, and
-  refreshed the classifier follow-on case `IC-6C1B516A3F92` in
-  `config/improvement_cases.yaml` so that ratchet increase remains explicit
-- extended `tests/unit/test_hotspot_prevention.py` to `35` focused assertions,
-  covering positive schema-registry and alias-forwarder cases plus controlled
-  violations for new schema classes, broad re-export batches, and export sinks
+- migrated every production `app/` importer named in the packet off
+  `app.schemas.agent_tasks`, dropping production `app/` import fan-in to `0`
+- reduced `app/schemas/agent_tasks.py` to a `38` line compatibility facade
+  backed by owner-module export contracts while preserving the existing
+  `221`-name public surface
+- added `tests/unit/test_agent_task_schema_facade_contract.py` so the export
+  union, identity forwarding, compact facade shape, no-sink rule, production
+  import ban, and controlled violation fixtures are all executable
+- tightened `config/hygiene_policy.yaml` to the exact verified facade ceiling
+  and refreshed `IC-6C1B516A3F92` so the classifier's `1024`-line residual
+  growth remains explicit rather than becoming a hidden hygiene regression
+- refreshed `IC-24F3558D6091` to `risk_score=363.75`, `line_count=38`,
+  `changes_90d=58`, `hygiene_finding_count=0`; the case remains reduced/open
+  because the architecture-quality summary still routes the facade and `30`
+  local test and integration modules still import it
+- rerouted the next active bounded implementation brief to
+  `docs/oversized_test_hotspots_boundary_milestone_plan.md`, with the first
+  routed owner case already named as `IC-D9A84C20546B` /
+  `tests/unit/test_agent_tasks_api.py`
 
 Verification:
 
 - `git diff --check`: pass
-- `uv run ruff check app/hotspot_prevention_classifier.py tests/unit/test_hotspot_prevention.py`: pass
-- `uv run pytest -q tests/unit/test_hotspot_prevention.py`: `35 passed`
-- `uv run docling-system-hotspot-prevention-check --strict`: `known_hotspots=12`, `changed_hotspots=0`, `blocked=0`, `allowed=0`, `exceptions=0`
+- `uv run ruff check app/schemas/agent_tasks.py app/schemas/agent_task_*.py app/api/routers/agent_tasks.py app/api/routers/agent_task_analytics.py app/api/routers/claim_support_policy_impacts.py app/agent_task_cli.py app/cli.py app/services/agent_tasks.py app/services/agent_task_*.py app/services/agent_actions/*.py app/services/capabilities/agent_orchestration*.py app/services/technical_report*.py app/services/semantic_generation.py app/services/search_harness_optimization.py app/services/claim_support_policy_impacts.py app/services/eval_workbench.py tests/unit/test_agent_task_schema_facade_contract.py tests/unit/test_agent_tasks.py tests/unit/test_agent_tasks_api.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py tests/unit/test_cli_agent_tasks.py tests/unit/test_hotspot_prevention.py`: pass
+- `uv run pytest -q tests/unit/test_agent_task_schema_facade_contract.py tests/unit/test_agent_tasks.py tests/unit/test_agent_tasks_api.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py tests/unit/test_cli_agent_tasks.py tests/unit/test_hotspot_prevention.py`: `161 passed`
+- `uv run docling-system-hotspot-prevention-check --strict`: `known_hotspots=12`, `changed_hotspots=3`, `added_lines=36`, `deleted_lines=459`, `blocked=0`, `allowed=31`, `exceptions=0`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
 - `uv run docling-system-improvement-case-validate`: `valid=true`, `issue_count=0`
 - `uv run docling-system-improvement-case-summary`: `case_count=29`, `status_counts.open=21`, `status_counts.deployed=7`, `status_counts.measured=1`, `oldest_open_case_id=IC-9812A0B138D9`
+- `uv run docling-system-capability-contracts`: `valid=true`, `facade_count=6`, `function_count=110`
+- `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
+- `uv run docling-system-architecture-quality-report --summary`: `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`: top hotspot remains `tests/unit/test_agent_tasks_api.py`; `app.schemas.agent_tasks` now routes `30` local imports; Python cycle components=`5`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1952 passed`
 
 ## Evidence Provenance Exports Boundary Local Closeout
 

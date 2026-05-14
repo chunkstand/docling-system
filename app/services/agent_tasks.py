@@ -20,7 +20,7 @@ from app.db.models import (
     AgentTaskOutcome,
     AgentTaskStatus,
 )
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_core import (
     AgentTaskActionDefinitionResponse,
     AgentTaskApprovalRequest,
     AgentTaskArtifactResponse,

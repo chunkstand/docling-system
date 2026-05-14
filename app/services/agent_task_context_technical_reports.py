@@ -7,17 +7,14 @@ from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
 from app.db.models import AgentTask, AgentTaskVerification
-from app.schemas.agent_tasks import (
+from app.schemas import agent_task_core as task_core
+from app.schemas.agent_task_claim_support import EvaluateClaimSupportJudgeTaskOutput
+from app.schemas.agent_task_reports import (
     BuildReportEvidenceCardsTaskOutput,
-    ContextFreshnessStatus,
-    ContextRef,
     DraftTechnicalReportTaskOutput,
-    EvaluateClaimSupportJudgeTaskOutput,
     EvaluateDocumentGenerationContextPackTaskOutput,
     PlanTechnicalReportTaskOutput,
     PrepareReportAgentHarnessTaskOutput,
-    TaskContextEnvelope,
-    TaskContextSummary,
     VerifyTechnicalReportTaskOutput,
 )
 from app.services.agent_task_context_registry import (
@@ -54,10 +51,10 @@ def _build_plan_technical_report_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = PlanTechnicalReportTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
     artifact_ref = artifact_context_ref(
         session,
         task=task,
@@ -69,7 +66,7 @@ def _build_plan_technical_report_context(
     )
     if artifact_ref is not None:
         refs.append(artifact_ref)
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Planned technical report {output.plan.title!r} with "
             f"{len(output.plan.sections)} section(s)."
@@ -85,7 +82,7 @@ def _build_plan_technical_report_context(
             "expected_graph_edge_count": len(output.plan.expected_graph_edge_ids),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -94,7 +91,7 @@ def _build_plan_technical_report_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -107,7 +104,7 @@ def _build_build_report_evidence_cards_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = BuildReportEvidenceCardsTaskOutput.model_validate(payload)
     now = utcnow()
     plan_context = resolve_required_dependency_task_output_context(
@@ -126,7 +123,7 @@ def _build_build_report_evidence_cards_context(
             "before evidence cards can be built."
         ),
     )
-    refs: list[ContextRef] = [
+    refs: list[task_core.ContextRef] = [
         task_output_context_ref(
             ref_key="plan_task_output",
             summary="Typed technical report plan consumed by this evidence-card task.",
@@ -145,7 +142,7 @@ def _build_build_report_evidence_cards_context(
     )
     if artifact_ref is not None:
         refs.append(artifact_ref)
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Built {len(output.evidence_bundle.evidence_cards)} evidence card(s) "
             f"for {output.evidence_bundle.plan.title!r}."
@@ -161,7 +158,7 @@ def _build_build_report_evidence_cards_context(
             "graph_edge_count": len(output.evidence_bundle.graph_context),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -170,7 +167,7 @@ def _build_build_report_evidence_cards_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -183,7 +180,7 @@ def _build_prepare_report_agent_harness_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = PrepareReportAgentHarnessTaskOutput.model_validate(payload)
     now = utcnow()
     evidence_task_id = UUID(str(output.harness.workflow_state["evidence_task_id"]))
@@ -204,7 +201,7 @@ def _build_prepare_report_agent_harness_context(
             "before harness packaging."
         ),
     )
-    refs: list[ContextRef] = [
+    refs: list[task_core.ContextRef] = [
         task_output_context_ref(
             ref_key="evidence_cards_task_output",
             summary="Typed evidence-card bundle consumed by this report harness.",
@@ -223,7 +220,7 @@ def _build_prepare_report_agent_harness_context(
     )
     if artifact_ref is not None:
         refs.append(artifact_ref)
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Prepared report wake-up harness for {output.harness.report_request['title']!r}."
         ),
@@ -243,7 +240,7 @@ def _build_prepare_report_agent_harness_context(
             "claim_contract_count": len(output.harness.claim_contract),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -252,7 +249,7 @@ def _build_prepare_report_agent_harness_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -265,7 +262,7 @@ def _build_evaluate_document_generation_context_pack_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = EvaluateDocumentGenerationContextPackTaskOutput.model_validate(payload)
     now = utcnow()
     harness_context = resolve_required_dependency_task_output_context(
@@ -283,7 +280,7 @@ def _build_evaluate_document_generation_context_pack_context(
             "Report harness must be rerun after the context-pack migration before evaluation."
         ),
     )
-    refs: list[ContextRef] = [
+    refs: list[task_core.ContextRef] = [
         task_output_context_ref(
             ref_key="report_agent_harness_task_output",
             summary="Typed report harness consumed by this context-pack evaluation.",
@@ -308,7 +305,7 @@ def _build_evaluate_document_generation_context_pack_context(
     verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
     if verification_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="verification_record",
                 ref_kind="verification_record",
                 summary="Verifier record persisted for the context-pack quality gate.",
@@ -317,7 +314,7 @@ def _build_evaluate_document_generation_context_pack_context(
                 observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
     artifact_ref = artifact_context_ref(
@@ -333,7 +330,7 @@ def _build_evaluate_document_generation_context_pack_context(
         refs.append(artifact_ref)
 
     gate_outcome = output.evaluation.gate_outcome
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Context pack evaluation {gate_outcome} with "
             f"{output.evaluation.summary.get('check_count', 0)} check(s)."
@@ -365,7 +362,7 @@ def _build_evaluate_document_generation_context_pack_context(
             "context_pack_sha256": output.evaluation.context_pack_sha256,
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -374,7 +371,7 @@ def _build_evaluate_document_generation_context_pack_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -387,7 +384,7 @@ def _build_draft_technical_report_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = DraftTechnicalReportTaskOutput.model_validate(payload)
     now = utcnow()
     harness_context = resolve_required_dependency_task_output_context(
@@ -405,7 +402,7 @@ def _build_draft_technical_report_context(
             "Report agent harness must be rerun after the context migration before drafting."
         ),
     )
-    refs: list[ContextRef] = [
+    refs: list[task_core.ContextRef] = [
         task_output_context_ref(
             ref_key="report_agent_harness_task_output",
             summary="Typed report wake-up harness consumed by this draft task.",
@@ -424,7 +421,7 @@ def _build_draft_technical_report_context(
     )
     if artifact_ref is not None:
         refs.append(artifact_ref)
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Drafted technical report {output.draft.title!r} with "
             f"{len(output.draft.claims)} claim(s)."
@@ -441,7 +438,7 @@ def _build_draft_technical_report_context(
             "generator_mode": output.draft.generator_mode,
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -450,7 +447,7 @@ def _build_draft_technical_report_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -463,7 +460,7 @@ def _build_verify_technical_report_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = VerifyTechnicalReportTaskOutput.model_validate(payload)
     now = utcnow()
     draft_context = resolve_required_dependency_task_output_context(
@@ -482,7 +479,7 @@ def _build_verify_technical_report_context(
             "Technical report draft must be rerun after the context migration before verification."
         ),
     )
-    refs: list[ContextRef] = [
+    refs: list[task_core.ContextRef] = [
         task_output_context_ref(
             ref_key="technical_report_draft_task_output",
             summary="Typed technical report draft consumed by this verification task.",
@@ -493,7 +490,7 @@ def _build_verify_technical_report_context(
     verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
     if verification_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="verification_record",
                 ref_kind="verification_record",
                 summary="Verifier record persisted for the technical report gate.",
@@ -502,7 +499,7 @@ def _build_verify_technical_report_context(
                 observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
     artifact_ref = artifact_context_ref(
@@ -516,7 +513,7 @@ def _build_verify_technical_report_context(
     )
     if artifact_ref is not None:
         refs.append(artifact_ref)
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Verified technical report {output.draft.title!r} with "
             f"{output.summary.get('claim_count', 0)} claim(s)."
@@ -541,7 +538,7 @@ def _build_verify_technical_report_context(
             "context_blocker_count": output.summary.get("context_blocker_count"),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -550,7 +547,7 @@ def _build_verify_technical_report_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -563,7 +560,7 @@ def _build_evaluate_claim_support_judge_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = EvaluateClaimSupportJudgeTaskOutput.model_validate(payload)
     now = utcnow()
     gate_outcome = str(output.summary.get("gate_outcome") or "unknown")
@@ -580,7 +577,7 @@ def _build_evaluate_claim_support_judge_context(
     )
     if artifact_ref is not None:
         refs.append(artifact_ref)
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Claim support judge evaluation {gate_outcome} with "
             f"{output.summary.get('case_count', 0)} replay case(s)."
@@ -620,7 +617,7 @@ def _build_evaluate_claim_support_judge_context(
             "judge_version": output.judge_version,
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -629,7 +626,7 @@ def _build_evaluate_claim_support_judge_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),

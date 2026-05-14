@@ -10,7 +10,7 @@ from app.api.errors import api_error
 from app.core.hashes import payload_sha256
 from app.core.time import utcnow
 from app.db.models import EvalFailureCase, EvalObservation
-from app.schemas.agent_tasks import AgentTaskCreateRequest
+from app.schemas.agent_task_core import AgentTaskCreateRequest
 from app.schemas.eval_workbench import (
     EvalEvidenceRef,
     EvalFailureCaseInspectionResponse,

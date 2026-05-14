@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.db.models import (
     AgentTask,
 )
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_reports import (
     DraftTechnicalReportTaskInput,
     DraftTechnicalReportTaskOutput,
     PrepareReportAgentHarnessTaskOutput,

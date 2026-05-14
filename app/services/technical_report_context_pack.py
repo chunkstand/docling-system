@@ -6,8 +6,8 @@ from uuid import UUID
 from app.core.coercion import unique_strings as _unique_strings
 from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.time import utcnow
-from app.schemas.agent_tasks import (
-    ContextFreshnessStatus,
+from app.schemas.agent_task_core import ContextFreshnessStatus
+from app.schemas.agent_task_reports import (
     DocumentGenerationContextPackEvaluationPayload,
     DocumentGenerationContextPackPayload,
     ReportAgentHarnessPayload,

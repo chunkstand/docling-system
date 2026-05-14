@@ -3,25 +3,17 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.db.models import AgentTask, AgentTaskSideEffectLevel
-from app.schemas.agent_tasks import (
-    ApplyGraphPromotionsTaskInput,
-    ApplyGraphPromotionsTaskOutput,
+from app.schemas import agent_task_semantic_graph as graph_schemas
+from app.schemas.agent_task_semantics import (
     ApplyOntologyExtensionTaskInput,
     ApplyOntologyExtensionTaskOutput,
     ApplySemanticRegistryUpdateTaskInput,
     ApplySemanticRegistryUpdateTaskOutput,
-    BuildShadowSemanticGraphTaskOutput,
-    DiscoverSemanticBootstrapCandidatesTaskOutput,
-    DraftGraphPromotionsTaskInput,
-    DraftGraphPromotionsTaskOutput,
     DraftOntologyExtensionTaskInput,
     DraftOntologyExtensionTaskOutput,
     DraftSemanticRegistryUpdateTaskInput,
     DraftSemanticRegistryUpdateTaskOutput,
-    TriageSemanticGraphDisagreementsTaskOutput,
     TriageSemanticPassTaskOutput,
-    VerifyDraftGraphPromotionsTaskInput,
-    VerifyDraftGraphPromotionsTaskOutput,
     VerifyDraftOntologyExtensionTaskInput,
     VerifyDraftOntologyExtensionTaskOutput,
     VerifyDraftSemanticRegistryUpdateTaskInput,
@@ -126,7 +118,7 @@ def _draft_semantic_registry_update_executor(
                 "migration before drafting."
             ),
         )
-        source_output = DiscoverSemanticBootstrapCandidatesTaskOutput.model_validate(
+        source_output = graph_schemas.DiscoverSemanticBootstrapCandidatesTaskOutput.model_validate(
             source_context.output
         )
         draft_payload = draft_semantic_registry_update_from_bootstrap_report(
@@ -226,8 +218,10 @@ def _draft_ontology_extension_executor(
                 "before ontology drafting."
             ),
         )
-        bootstrap_output = DiscoverSemanticBootstrapCandidatesTaskOutput.model_validate(
-            source_context.output
+        bootstrap_output = (
+            graph_schemas.DiscoverSemanticBootstrapCandidatesTaskOutput.model_validate(
+                source_context.output
+            )
         )
         draft_payload = draft_ontology_extension_from_bootstrap_report(
             session,
@@ -536,7 +530,7 @@ def _apply_ontology_extension_executor(
 def _draft_graph_promotions_executor(
     session: Session,
     task: AgentTask,
-    payload: DraftGraphPromotionsTaskInput,
+    payload: graph_schemas.DraftGraphPromotionsTaskInput,
 ) -> dict:
     source_task = session.get(AgentTask, payload.source_task_id)
     if source_task is None:
@@ -559,7 +553,9 @@ def _draft_graph_promotions_executor(
                 "before drafting."
             ),
         )
-        source_output = BuildShadowSemanticGraphTaskOutput.model_validate(source_context.output)
+        source_output = graph_schemas.BuildShadowSemanticGraphTaskOutput.model_validate(
+            source_context.output
+        )
         draft_payload = draft_graph_promotions(
             session,
             source_payload=source_output.shadow_graph.model_dump(mode="json"),
@@ -588,7 +584,7 @@ def _draft_graph_promotions_executor(
                 "before drafting."
             ),
         )
-        source_output = TriageSemanticGraphDisagreementsTaskOutput.model_validate(
+        source_output = graph_schemas.TriageSemanticGraphDisagreementsTaskOutput.model_validate(
             source_context.output
         )
         draft_payload = draft_graph_promotions(
@@ -624,7 +620,7 @@ def _draft_graph_promotions_executor(
 def _verify_draft_graph_promotions_executor(
     session: Session,
     task: AgentTask,
-    payload: VerifyDraftGraphPromotionsTaskInput,
+    payload: graph_schemas.VerifyDraftGraphPromotionsTaskInput,
 ) -> dict:
     target_context = resolve_required_dependency_task_output_context(
         session,
@@ -643,7 +639,9 @@ def _verify_draft_graph_promotions_executor(
             "before verification."
         ),
     )
-    draft_output = DraftGraphPromotionsTaskOutput.model_validate(target_context.output)
+    draft_output = graph_schemas.DraftGraphPromotionsTaskOutput.model_validate(
+        target_context.output
+    )
     summary, metrics, reasons, outcome, success_metrics = verify_draft_graph_promotions(
         session,
         draft_output.draft.model_dump(mode="json"),
@@ -688,7 +686,7 @@ def _verify_draft_graph_promotions_executor(
 def _apply_graph_promotions_executor(
     session: Session,
     task: AgentTask,
-    payload: ApplyGraphPromotionsTaskInput,
+    payload: graph_schemas.ApplyGraphPromotionsTaskInput,
 ) -> dict:
     draft_context = resolve_required_dependency_task_output_context(
         session,
@@ -723,8 +721,8 @@ def _apply_graph_promotions_executor(
             "migration before apply."
         ),
     )
-    draft_output = DraftGraphPromotionsTaskOutput.model_validate(draft_context.output)
-    verification_output = VerifyDraftGraphPromotionsTaskOutput.model_validate(
+    draft_output = graph_schemas.DraftGraphPromotionsTaskOutput.model_validate(draft_context.output)
+    verification_output = graph_schemas.VerifyDraftGraphPromotionsTaskOutput.model_validate(
         verification_context.output
     )
     if verification_output.verification.outcome != "passed":
@@ -809,10 +807,10 @@ def build_semantic_governance_action_definitions() -> dict[str, AgentTaskActionD
                 "Draft approved cross-document graph edges without mutating live graph "
                 "memory."
             ),
-            payload_model=DraftGraphPromotionsTaskInput,
+            payload_model=graph_schemas.DraftGraphPromotionsTaskInput,
             executor=_draft_graph_promotions_executor,
             side_effect_level=AgentTaskSideEffectLevel.DRAFT_CHANGE.value,
-            output_model=DraftGraphPromotionsTaskOutput,
+            output_model=graph_schemas.DraftGraphPromotionsTaskOutput,
             output_schema_name="draft_graph_promotions_output",
             output_schema_version="1.0",
             input_example={
@@ -870,9 +868,9 @@ def build_semantic_governance_action_definitions() -> dict[str, AgentTaskActionD
                 "Verify a graph promotion draft against current ontology and "
                 "traceability constraints."
             ),
-            payload_model=VerifyDraftGraphPromotionsTaskInput,
+            payload_model=graph_schemas.VerifyDraftGraphPromotionsTaskInput,
             executor=_verify_draft_graph_promotions_executor,
-            output_model=VerifyDraftGraphPromotionsTaskOutput,
+            output_model=graph_schemas.VerifyDraftGraphPromotionsTaskOutput,
             output_schema_name="verify_draft_graph_promotions_output",
             output_schema_version="1.0",
             input_example={
@@ -928,11 +926,11 @@ def build_semantic_governance_action_definitions() -> dict[str, AgentTaskActionD
             description=(
                 "Apply a verified semantic graph promotion draft as the new active graph snapshot."
             ),
-            payload_model=ApplyGraphPromotionsTaskInput,
+            payload_model=graph_schemas.ApplyGraphPromotionsTaskInput,
             executor=_apply_graph_promotions_executor,
             side_effect_level=AgentTaskSideEffectLevel.PROMOTABLE.value,
             requires_approval=True,
-            output_model=ApplyGraphPromotionsTaskOutput,
+            output_model=graph_schemas.ApplyGraphPromotionsTaskOutput,
             output_schema_name="apply_graph_promotions_output",
             output_schema_version="1.0",
             input_example={

@@ -276,7 +276,9 @@ def classify_agent_task_schema_facade_addition(
     line: ChangedLine,
     hunk_lines: tuple[str, ...],
 ) -> ClassifiedLine | None:
-    if is_agent_task_schema_registry_hunk(hunk_lines):
+    if is_agent_task_schema_registry_hunk(hunk_lines) or is_agent_task_schema_registry_line(
+        stripped
+    ):
         return ClassifiedLine(
             line=line,
             status="allowed",
@@ -862,36 +864,47 @@ def is_agent_task_schema_alias_line(stripped: str) -> bool:
             stripped,
         )
     )
+
+
+def is_agent_task_schema_registry_line(stripped: str) -> bool:
+    return bool(
+        stripped in {"}", "},"}
+        or stripped == "from typing import Any as _Any"
+        or re.match(r"_[A-Z][A-Z0-9_]*\s*=\s*[\[{(]$", stripped)
+        or re.match(r"_[A-Z][A-Z0-9_]*:\s*tuple\[object,\s*\.\.\.\]\s*=\s*[\[(]$", stripped)
+        or re.match(r"_[A-Za-z0-9_]+,?$", stripped)
+        or re.match(r"__all__\s*=\s*[\[(].*$", stripped)
+        or re.match(r"__all__\s*=\s*sorted\(_EXPORT_REGISTRY\)$", stripped)
+        or re.match(r"\*_[A-Za-z0-9_]+\.__all__,?$", stripped)
+        or ("for module in _" in stripped and "module.__all__" in stripped)
+        or "for name in module.__all__" in stripped
+        or (
+            "for module in _OWNER_MODULES" in stripped
+            and 'getattr(module, "__all__", ())' in stripped
+        )
+        or stripped == "globals().update("
+        or ("globals()[name]" in stripped and "getattr(module, name)" in stripped)
+        or re.match(r"def __getattr__\(name: str\) -> _[A-Za-z0-9_]+:$", stripped)
+        or stripped == "module = _EXPORT_REGISTRY.get(name)"
+        or stripped == "if module is None:"
+        or stripped.startswith("raise AttributeError(")
+        or stripped == "value = getattr(module, name)"
+        or stripped == "globals()[name] = value"
+        or stripped == "return value"
+        or stripped == "def __dir__() -> list[str]:"
+        or stripped == "return sorted(set(globals()) | set(__all__))"
+    )
+
+
 def is_agent_task_schema_registry_hunk(lines: tuple[str, ...]) -> bool:
     significant = [raw.strip() for raw in lines if not is_comment_or_blank(raw)]
     if not significant:
         return False
     has_registry_marker = False
     for stripped in significant:
-        if stripped in {"(", ")", "[", "]", "),", "],"}:
+        if stripped in {"(", ")", "{", "}", "[", "]", "),", "},", "],"}:
             continue
-        if re.match(r"_[A-Z][A-Z0-9_]*\s*=\s*[\[(]$", stripped):
-            has_registry_marker = True
-            continue
-        if re.match(r"_[A-Za-z0-9_]+,?$", stripped):
-            has_registry_marker = True
-            continue
-        if re.match(r"__all__\s*=\s*[\[(].*$", stripped):
-            has_registry_marker = True
-            continue
-        if re.match(r"\*_[A-Za-z0-9_]+\.__all__,?$", stripped):
-            has_registry_marker = True
-            continue
-        if "for module in _" in stripped and "module.__all__" in stripped:
-            has_registry_marker = True
-            continue
-        if "for name in module.__all__" in stripped:
-            has_registry_marker = True
-            continue
-        if stripped == "globals().update(":
-            has_registry_marker = True
-            continue
-        if "globals()[name]" in stripped and "getattr(module, name)" in stripped:
+        if is_agent_task_schema_registry_line(stripped):
             has_registry_marker = True
             continue
         return False

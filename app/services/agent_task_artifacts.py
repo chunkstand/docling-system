@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.api.errors import api_error
 from app.core.time import utcnow
 from app.db.models import AgentTask, AgentTaskArtifact
-from app.schemas.agent_tasks import AgentTaskArtifactResponse
+from app.schemas.agent_task_core import AgentTaskArtifactResponse
 from app.services.storage import StorageService
 
 

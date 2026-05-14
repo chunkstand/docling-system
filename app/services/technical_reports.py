@@ -8,9 +8,11 @@ from app.core.coercion import unique_uuids as _unique_uuids
 from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.text import collapse_whitespace
 from app.core.time import utcnow
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_core import (
     ContextFreshnessStatus,
     ContextRef,
+)
+from app.schemas.agent_task_reports import (
     ReportAgentHarnessPayload,
     TechnicalReportDraftPayload,
     TechnicalReportEvidenceBundlePayload,

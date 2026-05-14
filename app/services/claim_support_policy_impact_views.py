@@ -20,7 +20,7 @@ from app.db.models import (
     SemanticGovernanceEvent,
     SemanticGovernanceEventKind,
 )
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_claim_support import (
     ClaimSupportPolicyChangeImpactAlertEventRef,
     ClaimSupportPolicyChangeImpactAlertItemResponse,
     ClaimSupportPolicyChangeImpactAlertResponse,

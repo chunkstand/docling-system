@@ -1,58 +1,66 @@
 # Agent Task Schema Aggregation Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-14 UTC
-Status: Milestone 1 is implemented and verified locally in the working tree
-after the Milestone 0 refresh closeout `5436f6f`, the claim-support closeout
-`3d7d090`, the evaluations closeout `1159297`, the evidence
-provenance-export closeout `1aa8378`, the semantics closeout `a2eb27e`, and
-the CLI closeout `4a79a82`; the Milestone 1 closeout commit is still pending,
-so Milestone 2 is now the next active import-fan-in reduction slice
-Owner context: active follow-on under `IC-24F3558D6091` /
+Status: resolved locally in the current closeout window after the Milestone 0
+refresh closeout `5436f6f`; the scoped aggregation issue is closed, the
+broader owner case remains reduced/open from refreshed architecture evidence,
+and the next bounded follow-on now routes to
+`docs/oversized_test_hotspots_boundary_milestone_plan.md`
+Owner context: closeout under `IC-24F3558D6091` /
 `app/schemas/agent_tasks.py`. The prior claim-support packet completed first,
 the evaluations packet completed second, the evidence provenance-export packet
 completed third, the semantics packet completed fourth, the CLI packet
 completed fifth, Milestone 0 refreshed the live system state in commit
-`5436f6f`, and the current Milestone 1 working tree now governs the first
-schema-facade gate for `app/schemas/agent_tasks.py`.
+`5436f6f`, and Milestones 1 through 4 now close the schema-facade packet in
+the same local implementation window.
 
-## Local Progress
+## Local Closeout
 
-Milestone 0 is resolved locally through closeout commit `5436f6f`. Milestone 1
-is implemented and verified locally in the working tree, and Milestone 2 is
-now the next active schema-facade slice.
+Milestones 0 through 4 are resolved locally in the current closeout window.
+The scoped schema-aggregation knot is closed: `app/schemas/agent_tasks.py` is
+now a compact compatibility facade, production `app/` code no longer imports
+through it, and the broader owner case is explicitly reduced rather than
+silently left stale.
 
-Local Milestone 1 working-tree snapshot:
+Local closeout results:
 
-- added a dedicated hotspot-prevention policy entry for
-  `app/schemas/agent_tasks.py`, targeting the existing seven
-  `app/schemas/agent_task_*.py` owner modules while blocking new schema
-  definitions, broad re-export batches, and new export-sink surfaces
-- added the first schema-facade allowances: compact compatibility-registry
-  declarations and explicit schema alias forwarders are now allowed, so the
-  future facade compaction can compose exports from owner-module contracts
-  without reopening broad import growth
-- updated `config/hygiene_policy.yaml` so `app/schemas/agent_tasks.py` now
-  routes immediately through `owner_case_id: IC-24F3558D6091`, closing the
-  Milestone 0-era hygiene ownership gap before import rewiring begins
-- expanded `app/hotspot_prevention_classifier.py` to `1011` lines so the
-  analyzer now recognizes the schema-facade compatibility pattern and blocks
-  direct schema-body, broad re-export, and export-sink regrowth; the classifier
-  follow-on case `IC-6C1B516A3F92` was refreshed in the same working tree so
-  the ratchet increase remains explicit rather than hidden
-- extended `tests/unit/test_hotspot_prevention.py` to `35` focused assertions,
-  including controlled violations for new schema definitions, broad re-export
-  batches, and export sinks plus positive cases for compact registry
-  composition and explicit alias forwarders
+- migrated every production `app/` importer named in this packet off
+  `app.schemas.agent_tasks`; current production `app/` import fan-in is `0`
+- compacted `app/schemas/agent_tasks.py` to `38` lines while preserving the
+  existing `221`-name public contract through a registry-backed compatibility
+  facade with `__getattr__` and `__dir__`, and with no local schema
+  definitions
+- added `tests/unit/test_agent_task_schema_facade_contract.py` so the facade
+  shape, owner-module export union, object identity forwarding, no-sink rule,
+  production import ban, and controlled violation fixtures are all executable
+- tightened `config/hygiene_policy.yaml` to the verified `38`-line facade
+  ceiling and refreshed the classifier follow-on case so
+  `app/hotspot_prevention_classifier.py` remains explicitly owned at `1024`
+  lines rather than becoming an untracked hygiene regression
+- refreshed `IC-24F3558D6091` from live architecture evidence at
+  `risk_score=363.75`, `line_count=38`, `changes_90d=58`, and
+  `hygiene_finding_count=0`; the broader owner case remains reduced/open
+  because the architecture-quality summary still routes the facade and
+  `30` local test and integration modules still import it
+- rerouted the next active bounded implementation brief to
+  `docs/oversized_test_hotspots_boundary_milestone_plan.md`, with the top
+  residual owner case already named as `IC-D9A84C20546B` /
+  `tests/unit/test_agent_tasks_api.py`
 
-Local Milestone 1 working-tree verification:
+Local closeout verification:
 
 - `git diff --check`: pass
-- `uv run ruff check app/hotspot_prevention_classifier.py tests/unit/test_hotspot_prevention.py`: pass
-- `uv run pytest -q tests/unit/test_hotspot_prevention.py`: `35 passed`
-- `uv run docling-system-hotspot-prevention-check --strict`: `known_hotspots=12`, `changed_hotspots=0`, `blocked=0`, `allowed=0`, `exceptions=0`
+- `uv run ruff check app/schemas/agent_tasks.py app/schemas/agent_task_*.py app/api/routers/agent_tasks.py app/api/routers/agent_task_analytics.py app/api/routers/claim_support_policy_impacts.py app/agent_task_cli.py app/cli.py app/services/agent_tasks.py app/services/agent_task_*.py app/services/agent_actions/*.py app/services/capabilities/agent_orchestration*.py app/services/technical_report*.py app/services/semantic_generation.py app/services/search_harness_optimization.py app/services/claim_support_policy_impacts.py app/services/eval_workbench.py tests/unit/test_agent_task_schema_facade_contract.py tests/unit/test_agent_tasks.py tests/unit/test_agent_tasks_api.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py tests/unit/test_cli_agent_tasks.py tests/unit/test_hotspot_prevention.py`: pass
+- `uv run pytest -q tests/unit/test_agent_task_schema_facade_contract.py tests/unit/test_agent_tasks.py tests/unit/test_agent_tasks_api.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py tests/unit/test_cli_agent_tasks.py tests/unit/test_hotspot_prevention.py`: `161 passed`
+- `uv run docling-system-hotspot-prevention-check --strict`: `known_hotspots=12`, `changed_hotspots=3`, `added_lines=36`, `deleted_lines=459`, `blocked=0`, `allowed=31`, `exceptions=0`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
 - `uv run docling-system-improvement-case-validate`: `valid=true`, `issue_count=0`
 - `uv run docling-system-improvement-case-summary`: `case_count=29`, `status_counts.open=21`, `status_counts.deployed=7`, `status_counts.measured=1`, `oldest_open_case_id=IC-9812A0B138D9`
+- `uv run docling-system-capability-contracts`: `valid=true`, `facade_count=6`, `function_count=110`
+- `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
+- `uv run docling-system-architecture-quality-report --summary`: `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`: top hotspot remains `tests/unit/test_agent_tasks_api.py`; `app.schemas.agent_tasks` now routes `30` local imports; Python cycle components=`5`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1952 passed`
 
 ## Purpose
 
@@ -369,7 +377,7 @@ Acceptance:
 
 ### Milestone 1 - Facade Governance Ratchet
 
-Status: implemented locally in working tree; closeout commit pending
+Status: resolved locally in the current closeout window
 Outcome label: `resolved`
 
 Implementation:
@@ -402,7 +410,7 @@ Acceptance:
 
 ### Milestone 2 - Production Import Fan-In Reduction
 
-Status: next active implementation slice
+Status: resolved locally in the current closeout window
 Outcome label: `reduced`
 
 Implementation:
@@ -439,7 +447,7 @@ Acceptance:
 
 ### Milestone 3 - Compatibility Facade Compaction
 
-Status: drafted
+Status: resolved locally in the current closeout window
 Outcome label: `resolved` for the scoped aggregation issue and `reduced` for
 the broader owner case unless the live hotspot fully retires
 
@@ -472,7 +480,7 @@ Acceptance:
 
 ### Milestone 4 - Closeout, Ratchets, And Residual Routing
 
-Status: drafted
+Status: resolved locally in the current closeout window
 Outcome label: `reduced`
 
 Implementation:

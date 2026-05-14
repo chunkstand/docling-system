@@ -17,7 +17,11 @@ from app.db.models import (
     SearchHarnessEvaluation,
     SearchReplayRun,
 )
-from app.schemas.agent_tasks import ContextFreshnessStatus, ContextRef, TaskContextEnvelope
+from app.schemas.agent_task_core import (
+    ContextFreshnessStatus,
+    ContextRef,
+    TaskContextEnvelope,
+)
 from app.services.storage import StorageService
 
 

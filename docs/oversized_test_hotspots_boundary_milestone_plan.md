@@ -1,22 +1,21 @@
 # Oversized Test Hotspots Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-13 UTC
-Status: drafted on 2026-05-13 as a stacked follow-on after
+Status: stacked follow-on after
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
 `docs/evaluations_service_boundary_milestone_plan.md`,
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`,
 `docs/semantics_service_boundary_milestone_plan.md`,
 `docs/cli_command_dispatch_boundary_milestone_plan.md`, and
-`docs/agent_task_schema_aggregation_boundary_milestone_plan.md`; do not start
-implementation until all six prior packets close locally
+`docs/agent_task_schema_aggregation_boundary_milestone_plan.md`; all six prior
+packets are now closed locally, so Milestone 0 is the next active freshness
+refresh before any test-boundary implementation begins
 Owner context: queued follow-on coordination packet for the remaining oversized
 test hotspots named in the architecture probe and the high-value paydown plan.
-This packet assumes the current claim-support packet completes first, the
-queued evaluations packet completes second, the queued evidence
-provenance-export packet completes third, the queued semantics packet
-completes fourth, the queued CLI packet completes fifth, the queued
-agent-task schema packet completes sixth, and Milestone 0 then refreshes the
-live system state before any test-boundary work begins.
+The claim-support, evaluations, evidence provenance-export, semantics, CLI,
+and agent-task schema packets are now complete; the next step is to refresh
+live system state in Milestone 0 and then activate the dedicated test-hotspot
+decomposition work from current evidence.
 
 ## Purpose
 

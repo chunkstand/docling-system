@@ -14,7 +14,7 @@ from app.api.deps import (
 )
 from app.api.routers.agent_task_route_services import service_from_parent
 from app.db.session import get_db_session
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_claim_support import (
     ClaimSupportPolicyChangeImpactAlertEscalationRequest,
     ClaimSupportPolicyChangeImpactAlertResponse,
     ClaimSupportPolicyChangeImpactFixtureCandidateListResponse,

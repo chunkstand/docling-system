@@ -6,13 +6,10 @@ from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
 from app.db.models import AgentTask, AgentTaskArtifact, AgentTaskVerification
-from app.schemas.agent_tasks import (
-    ContextFreshnessStatus,
-    ContextRef,
+from app.schemas import agent_task_core as task_core
+from app.schemas.agent_task_semantic_generation import (
     DraftSemanticGroundedDocumentTaskOutput,
     PrepareSemanticGenerationBriefTaskOutput,
-    TaskContextEnvelope,
-    TaskContextSummary,
     VerifySemanticGroundedDocumentTaskOutput,
 )
 from app.services.agent_task_context_registry import (
@@ -41,11 +38,11 @@ def _build_prepare_semantic_generation_brief_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = PrepareSemanticGenerationBriefTaskOutput.model_validate(payload)
     brief = output.brief
     now = utcnow()
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Prepared semantic generation brief {brief.title!r} across "
             f"{len(brief.document_refs)} document(s)."
@@ -62,11 +59,11 @@ def _build_prepare_semantic_generation_brief_context(
             "success_metric_pass_count": sum(1 for item in brief.success_metrics if item.passed),
         },
     )
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="brief_artifact",
                 ref_kind="artifact",
                 summary="Persisted semantic generation brief artifact for downstream drafting.",
@@ -78,10 +75,10 @@ def _build_prepare_semantic_generation_brief_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -90,7 +87,7 @@ def _build_prepare_semantic_generation_brief_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -103,10 +100,10 @@ def _build_draft_semantic_grounded_document_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = DraftSemanticGroundedDocumentTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
     brief_context = resolve_required_dependency_task_output_context(
         session,
@@ -124,7 +121,7 @@ def _build_draft_semantic_grounded_document_context(
         ),
     )
     refs.append(
-        ContextRef(
+        task_core.ContextRef(
             ref_key="brief_task_output",
             ref_kind="task_output",
             summary="Typed semantic generation brief consumed by this grounded document draft.",
@@ -134,14 +131,14 @@ def _build_draft_semantic_grounded_document_context(
             observed_sha256=payload_sha256(brief_context.output),
             source_updated_at=brief_context.task_updated_at,
             checked_at=now,
-            freshness_status=ContextFreshnessStatus.FRESH,
+            freshness_status=task_core.ContextFreshnessStatus.FRESH,
         )
     )
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="draft_artifact",
                 ref_kind="artifact",
                 summary="Persisted semantic-grounded document draft artifact.",
@@ -153,11 +150,11 @@ def _build_draft_semantic_grounded_document_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Drafted grounded document {output.draft.title!r} with "
             f"{len(output.draft.claims)} claim(s)."
@@ -178,7 +175,7 @@ def _build_draft_semantic_grounded_document_context(
             ),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -187,7 +184,7 @@ def _build_draft_semantic_grounded_document_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -200,10 +197,10 @@ def _build_verify_semantic_grounded_document_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = VerifySemanticGroundedDocumentTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
     draft_context = resolve_required_dependency_task_output_context(
         session,
@@ -222,7 +219,7 @@ def _build_verify_semantic_grounded_document_context(
         ),
     )
     refs.append(
-        ContextRef(
+        task_core.ContextRef(
             ref_key="draft_task_output",
             ref_kind="task_output",
             summary="Typed grounded-document draft consumed by this verification task.",
@@ -232,14 +229,14 @@ def _build_verify_semantic_grounded_document_context(
             observed_sha256=payload_sha256(draft_context.output),
             source_updated_at=draft_context.task_updated_at,
             checked_at=now,
-            freshness_status=ContextFreshnessStatus.FRESH,
+            freshness_status=task_core.ContextFreshnessStatus.FRESH,
         )
     )
 
     verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
     if verification_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="verification_record",
                 ref_kind="verification_record",
                 summary="Verifier record persisted for the semantic grounded-document gate.",
@@ -248,14 +245,14 @@ def _build_verify_semantic_grounded_document_context(
                 observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="verification_artifact",
                 ref_kind="artifact",
                 summary="Persisted verification artifact for the grounded document draft.",
@@ -267,11 +264,11 @@ def _build_verify_semantic_grounded_document_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Verified grounded document {output.draft.title!r} with "
             f"{output.summary.get('claim_count', 0)} claim(s)."
@@ -297,7 +294,7 @@ def _build_verify_semantic_grounded_document_context(
             ),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -306,7 +303,7 @@ def _build_verify_semantic_grounded_document_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),

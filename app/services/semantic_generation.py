@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.coercion import unique_uuids as _unique_uuids
 from app.core.text import collapse_whitespace
 from app.db.models import Document
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_semantic_generation import (
     GroundedDocumentDraftPayload,
     SemanticGenerationBriefPayload,
 )

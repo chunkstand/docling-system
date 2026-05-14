@@ -8,7 +8,7 @@ from app.core.coercion import unique_strings as _unique_strings
 from app.db.models import (
     AgentTask,
 )
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_reports import (
     BuildReportEvidenceCardsTaskInput,
     BuildReportEvidenceCardsTaskOutput,
     PlanTechnicalReportTaskOutput,

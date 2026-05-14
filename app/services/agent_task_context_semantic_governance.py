@@ -7,27 +7,24 @@ from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
 from app.db.models import AgentTask, AgentTaskArtifact, AgentTaskVerification
-from app.schemas.agent_tasks import (
+from app.schemas import agent_task_core as task_core
+from app.schemas.agent_task_semantic_graph import (
     ApplyGraphPromotionsTaskOutput,
+    DraftGraphPromotionsTaskOutput,
+    VerifyDraftGraphPromotionsTaskOutput,
+)
+from app.schemas.agent_task_semantics import (
     ApplyOntologyExtensionTaskOutput,
     ApplySemanticRegistryUpdateTaskOutput,
-    ContextFreshnessStatus,
-    ContextRef,
-    DraftGraphPromotionsTaskOutput,
     DraftOntologyExtensionTaskOutput,
     DraftSemanticRegistryUpdateTaskOutput,
-    TaskContextEnvelope,
-    TaskContextSummary,
-    VerifyDraftGraphPromotionsTaskOutput,
     VerifyDraftOntologyExtensionTaskOutput,
     VerifyDraftSemanticRegistryUpdateTaskOutput,
 )
+from app.services import agent_task_context_resolvers as context_resolvers
 from app.services.agent_task_context_registry import (
     AgentTaskContextBuilder,
     resolve_context_builder_registry,
-)
-from app.services.agent_task_context_resolvers import (
-    resolve_required_dependency_task_output_context,
 )
 from app.services.agent_task_context_store import (
     derive_freshness_status,
@@ -57,10 +54,10 @@ def _build_draft_semantic_registry_update_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = DraftSemanticRegistryUpdateTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
     source_task = session.get(AgentTask, output.draft.source_task_id)
     if source_task is not None:
@@ -69,12 +66,14 @@ def _build_draft_semantic_registry_update_context(
         source_action = get_agent_task_action(source_task.task_type)
         source_context_row = get_context_artifact_row(session, source_task.id)
         observed_payload = (
-            TaskContextEnvelope.model_validate(source_context_row.payload_json or {}).output
+            task_core.TaskContextEnvelope.model_validate(
+                source_context_row.payload_json or {}
+            ).output
             if source_context_row is not None
             else source_task.result_json or {}
         )
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="source_task",
                 ref_kind="task_output",
                 summary="Source task that motivated this semantic registry draft.",
@@ -84,14 +83,14 @@ def _build_draft_semantic_registry_update_context(
                 observed_sha256=payload_sha256(observed_payload),
                 source_updated_at=source_task.updated_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="draft_artifact",
                 ref_kind="artifact",
                 summary="Persisted semantic registry draft artifact for operator review.",
@@ -103,11 +102,11 @@ def _build_draft_semantic_registry_update_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Draft semantic registry {output.draft.proposed_registry_version} from "
             f"{output.draft.base_registry_version}."
@@ -125,7 +124,7 @@ def _build_draft_semantic_registry_update_context(
             ),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -134,7 +133,7 @@ def _build_draft_semantic_registry_update_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -147,7 +146,7 @@ def _resolve_ontology_source_task_context(
     task_id: UUID,
     source_task_id: UUID | None,
     source_task_type: str | None,
-) -> TaskContextEnvelope | None:
+) -> task_core.TaskContextEnvelope | None:
     if source_task_id is None:
         return None
     resolved_source_task_type = source_task_type
@@ -155,7 +154,7 @@ def _resolve_ontology_source_task_context(
         source_task = session.get(AgentTask, source_task_id)
         resolved_source_task_type = source_task.task_type if source_task is not None else None
     if resolved_source_task_type == "triage_semantic_pass":
-        return resolve_required_dependency_task_output_context(
+        return context_resolvers.resolve_required_dependency_task_output_context(
             session,
             task_id=task_id,
             depends_on_task_id=source_task_id,
@@ -173,7 +172,7 @@ def _resolve_ontology_source_task_context(
             ),
         )
     if resolved_source_task_type == "discover_semantic_bootstrap_candidates":
-        return resolve_required_dependency_task_output_context(
+        return context_resolvers.resolve_required_dependency_task_output_context(
             session,
             task_id=task_id,
             depends_on_task_id=source_task_id,
@@ -199,10 +198,10 @@ def _build_draft_ontology_extension_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = DraftOntologyExtensionTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
     source_context = _resolve_ontology_source_task_context(
         session,
@@ -212,7 +211,7 @@ def _build_draft_ontology_extension_context(
     )
     if source_context is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="source_task",
                 ref_kind="task_output",
                 summary="Typed source task that motivated this ontology extension draft.",
@@ -222,14 +221,14 @@ def _build_draft_ontology_extension_context(
                 observed_sha256=payload_sha256(source_context.output),
                 source_updated_at=source_context.task_updated_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="ontology_extension_draft_artifact",
                 ref_kind="artifact",
                 summary="Persisted additive ontology extension draft artifact.",
@@ -241,11 +240,11 @@ def _build_draft_ontology_extension_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Drafted ontology extension {output.draft.proposed_ontology_version} with "
             f"{len(output.draft.operations)} operation(s)."
@@ -265,7 +264,7 @@ def _build_draft_ontology_extension_context(
             ),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -274,7 +273,7 @@ def _build_draft_ontology_extension_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -287,12 +286,12 @@ def _build_verify_draft_ontology_extension_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = VerifyDraftOntologyExtensionTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
-    draft_context = resolve_required_dependency_task_output_context(
+    draft_context = context_resolvers.resolve_required_dependency_task_output_context(
         session,
         task_id=task.id,
         depends_on_task_id=output.verification.target_task_id,
@@ -310,7 +309,7 @@ def _build_verify_draft_ontology_extension_context(
         ),
     )
     refs.append(
-        ContextRef(
+        task_core.ContextRef(
             ref_key="target_task_output",
             ref_kind="task_output",
             summary="Typed ontology extension draft consumed by this verification task.",
@@ -320,14 +319,14 @@ def _build_verify_draft_ontology_extension_context(
             observed_sha256=payload_sha256(draft_context.output),
             source_updated_at=draft_context.task_updated_at,
             checked_at=now,
-            freshness_status=ContextFreshnessStatus.FRESH,
+            freshness_status=task_core.ContextFreshnessStatus.FRESH,
         )
     )
 
     verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
     if verification_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="verification_record",
                 ref_kind="verification_record",
                 summary="Verifier record persisted for the ontology extension verification gate.",
@@ -336,14 +335,14 @@ def _build_verify_draft_ontology_extension_context(
                 observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="ontology_extension_verification_artifact",
                 ref_kind="artifact",
                 summary="Persisted ontology extension verification artifact.",
@@ -355,11 +354,11 @@ def _build_verify_draft_ontology_extension_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Ontology verification {output.verification.outcome} for "
             f"{output.draft.proposed_ontology_version}."
@@ -383,7 +382,7 @@ def _build_verify_draft_ontology_extension_context(
             "operation_count": len(output.draft.operations),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -392,7 +391,7 @@ def _build_verify_draft_ontology_extension_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -405,12 +404,12 @@ def _build_apply_ontology_extension_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = ApplyOntologyExtensionTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
-    draft_context = resolve_required_dependency_task_output_context(
+    draft_context = context_resolvers.resolve_required_dependency_task_output_context(
         session,
         task_id=task.id,
         depends_on_task_id=output.draft_task_id,
@@ -427,7 +426,7 @@ def _build_apply_ontology_extension_context(
         ),
     )
     refs.append(
-        ContextRef(
+        task_core.ContextRef(
             ref_key="draft_task_output",
             ref_kind="task_output",
             summary="Typed ontology draft output applied to the active workspace snapshot.",
@@ -437,11 +436,11 @@ def _build_apply_ontology_extension_context(
             observed_sha256=payload_sha256(draft_context.output),
             source_updated_at=draft_context.task_updated_at,
             checked_at=now,
-            freshness_status=ContextFreshnessStatus.FRESH,
+            freshness_status=task_core.ContextFreshnessStatus.FRESH,
         )
     )
 
-    verification_context = resolve_required_dependency_task_output_context(
+    verification_context = context_resolvers.resolve_required_dependency_task_output_context(
         session,
         task_id=task.id,
         depends_on_task_id=output.verification_task_id,
@@ -458,7 +457,7 @@ def _build_apply_ontology_extension_context(
         ),
     )
     refs.append(
-        ContextRef(
+        task_core.ContextRef(
             ref_key="verification_task_output",
             ref_kind="task_output",
             summary="Typed ontology verification output authorizing the apply step.",
@@ -468,14 +467,14 @@ def _build_apply_ontology_extension_context(
             observed_sha256=payload_sha256(verification_context.output),
             source_updated_at=verification_context.task_updated_at,
             checked_at=now,
-            freshness_status=ContextFreshnessStatus.FRESH,
+            freshness_status=task_core.ContextFreshnessStatus.FRESH,
         )
     )
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="applied_ontology_artifact",
                 ref_kind="artifact",
                 summary="Persisted apply artifact for the active ontology snapshot update.",
@@ -487,14 +486,14 @@ def _build_apply_ontology_extension_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
     verification_output = VerifyDraftOntologyExtensionTaskOutput.model_validate(
         verification_context.output
     )
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=f"Applied ontology snapshot {output.applied_ontology_version}.",
         goal="Publish a verified ontology extension after approval.",
         decision="The active ontology snapshot is updated and ready for downstream reprocessing.",
@@ -510,7 +509,7 @@ def _build_apply_ontology_extension_context(
             "regressed_document_count": verification_output.summary.get("regressed_document_count"),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -519,7 +518,7 @@ def _build_apply_ontology_extension_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -532,12 +531,12 @@ def _build_draft_graph_promotions_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = DraftGraphPromotionsTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
-    source_context = resolve_required_dependency_task_output_context(
+    source_context = context_resolvers.resolve_required_dependency_task_output_context(
         session,
         task_id=task.id,
         depends_on_task_id=output.draft.source_task_id,
@@ -557,7 +556,7 @@ def _build_draft_graph_promotions_context(
         ),
     )
     refs.append(
-        ContextRef(
+        task_core.ContextRef(
             ref_key="source_task",
             ref_kind="task_output",
             summary="Typed source graph task that motivated this promotion draft.",
@@ -567,14 +566,14 @@ def _build_draft_graph_promotions_context(
             observed_sha256=payload_sha256(source_context.output),
             source_updated_at=source_context.task_updated_at,
             checked_at=now,
-            freshness_status=ContextFreshnessStatus.FRESH,
+            freshness_status=task_core.ContextFreshnessStatus.FRESH,
         )
     )
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="semantic_graph_promotion_draft_artifact",
                 ref_kind="artifact",
                 summary="Persisted semantic graph promotion draft artifact.",
@@ -586,11 +585,11 @@ def _build_draft_graph_promotions_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Drafted graph promotion {output.draft.proposed_graph_version} with "
             f"{len(output.draft.promoted_edges)} edge(s)."
@@ -608,7 +607,7 @@ def _build_draft_graph_promotions_context(
             ),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -617,7 +616,7 @@ def _build_draft_graph_promotions_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -630,12 +629,12 @@ def _build_verify_draft_graph_promotions_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = VerifyDraftGraphPromotionsTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
-    draft_context = resolve_required_dependency_task_output_context(
+    draft_context = context_resolvers.resolve_required_dependency_task_output_context(
         session,
         task_id=task.id,
         depends_on_task_id=output.verification.target_task_id,
@@ -652,7 +651,7 @@ def _build_verify_draft_graph_promotions_context(
         ),
     )
     refs.append(
-        ContextRef(
+        task_core.ContextRef(
             ref_key="target_task_output",
             ref_kind="task_output",
             summary="Typed graph promotion draft consumed by this verification task.",
@@ -662,14 +661,14 @@ def _build_verify_draft_graph_promotions_context(
             observed_sha256=payload_sha256(draft_context.output),
             source_updated_at=draft_context.task_updated_at,
             checked_at=now,
-            freshness_status=ContextFreshnessStatus.FRESH,
+            freshness_status=task_core.ContextFreshnessStatus.FRESH,
         )
     )
 
     verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
     if verification_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="verification_record",
                 ref_kind="verification_record",
                 summary="Verifier record for the semantic graph promotion gate.",
@@ -678,14 +677,14 @@ def _build_verify_draft_graph_promotions_context(
                 observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="semantic_graph_promotion_verification_artifact",
                 ref_kind="artifact",
                 summary="Persisted graph promotion verification artifact.",
@@ -697,11 +696,11 @@ def _build_verify_draft_graph_promotions_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Graph promotion verification {output.verification.outcome} for "
             f"{output.draft.proposed_graph_version}."
@@ -728,7 +727,7 @@ def _build_verify_draft_graph_promotions_context(
             "conflict_count": output.summary.get("conflict_count"),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -737,7 +736,7 @@ def _build_verify_draft_graph_promotions_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -750,12 +749,12 @@ def _build_apply_graph_promotions_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = ApplyGraphPromotionsTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
-    draft_context = resolve_required_dependency_task_output_context(
+    draft_context = context_resolvers.resolve_required_dependency_task_output_context(
         session,
         task_id=task.id,
         depends_on_task_id=output.draft_task_id,
@@ -772,7 +771,7 @@ def _build_apply_graph_promotions_context(
         ),
     )
     refs.append(
-        ContextRef(
+        task_core.ContextRef(
             ref_key="draft_task_output",
             ref_kind="task_output",
             summary="Typed graph promotion draft applied to the active workspace graph snapshot.",
@@ -782,11 +781,11 @@ def _build_apply_graph_promotions_context(
             observed_sha256=payload_sha256(draft_context.output),
             source_updated_at=draft_context.task_updated_at,
             checked_at=now,
-            freshness_status=ContextFreshnessStatus.FRESH,
+            freshness_status=task_core.ContextFreshnessStatus.FRESH,
         )
     )
 
-    verification_context = resolve_required_dependency_task_output_context(
+    verification_context = context_resolvers.resolve_required_dependency_task_output_context(
         session,
         task_id=task.id,
         depends_on_task_id=output.verification_task_id,
@@ -804,7 +803,7 @@ def _build_apply_graph_promotions_context(
         ),
     )
     refs.append(
-        ContextRef(
+        task_core.ContextRef(
             ref_key="verification_task_output",
             ref_kind="task_output",
             summary="Typed graph promotion verification output authorizing the apply step.",
@@ -814,14 +813,14 @@ def _build_apply_graph_promotions_context(
             observed_sha256=payload_sha256(verification_context.output),
             source_updated_at=verification_context.task_updated_at,
             checked_at=now,
-            freshness_status=ContextFreshnessStatus.FRESH,
+            freshness_status=task_core.ContextFreshnessStatus.FRESH,
         )
     )
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="applied_semantic_graph_artifact",
                 ref_kind="artifact",
                 summary="Persisted apply artifact for the active semantic graph snapshot update.",
@@ -833,14 +832,14 @@ def _build_apply_graph_promotions_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
     verification_output = VerifyDraftGraphPromotionsTaskOutput.model_validate(
         verification_context.output
     )
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=f"Applied semantic graph snapshot {output.applied_graph_version}.",
         goal="Publish verified graph-memory promotions after explicit approval.",
         decision=(
@@ -859,7 +858,7 @@ def _build_apply_graph_promotions_context(
             "conflict_count": verification_output.summary.get("conflict_count"),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -868,7 +867,7 @@ def _build_apply_graph_promotions_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -881,12 +880,12 @@ def _build_verify_draft_semantic_registry_update_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = VerifyDraftSemanticRegistryUpdateTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
-    draft_context = resolve_required_dependency_task_output_context(
+    draft_context = context_resolvers.resolve_required_dependency_task_output_context(
         session,
         task_id=task.id,
         depends_on_task_id=output.verification.target_task_id,
@@ -903,7 +902,7 @@ def _build_verify_draft_semantic_registry_update_context(
         ),
     )
     refs.append(
-        ContextRef(
+        task_core.ContextRef(
             ref_key="draft_task_output",
             ref_kind="task_output",
             summary="Migrated semantic registry draft output consumed by this verification.",
@@ -913,14 +912,14 @@ def _build_verify_draft_semantic_registry_update_context(
             observed_sha256=payload_sha256(draft_context.output),
             source_updated_at=draft_context.task_updated_at,
             checked_at=now,
-            freshness_status=ContextFreshnessStatus.FRESH,
+            freshness_status=task_core.ContextFreshnessStatus.FRESH,
         )
     )
 
     verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
     if verification_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="verification_record",
                 ref_kind="verification_record",
                 summary="Verifier record persisted for the semantic registry draft gate.",
@@ -929,14 +928,14 @@ def _build_verify_draft_semantic_registry_update_context(
                 observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="verification_artifact",
                 ref_kind="artifact",
                 summary="Persisted verification artifact for the semantic registry draft.",
@@ -948,11 +947,11 @@ def _build_verify_draft_semantic_registry_update_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(f"Verified semantic registry draft {output.draft.proposed_registry_version}."),
         goal="Validate additive registry updates against active documents before publication.",
         decision=(
@@ -973,7 +972,7 @@ def _build_verify_draft_semantic_registry_update_context(
             "regressed_document_count": output.summary.get("regressed_document_count"),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -982,7 +981,7 @@ def _build_verify_draft_semantic_registry_update_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -995,12 +994,12 @@ def _build_apply_semantic_registry_update_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = ApplySemanticRegistryUpdateTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
-    draft_context = resolve_required_dependency_task_output_context(
+    draft_context = context_resolvers.resolve_required_dependency_task_output_context(
         session,
         task_id=task.id,
         depends_on_task_id=output.draft_task_id,
@@ -1016,7 +1015,7 @@ def _build_apply_semantic_registry_update_context(
         ),
     )
     refs.append(
-        ContextRef(
+        task_core.ContextRef(
             ref_key="draft_task_output",
             ref_kind="task_output",
             summary="Migrated semantic registry draft output applied to the live registry file.",
@@ -1026,11 +1025,11 @@ def _build_apply_semantic_registry_update_context(
             observed_sha256=payload_sha256(draft_context.output),
             source_updated_at=draft_context.task_updated_at,
             checked_at=now,
-            freshness_status=ContextFreshnessStatus.FRESH,
+            freshness_status=task_core.ContextFreshnessStatus.FRESH,
         )
     )
 
-    verification_context = resolve_required_dependency_task_output_context(
+    verification_context = context_resolvers.resolve_required_dependency_task_output_context(
         session,
         task_id=task.id,
         depends_on_task_id=output.verification_task_id,
@@ -1047,7 +1046,7 @@ def _build_apply_semantic_registry_update_context(
         ),
     )
     refs.append(
-        ContextRef(
+        task_core.ContextRef(
             ref_key="verification_task_output",
             ref_kind="task_output",
             summary=(
@@ -1059,14 +1058,14 @@ def _build_apply_semantic_registry_update_context(
             observed_sha256=payload_sha256(verification_context.output),
             source_updated_at=verification_context.task_updated_at,
             checked_at=now,
-            freshness_status=ContextFreshnessStatus.FRESH,
+            freshness_status=task_core.ContextFreshnessStatus.FRESH,
         )
     )
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="applied_artifact",
                 ref_kind="artifact",
                 summary="Persisted apply artifact for the live semantic registry update.",
@@ -1078,14 +1077,14 @@ def _build_apply_semantic_registry_update_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
     verification_output = VerifyDraftSemanticRegistryUpdateTaskOutput.model_validate(
         verification_context.output
     )
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=f"Applied semantic registry {output.applied_registry_version}.",
         goal="Publish a verified semantic registry update after approval.",
         decision="Live semantic registry updated and ready for follow-on reprocessing.",
@@ -1101,7 +1100,7 @@ def _build_apply_semantic_registry_update_context(
             "regressed_document_count": verification_output.summary.get("regressed_document_count"),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -1110,7 +1109,7 @@ def _build_apply_semantic_registry_update_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),

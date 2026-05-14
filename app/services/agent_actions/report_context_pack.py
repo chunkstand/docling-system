@@ -9,7 +9,7 @@ from app.db.models import (
     AgentTask,
     AgentTaskVerification,
 )
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_reports import (
     EvaluateDocumentGenerationContextPackTaskInput,
     PrepareReportAgentHarnessTaskOutput,
 )

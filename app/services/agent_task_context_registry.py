@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from typing import cast
 
-from app.schemas.agent_tasks import TaskContextEnvelope
+from app.schemas.agent_task_core import TaskContextEnvelope
 
 AgentTaskContextBuilder = Callable[..., TaskContextEnvelope]
 

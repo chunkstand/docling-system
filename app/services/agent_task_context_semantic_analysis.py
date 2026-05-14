@@ -6,21 +6,20 @@ from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
 from app.db.models import AgentTask, AgentTaskArtifact, AgentTaskVerification
-from app.schemas.agent_tasks import (
+from app.schemas import agent_task_core as task_core
+from app.schemas.agent_task_semantic_graph import (
     BuildDocumentFactGraphTaskOutput,
     BuildShadowSemanticGraphTaskOutput,
-    ContextFreshnessStatus,
-    ContextRef,
     DiscoverSemanticBootstrapCandidatesTaskOutput,
     EvaluateSemanticCandidateExtractorTaskOutput,
     EvaluateSemanticRelationExtractorTaskOutput,
     ExportSemanticSupervisionCorpusTaskOutput,
+    TriageSemanticGraphDisagreementsTaskOutput,
+)
+from app.schemas.agent_task_semantics import (
     GetActiveOntologySnapshotTaskOutput,
     InitializeWorkspaceOntologyTaskOutput,
     LatestSemanticPassTaskOutput,
-    TaskContextEnvelope,
-    TaskContextSummary,
-    TriageSemanticGraphDisagreementsTaskOutput,
 )
 from app.services.agent_task_context_registry import (
     AgentTaskContextBuilder,
@@ -65,12 +64,12 @@ def _build_latest_semantic_pass_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     del session
     output = LatestSemanticPassTaskOutput.model_validate(payload)
     semantic_pass = output.semantic_pass
     now = utcnow()
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Loaded semantic pass {semantic_pass.semantic_pass_id} for document "
             f"{semantic_pass.document_id}."
@@ -93,7 +92,7 @@ def _build_latest_semantic_pass_context(
             "success_metric_pass_count": sum(1 for item in output.success_metrics if item.passed),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -102,7 +101,7 @@ def _build_latest_semantic_pass_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=ContextFreshnessStatus.FRESH,
+        freshness_status=task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=[],
         output=output.model_dump(mode="json"),
@@ -115,15 +114,15 @@ def _build_initialize_workspace_ontology_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = InitializeWorkspaceOntologyTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="active_ontology_snapshot_artifact",
                 ref_kind="artifact",
                 summary="Persisted artifact for the initialized active ontology snapshot.",
@@ -135,12 +134,12 @@ def _build_initialize_workspace_ontology_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
     snapshot = output.snapshot
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=f"Initialized workspace ontology {snapshot.ontology_version}.",
         goal="Seed the workspace ontology from the configured upper ontology.",
         decision="The workspace now has an active ontology snapshot and can process domain data.",
@@ -157,7 +156,7 @@ def _build_initialize_workspace_ontology_context(
             "success_metric_pass_count": sum(1 for item in output.success_metrics if item.passed),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -166,7 +165,7 @@ def _build_initialize_workspace_ontology_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -179,7 +178,7 @@ def _build_get_active_ontology_snapshot_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     del session
     output = GetActiveOntologySnapshotTaskOutput.model_validate(payload)
     now = utcnow()
@@ -190,7 +189,7 @@ def _build_get_active_ontology_snapshot_context(
         if snapshot.source_kind == "upper_seed"
         else "Use the active ontology for reprocessing, fact-graph builds, or grounded generation."
     )
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=f"Active ontology snapshot {snapshot.ontology_version} is loaded.",
         goal="Expose the live workspace ontology as typed, reusable agent context.",
         decision="The current ontology snapshot is available for semantic passes and generation.",
@@ -204,7 +203,7 @@ def _build_get_active_ontology_snapshot_context(
             "success_metric_pass_count": sum(1 for item in output.success_metrics if item.passed),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -213,7 +212,7 @@ def _build_get_active_ontology_snapshot_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=ContextFreshnessStatus.FRESH,
+        freshness_status=task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=[],
         output=output.model_dump(mode="json"),
@@ -226,15 +225,15 @@ def _build_build_document_fact_graph_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = BuildDocumentFactGraphTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="semantic_fact_graph_artifact",
                 ref_kind="artifact",
                 summary="Persisted semantic fact graph artifact for the active document.",
@@ -246,11 +245,11 @@ def _build_build_document_fact_graph_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=f"Built {output.fact_count} semantic fact(s) for document {output.document_id}.",
         goal="Compact approved semantic assertions into a reusable fact graph for agents.",
         decision="The fact graph is ready for grounded generation and later orchestration.",
@@ -268,7 +267,7 @@ def _build_build_document_fact_graph_context(
             "success_metric_pass_count": sum(1 for item in output.success_metrics if item.passed),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -277,7 +276,7 @@ def _build_build_document_fact_graph_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -290,15 +289,15 @@ def _build_build_shadow_semantic_graph_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = BuildShadowSemanticGraphTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="shadow_semantic_graph_artifact",
                 ref_kind="artifact",
                 summary=(
@@ -312,12 +311,12 @@ def _build_build_shadow_semantic_graph_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
     graph = output.shadow_graph
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Built shadow semantic graph {graph.graph_version} with {graph.edge_count} "
             f"cross-document edge(s)."
@@ -339,7 +338,7 @@ def _build_build_shadow_semantic_graph_context(
             "success_metric_pass_count": sum(1 for item in graph.success_metrics if item.passed),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -348,7 +347,7 @@ def _build_build_shadow_semantic_graph_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -361,15 +360,15 @@ def _build_evaluate_semantic_relation_extractor_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = EvaluateSemanticRelationExtractorTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="semantic_relation_evaluation_artifact",
                 ref_kind="artifact",
                 summary="Persisted relation-extractor evaluation artifact with typed edge reports.",
@@ -381,12 +380,12 @@ def _build_evaluate_semantic_relation_extractor_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
     summary_payload = output.summary
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Evaluated graph extractors on {summary_payload.get('document_count', 0)} "
             f"document(s) with {summary_payload.get('expected_edge_count', 0)} expected edge(s)."
@@ -413,7 +412,7 @@ def _build_evaluate_semantic_relation_extractor_context(
             "candidate_only_edge_count": summary_payload.get("candidate_only_edge_count"),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -422,7 +421,7 @@ def _build_evaluate_semantic_relation_extractor_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -435,10 +434,10 @@ def _build_triage_semantic_graph_disagreements_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = TriageSemanticGraphDisagreementsTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
     evaluation_context = resolve_required_dependency_task_output_context(
         session,
@@ -457,7 +456,7 @@ def _build_triage_semantic_graph_disagreements_context(
         ),
     )
     refs.append(
-        ContextRef(
+        task_core.ContextRef(
             ref_key="target_task_output",
             ref_kind="task_output",
             summary="Typed graph evaluation output consumed by this disagreement triage.",
@@ -467,14 +466,14 @@ def _build_triage_semantic_graph_disagreements_context(
             observed_sha256=payload_sha256(evaluation_context.output),
             source_updated_at=evaluation_context.task_updated_at,
             checked_at=now,
-            freshness_status=ContextFreshnessStatus.FRESH,
+            freshness_status=task_core.ContextFreshnessStatus.FRESH,
         )
     )
 
     verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
     if verification_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="verification_record",
                 ref_kind="verification_record",
                 summary="Verifier record for the bounded shadow-graph disagreement gate.",
@@ -483,14 +482,14 @@ def _build_triage_semantic_graph_disagreements_context(
                 observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="semantic_graph_disagreement_artifact",
                 ref_kind="artifact",
                 summary="Persisted semantic graph disagreement artifact with typed issue records.",
@@ -502,12 +501,12 @@ def _build_triage_semantic_graph_disagreements_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
     report = output.disagreement_report
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=f"Triaged {report.issue_count} graph disagreement issue(s).",
         goal="Compact graph-evaluation gaps into bounded, typed promotion candidates.",
         decision=(
@@ -528,7 +527,7 @@ def _build_triage_semantic_graph_disagreements_context(
             "success_metric_pass_count": sum(1 for item in report.success_metrics if item.passed),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -537,7 +536,7 @@ def _build_triage_semantic_graph_disagreements_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -550,15 +549,15 @@ def _build_discover_semantic_bootstrap_candidates_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = DiscoverSemanticBootstrapCandidatesTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="bootstrap_candidate_report_artifact",
                 ref_kind="artifact",
                 summary="Persisted semantic bootstrap candidate report artifact.",
@@ -570,11 +569,11 @@ def _build_discover_semantic_bootstrap_candidates_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Discovered {output.report.candidate_count} bootstrap semantic candidate(s) across "
             f"{output.report.document_count} document(s)."
@@ -603,7 +602,7 @@ def _build_discover_semantic_bootstrap_candidates_context(
             ),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -612,7 +611,7 @@ def _build_discover_semantic_bootstrap_candidates_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -625,15 +624,15 @@ def _build_export_semantic_supervision_corpus_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = ExportSemanticSupervisionCorpusTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="corpus_artifact",
                 ref_kind="artifact",
                 summary="Persisted semantic supervision corpus export and JSON summary artifact.",
@@ -645,11 +644,11 @@ def _build_export_semantic_supervision_corpus_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Exported semantic supervision corpus with {output.corpus.row_count} row(s) across "
             f"{output.corpus.document_count} document(s)."
@@ -675,7 +674,7 @@ def _build_export_semantic_supervision_corpus_context(
             ),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -684,7 +683,7 @@ def _build_export_semantic_supervision_corpus_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -697,15 +696,15 @@ def _build_evaluate_semantic_candidate_extractor_context(
     payload: dict,
     *,
     action,
-) -> TaskContextEnvelope:
+) -> task_core.TaskContextEnvelope:
     output = EvaluateSemanticCandidateExtractorTaskOutput.model_validate(payload)
     now = utcnow()
-    refs: list[ContextRef] = []
+    refs: list[task_core.ContextRef] = []
 
     artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
     if artifact_row is not None:
         refs.append(
-            ContextRef(
+            task_core.ContextRef(
                 ref_key="evaluation_artifact",
                 ref_kind="artifact",
                 summary="Persisted shadow semantic candidate evaluation artifact.",
@@ -717,11 +716,11 @@ def _build_evaluate_semantic_candidate_extractor_context(
                 observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
-                freshness_status=ContextFreshnessStatus.FRESH,
+                freshness_status=task_core.ContextFreshnessStatus.FRESH,
             )
         )
 
-    summary = TaskContextSummary(
+    summary = task_core.TaskContextSummary(
         headline=(
             f"Evaluated {output.candidate_extractor.extractor_name} against "
             f"{output.baseline_extractor.extractor_name} across "
@@ -744,7 +743,7 @@ def _build_evaluate_semantic_candidate_extractor_context(
             "success_metric_pass_count": sum(1 for item in output.success_metrics if item.passed),
         },
     )
-    return TaskContextEnvelope(
+    return task_core.TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
         task_status=task.status,
@@ -753,7 +752,7 @@ def _build_evaluate_semantic_candidate_extractor_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or task_core.ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),

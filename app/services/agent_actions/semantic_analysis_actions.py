@@ -4,7 +4,8 @@ from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 
 from app.db.models import AgentTask
-from app.schemas.agent_tasks import (
+from app.schemas import agent_task_semantics as semantic_schemas
+from app.schemas.agent_task_semantic_graph import (
     BuildDocumentFactGraphTaskInput,
     BuildDocumentFactGraphTaskOutput,
     BuildShadowSemanticGraphTaskInput,
@@ -17,12 +18,6 @@ from app.schemas.agent_tasks import (
     EvaluateSemanticRelationExtractorTaskOutput,
     ExportSemanticSupervisionCorpusTaskInput,
     ExportSemanticSupervisionCorpusTaskOutput,
-    GetActiveOntologySnapshotTaskInput,
-    GetActiveOntologySnapshotTaskOutput,
-    InitializeWorkspaceOntologyTaskInput,
-    InitializeWorkspaceOntologyTaskOutput,
-    LatestSemanticPassTaskInput,
-    LatestSemanticPassTaskOutput,
 )
 from app.services.agent_actions.types import AgentTaskActionDefinition
 from app.services.agent_task_artifacts import create_agent_task_artifact
@@ -48,7 +43,7 @@ from app.services.storage import StorageService
 def _latest_semantic_pass_executor(
     session: Session,
     _task: AgentTask,
-    payload: LatestSemanticPassTaskInput,
+    payload: semantic_schemas.LatestSemanticPassTaskInput,
 ) -> dict:
     response = get_active_semantic_pass_detail(session, payload.document_id)
     return {
@@ -61,7 +56,7 @@ def _latest_semantic_pass_executor(
 def _initialize_workspace_ontology_executor(
     session: Session,
     task: AgentTask,
-    _payload: InitializeWorkspaceOntologyTaskInput,
+    _payload: semantic_schemas.InitializeWorkspaceOntologyTaskInput,
 ) -> dict:
     result = initialize_workspace_ontology(session)
     artifact = create_agent_task_artifact(
@@ -83,7 +78,7 @@ def _initialize_workspace_ontology_executor(
 def _get_active_ontology_snapshot_executor(
     session: Session,
     _task: AgentTask,
-    _payload: GetActiveOntologySnapshotTaskInput,
+    _payload: semantic_schemas.GetActiveOntologySnapshotTaskInput,
 ) -> dict:
     return get_active_ontology_snapshot_payload(session)
 
@@ -271,9 +266,9 @@ def build_semantic_analysis_action_definitions() -> dict[str, AgentTaskActionDef
             capability="semantic_memory",
             definition_kind="action",
             description="Fetch the latest active semantic pass for one document.",
-            payload_model=LatestSemanticPassTaskInput,
+            payload_model=semantic_schemas.LatestSemanticPassTaskInput,
             executor=_latest_semantic_pass_executor,
-            output_model=LatestSemanticPassTaskOutput,
+            output_model=semantic_schemas.LatestSemanticPassTaskOutput,
             output_schema_name="get_latest_semantic_pass_output",
             output_schema_version="1.0",
             input_example={"document_id": "00000000-0000-0000-0000-000000000000"},
@@ -286,9 +281,9 @@ def build_semantic_analysis_action_definitions() -> dict[str, AgentTaskActionDef
             description=(
                 "Initialize the workspace ontology from the configured upper ontology seed."
             ),
-            payload_model=InitializeWorkspaceOntologyTaskInput,
+            payload_model=semantic_schemas.InitializeWorkspaceOntologyTaskInput,
             executor=_initialize_workspace_ontology_executor,
-            output_model=InitializeWorkspaceOntologyTaskOutput,
+            output_model=semantic_schemas.InitializeWorkspaceOntologyTaskOutput,
             output_schema_name="initialize_workspace_ontology_output",
             output_schema_version="1.0",
             input_example={},
@@ -299,9 +294,9 @@ def build_semantic_analysis_action_definitions() -> dict[str, AgentTaskActionDef
             capability="semantic_memory",
             definition_kind="action",
             description="Fetch the active workspace ontology snapshot.",
-            payload_model=GetActiveOntologySnapshotTaskInput,
+            payload_model=semantic_schemas.GetActiveOntologySnapshotTaskInput,
             executor=_get_active_ontology_snapshot_executor,
-            output_model=GetActiveOntologySnapshotTaskOutput,
+            output_model=semantic_schemas.GetActiveOntologySnapshotTaskOutput,
             output_schema_name="get_active_ontology_snapshot_output",
             output_schema_version="1.0",
             input_example={},

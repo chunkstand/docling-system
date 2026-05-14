@@ -9,7 +9,7 @@ import app.api.capabilities as api_capabilities
 from app.api.deps import require_api_capability
 from app.api.routers.agent_task_route_services import service_from_parent
 from app.db.session import get_db_session
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_core import (
     AgentTaskAnalyticsSummaryResponse,
     AgentTaskApprovalTrendResponse,
     AgentTaskCostSummaryResponse,

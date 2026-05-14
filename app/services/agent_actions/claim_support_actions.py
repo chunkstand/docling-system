@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.db.models import AgentTaskSideEffectLevel
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_claim_support import (
     ApplyClaimSupportCalibrationPolicyTaskInput,
     ApplyClaimSupportCalibrationPolicyTaskOutput,
     DraftClaimSupportCalibrationPolicyTaskInput,

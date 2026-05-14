@@ -5,7 +5,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_core import (
     AgentTaskArtifactResponse,
     TaskContextEnvelope,
 )

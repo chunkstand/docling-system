@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from app.schemas.agent_tasks import TechnicalReportEvidenceCard
+from app.schemas.agent_task_reports import TechnicalReportEvidenceCard
 
 
 @dataclass(frozen=True)

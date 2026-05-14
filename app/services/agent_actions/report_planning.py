@@ -5,9 +5,7 @@ from sqlalchemy.orm import Session
 from app.db.models import (
     AgentTask,
 )
-from app.schemas.agent_tasks import (
-    PlanTechnicalReportTaskInput,
-)
+from app.schemas.agent_task_reports import PlanTechnicalReportTaskInput
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.storage import StorageService
 from app.services.technical_reports import (

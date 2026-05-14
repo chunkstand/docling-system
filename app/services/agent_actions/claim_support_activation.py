@@ -12,7 +12,7 @@ from app.db.models import (
     ClaimSupportCalibrationPolicy,
     KnowledgeOperatorOutput,
 )
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_claim_support import (
     REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_MAX_HOURS,
     ApplyClaimSupportCalibrationPolicyTaskInput,
     ApplyClaimSupportCalibrationPolicyTaskOutput,

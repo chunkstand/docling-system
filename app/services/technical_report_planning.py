@@ -7,11 +7,13 @@ from sqlalchemy.orm import Session
 
 from app.core.coercion import unique_strings as _unique_strings
 from app.core.text import collapse_whitespace
-from app.schemas.agent_tasks import (
-    SemanticGenerationBriefPayload,
-    SemanticGenerationClaimCandidate,
+from app.schemas.agent_task_reports import (
     TechnicalReportPlanPayload,
     TechnicalReportSectionPlan,
+)
+from app.schemas.agent_task_semantic_generation import (
+    SemanticGenerationBriefPayload,
+    SemanticGenerationClaimCandidate,
 )
 from app.services.semantic_generation import prepare_semantic_generation_brief
 from app.services.technical_report_shared import expert_alignment, success_metric

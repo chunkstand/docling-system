@@ -6,13 +6,13 @@ from sqlalchemy.orm import Session
 from app.db.models import (
     AgentTask,
 )
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_search_workflows import (
     InspectEvalFailureCaseTaskInput,
-    LatestEvaluationTaskInput,
     QualityEvalCandidatesTaskInput,
     RefreshEvalFailureCasesTaskInput,
     TriageEvalFailureCaseTaskInput,
 )
+from app.schemas.agent_task_semantics import LatestEvaluationTaskInput
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.documents import (
     get_latest_document_evaluation_detail,

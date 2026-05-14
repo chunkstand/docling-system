@@ -1,16 +1,18 @@
 from __future__ import annotations
 
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_search_workflows import (
     InspectEvalFailureCaseTaskInput,
     InspectEvalFailureCaseTaskOutput,
-    LatestEvaluationTaskInput,
-    LatestEvaluationTaskOutput,
     QualityEvalCandidatesTaskInput,
     QualityEvalCandidatesTaskOutput,
     RefreshEvalFailureCasesTaskInput,
     RefreshEvalFailureCasesTaskOutput,
     TriageEvalFailureCaseTaskInput,
     TriageEvalFailureCaseTaskOutput,
+)
+from app.schemas.agent_task_semantics import (
+    LatestEvaluationTaskInput,
+    LatestEvaluationTaskOutput,
 )
 from app.services.agent_actions.evaluation import (
     inspect_eval_failure_case_executor,

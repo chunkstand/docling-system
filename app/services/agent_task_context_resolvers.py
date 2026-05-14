@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
 from app.db.models import AgentTask, AgentTaskDependency
-from app.schemas.agent_tasks import TaskContextEnvelope
+from app.schemas.agent_task_core import TaskContextEnvelope
 from app.services.agent_task_context_store import (
     get_context_artifact_row,
     refresh_task_context_freshness,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from app.schemas.agent_tasks import AgentTaskActionDefinitionResponse
+from app.schemas.agent_task_core import AgentTaskActionDefinitionResponse
 
 
 class AgentOrchestrationActionsCapability(Protocol):

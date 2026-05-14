@@ -221,7 +221,7 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/hotspot_prevention_classifier.py exceeds the default
-    file budget at 1011 lines after the semantics, CLI, and agent-task schema
+    file budget at 1024 lines after the semantics, CLI, and agent-task schema
     compatibility-facade gates expanded the hotspot-prevention classifier
     rules again.
   source:
@@ -251,7 +251,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "c674871"
+    deployed_ref: null
     notes: Residual ratchet increase was first recorded in the search execution
       persistence closeout commit f55b474 and refreshed during the local
       provenance-export closeout after adding the dedicated
@@ -261,27 +261,27 @@ cases:
       app/services/semantics.py. The CLI Milestone 1 facade-prevention ratchet
       expanded the classifier again to block direct session or storage wiring
       plus parser-body or JSON-render scaffolding in app/cli.py. The local
-      agent-task schema Milestone 1 gate adds a dedicated compatibility-facade
-      rule for app/schemas/agent_tasks.py that allows only compact registry
-      declarations and explicit alias forwarders while blocking new schema
-      definitions, broad re-export batches, and export-sink surfaces. The
-      hygiene follow-on remains open.
+      agent-task schema closeout extends that rule set again so the classifier
+      also allows only the compact registry-backed __getattr__/__dir__
+      compatibility facade used by app/schemas/agent_tasks.py while still
+      blocking new schema definitions, broad re-export batches, and
+      export-sink surfaces. The hygiene follow-on remains open.
   measurement:
     metric_name: hotspot_prevention_classifier_line_count
-    current_value: 1011.0
-    measurement_window: 2026-05-14 agent-task schema Milestone 1 working-tree verification
+    current_value: 1024.0
+    measurement_window: 2026-05-14 agent-task schema closeout verification
     notes: The classifier still carries the earlier registry-composition and
       search-boundary allowances and now also blocks provenance-graph,
       report-lineage, lifecycle, and governance-change-impact growth in
       app/services/evidence_provenance_exports.py plus semantic pass
       lifecycle, review persistence, active-pass read, registry-preview
       regrowth in app/services/semantics.py, direct session or storage wiring
-      plus parser-body or JSON-render scaffolding in app/cli.py, and the new
-      agent-task schema compatibility-facade gate for
+      plus parser-body or JSON-render scaffolding in app/cli.py, and the
+      compact agent-task schema compatibility-facade hooks for
       app/schemas/agent_tasks.py, leaving the file above the default budget at
-      1011 lines.
+      1024 lines.
   created_at: '2026-05-13T00:00:00+00:00'
-  updated_at: '2026-05-14T06:05:00Z'
+  updated_at: '2026-05-14T05:45:46Z'
 - case_id: IC-9812A0B138D9
   title: 'Architecture hotspot: app/cli.py'
   status: open
@@ -514,8 +514,9 @@ cases:
   title: 'Architecture hotspot: app/schemas/agent_tasks.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: app/schemas/agent_tasks.py is an architecture hotspot with risk_score=409.07,
-    line_count=461, changes_90d=58, hygiene_finding_count=0.
+  observed_failure: app/schemas/agent_tasks.py remains a routed architecture
+    hotspot after the schema closeout reduced the facade to 38 lines, with
+    risk_score=363.75, line_count=38, changes_90d=58, hygiene_finding_count=0.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/schemas/agent_tasks.py
@@ -537,14 +538,23 @@ cases:
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
-    notes: null
+    notes: The schema aggregation packet reduced app/schemas/agent_tasks.py to
+      a 38-line compatibility facade backed by owner-module export contracts,
+      eliminated production app/ import fan-in through the facade, and
+      preserved the 221-name public import surface. The broader owner case
+      remains reduced and open because the architecture-quality summary still
+      routes the facade and 30 local test and integration modules still import
+      it.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: architecture_quality_risk_score
+    current_value: 363.75
+    measurement_window: 2026-05-14 agent-task schema closeout verification
+    notes: app/schemas/agent_tasks.py now measures 38 lines, preserves
+      221 exported names, carries zero production app/ importers, and still
+      routes 30 local test and integration importers through the compatibility
+      facade.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-14T05:45:46Z'
 - case_id: IC-D9A84C20546B
   title: 'Architecture hotspot: tests/unit/test_agent_tasks_api.py'
   status: open

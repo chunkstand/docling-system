@@ -9,7 +9,7 @@ import yaml
 
 from app.db.models import AgentTask
 from app.db.session import get_session_factory
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_core import (
     AgentTaskApprovalRequest,
     AgentTaskCreateRequest,
     AgentTaskOutcomeCreateRequest,

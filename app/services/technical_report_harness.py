@@ -4,9 +4,11 @@ from typing import Any
 from uuid import UUID
 
 from app.core.coercion import unique_strings as _unique_strings
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_core import (
     ContextFreshnessStatus,
     ContextRef,
+)
+from app.schemas.agent_task_reports import (
     ReportAgentHarnessPayload,
     TechnicalReportEvidenceBundlePayload,
     TechnicalReportSkillContract,

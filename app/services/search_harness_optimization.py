@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.time import utcnow
-from app.schemas.agent_tasks import VerifySearchHarnessEvaluationTaskInput
+from app.schemas.agent_task_search_workflows import VerifySearchHarnessEvaluationTaskInput
 from app.schemas.search import (
     SearchHarnessEvaluationRequest,
     SearchHarnessOptimizationAttemptResponse,
