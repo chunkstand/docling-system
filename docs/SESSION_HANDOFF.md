@@ -24,8 +24,7 @@ remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
 remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
 Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
-Active local follow-up owner case: `IC-9E6B8F5D62A1` /
-`app/services/semantic_pass_lifecycle.py`
+Active local follow-up owner case: `IC-9812A0B138D9` / `app/cli.py`
 Latest planned bounded implementation brief:
 `docs/cli_command_dispatch_boundary_milestone_plan.md`
 Latest resolved bounded implementation brief:
@@ -125,12 +124,12 @@ and read owners still exceed the default 600-line budget even though the
 architecture probe no longer lists the semantics facade among the top 12 churn
 hotspots.
 
-The next active bounded implementation brief is now
-`docs/cli_command_dispatch_boundary_milestone_plan.md`. Its Milestone 0
-assumes the claim-support, evaluations, evidence provenance-export, and
-semantics closeouts are all complete and committed first, then refreshes live
-system state before activating the `IC-9812A0B138D9` / `app/cli.py`
-facade-reduction split.
+`docs/cli_command_dispatch_boundary_milestone_plan.md` is now refreshed
+through Milestone 0. The prior stacked prerequisites are closed locally as
+`3d7d090`, `1159297`, `1aa8378`, and `a2eb27e`, `app/cli.py` remains the top
+architecture-probe hotspot at `55` revisions / `1231` lines / `score 67705`,
+and Milestone 1 is now the next active CLI facade-prevention slice under
+`IC-9812A0B138D9`.
 
 Queued stacked follow-on after the CLI packet:
 `docs/agent_task_schema_aggregation_boundary_milestone_plan.md`. Its
@@ -265,6 +264,39 @@ Verification:
 - `uv run docling-system-architecture-quality-report --summary`: `hotspot_count=10`, `max_hotspot_risk_score=501.06`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`: top hotspot remains `app/cli.py`, the semantics facade is absent from the top 12 churn hotspots, and the remaining Python cycle count is `5`
 - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1926 passed`
+
+## CLI Command Dispatch Boundary Milestone 0 Local Refresh
+
+Milestone 0 is resolved locally on 2026-05-13 local / 2026-05-14 UTC. The
+stacked drafted baseline has been replaced with the live post-semantics
+system state, and Milestone 1 is now the next active CLI implementation
+slice.
+
+Results:
+
+- confirmed the prior stacked packets are closed locally as commits
+  `3d7d090`, `1159297`, `1aa8378`, and `a2eb27e`
+- promoted `docs/cli_command_dispatch_boundary_milestone_plan.md` from a
+  queued stacked draft to the current active bounded implementation brief
+- rerouted the active local follow-up owner case to
+  `IC-9812A0B138D9` / `app/cli.py`
+- refreshed the live CLI baseline: `app/cli.py` remains the top hotspot at
+  `55` revisions / `1231` lines / `score 67705`, and the oldest open
+  improvement case remains `IC-9812A0B138D9`
+- confirmed the existing focused CLI owners remain small:
+  `app/cli_commands/ingest.py` at `135` lines,
+  `app/cli_commands/improvement_cases.py` at `149` lines, and
+  `app/cli_commands/common.py` at `6` lines, so the remaining hotspot is
+  still the direct command-body cluster in `app/cli.py`
+- refreshed the downstream CLI cycle baseline to `5` Python cycle components
+
+Verification:
+
+- `git diff --check`: pass
+- `wc -l app/cli.py app/cli_commands/ingest.py app/cli_commands/improvement_cases.py app/cli_commands/common.py tests/unit/test_cli.py tests/unit/test_cli_search_harness.py tests/unit/test_cli_ingest.py app/agent_task_cli.py app/claim_support_replay_cli.py app/improvement_case_intake_cli.py`: refreshed live size baseline
+- `uv run docling-system-architecture-quality-report --summary`: `hotspot_count=10`, `max_hotspot_risk_score=501.06`, top hotspots still include `app/cli.py`
+- `uv run docling-system-improvement-case-summary`: `case_count=29`, `status_counts.open=21`, `status_counts.deployed=7`, `status_counts.measured=1`, `oldest_open_case_id=IC-9812A0B138D9`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`: `app/cli.py` remains the top hotspot at `55` revisions / `1231` lines / `score 67705`; Python cycle components=`5`
 
 ## Evidence Provenance Exports Boundary Local Closeout
 

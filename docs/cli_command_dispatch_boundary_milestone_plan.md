@@ -1,17 +1,50 @@
 # CLI Command Dispatch Boundary Milestone Plan
 
-Date: 2026-05-13 local / 2026-05-13 UTC
-Status: drafted on 2026-05-13 as a stacked follow-on after
-`docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
+Date: 2026-05-13 local / 2026-05-14 UTC
+Status: Milestone 0 resolved locally on 2026-05-13 local / 2026-05-14 UTC
+after `docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
 `docs/evaluations_service_boundary_milestone_plan.md`,
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`, and
-`docs/semantics_service_boundary_milestone_plan.md`; do not start
-implementation until all four prior packets close locally
-Owner context: queued follow-on under `IC-9812A0B138D9` / `app/cli.py`. This
-plan assumes the current claim-support packet completes first, the queued
-evaluations packet completes second, the queued evidence provenance-export
-packet completes third, the queued semantics packet completes fourth, and
-Milestone 0 then refreshes the live system state before any CLI code moves.
+`docs/semantics_service_boundary_milestone_plan.md` all closed locally;
+Milestone 1 is now the next active CLI implementation slice
+Owner context: active bounded follow-on under `IC-9812A0B138D9` /
+`app/cli.py`. Milestone 0 refreshed the live post-stack state, confirmed that
+the repeated command-body scaffolding still lives in `app/cli.py`, and
+promoted Milestone 1 of this plan to the next active implementation step.
+
+## Local Progress
+
+Milestone 0 is resolved locally. The drafted stacked baseline has been
+replaced with the live post-semantics state, and the remaining CLI packet is
+still valid.
+
+Local Milestone 0 snapshot:
+
+- confirmed the prior stacked packets are closed locally as commits
+  `3d7d090`, `1159297`, `1aa8378`, and `a2eb27e`
+- promoted this plan from a queued stacked draft to the current active bounded
+  implementation brief, with Milestone 1 as the next code-changing slice
+- updated the handoff and architecture index so the active local follow-up now
+  routes through `IC-9812A0B138D9` / `app/cli.py`
+- refreshed the live CLI baseline: `app/cli.py` measures `1231` lines by
+  `wc -l`, remains the top architecture-probe hotspot at `55` revisions /
+  `score 67705`, and the oldest open improvement case remains
+  `IC-9812A0B138D9`
+- confirmed the existing focused CLI owners remain small:
+  `app/cli_commands/ingest.py` at `135` lines,
+  `app/cli_commands/improvement_cases.py` at `149` lines, and
+  `app/cli_commands/common.py` at `6` lines, so the remaining hotspot is
+  still the older direct command-body cluster in `app/cli.py`
+- refreshed the Python cycle baseline for the downstream CLI packet to `5`
+  components after the stacked closeouts
+
+Local Milestone 0 verification:
+
+- `git diff --check`: pass
+- `wc -l app/cli.py app/cli_commands/ingest.py app/cli_commands/improvement_cases.py app/cli_commands/common.py tests/unit/test_cli.py tests/unit/test_cli_search_harness.py tests/unit/test_cli_ingest.py app/agent_task_cli.py app/claim_support_replay_cli.py app/improvement_case_intake_cli.py`: refreshed live size baseline
+- `uv run docling-system-architecture-quality-report --summary`: `hotspot_count=10`, `max_hotspot_risk_score=501.06`, `top_hotspot_paths` still includes `app/cli.py`
+- `uv run docling-system-improvement-case-summary`: `case_count=29`, `status_counts.open=21`, `status_counts.deployed=7`, `status_counts.measured=1`, `oldest_open_case_id=IC-9812A0B138D9`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`: `app/cli.py` remains the top hotspot at `55` revisions / `1231` lines / `score 67705`; Python cycle components=`5`
 
 ## Purpose
 
@@ -36,38 +69,25 @@ into service modules, or into a broad generic CLI framework in
 ## Current Evidence
 
 Live repo evidence refreshed from the current local checkout on 2026-05-13
-local / 2026-05-13 UTC:
+local / 2026-05-14 UTC:
 
 ```text
 git status -sb
-  ## main...origin/main [ahead 8]
-   M app/hotspot_prevention_classifier.py
-   M app/services/search.py
-   M config/hotspot_prevention.yaml
-   M config/hygiene_policy.yaml
-   M docs/SESSION_HANDOFF.md
-   M docs/agentic_architecture_index.md
-   M tests/unit/test_hotspot_prevention.py
-  ?? app/services/search_execution_orchestration.py
-  ?? docs/claim_support_policy_impacts_boundary_milestone_plan.md
-  ?? docs/evaluations_service_boundary_milestone_plan.md
-  ?? docs/evidence_provenance_exports_boundary_milestone_plan.md
-  ?? docs/runtime_health_orchestration_milestone_plan.md
-  ?? docs/search_execution_orchestration_boundary_milestone_plan.md
-  ?? docs/semantics_service_boundary_milestone_plan.md
-  ?? tests/unit/test_search_execution_orchestration.py
+  ## main...origin/main [ahead 26]
 
-wc -l app/cli.py tests/unit/test_cli.py tests/unit/test_cli_agent_tasks.py tests/unit/test_cli_claim_support.py tests/unit/test_cli_search_harness.py app/agent_task_cli.py app/claim_support_replay_cli.py app/improvement_case_intake_cli.py
+wc -l app/cli.py app/cli_commands/ingest.py app/cli_commands/improvement_cases.py app/cli_commands/common.py tests/unit/test_cli.py tests/unit/test_cli_search_harness.py tests/unit/test_cli_ingest.py app/agent_task_cli.py app/claim_support_replay_cli.py app/improvement_case_intake_cli.py
   1231 app/cli.py
+   135 app/cli_commands/ingest.py
+   149 app/cli_commands/improvement_cases.py
+     6 app/cli_commands/common.py
    423 tests/unit/test_cli.py
-   622 tests/unit/test_cli_agent_tasks.py
-   243 tests/unit/test_cli_claim_support.py
    322 tests/unit/test_cli_search_harness.py
+   176 tests/unit/test_cli_ingest.py
    508 app/agent_task_cli.py
    198 app/claim_support_replay_cli.py
     63 app/improvement_case_intake_cli.py
 
-find app/cli_commands -maxdepth 2 -type f | sort
+find app/cli_commands -maxdepth 1 -type f | sort
   app/cli_commands/__init__.py
   app/cli_commands/common.py
   app/cli_commands/improvement_cases.py
@@ -75,7 +95,7 @@ find app/cli_commands -maxdepth 2 -type f | sort
 
 uv run docling-system-architecture-quality-report --summary
   hotspot_count=10
-  max_hotspot_risk_score=531.06
+  max_hotspot_risk_score=501.06
   top_hotspot_paths=[
     app/db/models.py,
     app/services/agent_task_actions.py,
@@ -85,26 +105,16 @@ uv run docling-system-architecture-quality-report --summary
   ]
 
 uv run docling-system-improvement-case-summary
-  case_count=28
+  case_count=29
+  status_counts.measured=1
+  status_counts.deployed=7
   status_counts.open=21
   actionable_buckets.oldest_open_case_id=IC-9812A0B138D9
 
-python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 15
+python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
   app/cli.py: 55 revisions, 1231 lines, score 67705
   app/cli.py remains the top hotspot in the live probe
-  Python cycle components=3
-
-config/improvement_cases.yaml
-  IC-9812A0B138D9 remains open for app/cli.py with
-  observed_failure=risk_score=507.3, line_count=1283, changes_90d=54
-
-config/hygiene_policy.yaml
-  app/cli.py currently allows max_lines=1231 and max_private_helpers=5
-
-config/hotspot_prevention.yaml
-  app/cli.py target_role=console script compatibility and dispatch surface
-  preferred_owner_modules=[app/cli_commands/]
-  block_new=[command_implementation, broad_parser_logic]
+  Python cycle components=5
 ```
 
 Repo-current structural evidence:
@@ -112,18 +122,18 @@ Repo-current structural evidence:
 - `docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
   `docs/evaluations_service_boundary_milestone_plan.md`,
   `docs/evidence_provenance_exports_boundary_milestone_plan.md`, and
-  `docs/semantics_service_boundary_milestone_plan.md` are all still drafted in
-  the worktree. The active execution packet therefore remains the
-  claim-support plan, with evaluations, evidence provenance-export, and
-  semantics queued behind it, and this CLI follow-on must begin with a
-  system-state refresh after all four prior packets complete and are
-  committed.
+  `docs/semantics_service_boundary_milestone_plan.md` are now all resolved
+  locally through closeout commits `3d7d090`, `1159297`, `1aa8378`, and
+  `a2eb27e`. Milestone 0 is therefore complete, and this CLI packet is now
+  the active bounded implementation brief.
 - `app/cli.py` already delegates two bounded command families into
-  `app/cli_commands/ingest.py` and `app/cli_commands/improvement_cases.py`, and
-  the repo also already uses separate CLI owner modules for
+  `app/cli_commands/ingest.py` at `135` lines and
+  `app/cli_commands/improvement_cases.py` at `149` lines, while
+  `app/cli_commands/common.py` remains a `6` line helper surface. The repo
+  also already uses separate CLI owner modules for
   `app/agent_task_cli.py`, `app/claim_support_replay_cli.py`, and
-  `app/improvement_case_intake_cli.py`. The residual hotspot is the older
-  direct command-body cluster that still lives in `app/cli.py`.
+  `app/improvement_case_intake_cli.py`. The residual hotspot is still the
+  older direct command-body cluster that lives in `app/cli.py`.
 - The repeated direct command-body families still in `app/cli.py` include:
   `run_eval_run(...)`,
   `run_eval_corpus(...)`,
@@ -321,7 +331,7 @@ mandatory and must run before any CLI code changes start.
 
 ### Milestone 0 - Post-Claim-Support-Evaluations-Evidence-Semantics System-State Refresh
 
-Status: drafted
+Status: resolved locally
 Outcome label: `resolved`
 
 Purpose:
@@ -576,7 +586,7 @@ committed as complete.
 - `tests/unit/test_cli.py` stays a compatibility surface; new owner-module
   coverage lives in focused files instead of broadening the legacy test file.
 - The architecture probe does not increase Python cycle components above the
-  current baseline of `3`.
+  current baseline of `5`.
 - Test coverage is equivalent or stronger than before the split; no test,
   fixture, or gate is weakened to get green.
 - The scoped CLI scaffolding issue is `resolved` in this plan, while the
