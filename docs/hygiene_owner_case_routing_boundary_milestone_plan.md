@@ -9,8 +9,9 @@ Status: active stacked follow-on after
 `docs/cli_command_dispatch_boundary_milestone_plan.md`,
 `docs/agent_task_schema_aggregation_boundary_milestone_plan.md`, and
 `docs/oversized_test_hotspots_boundary_milestone_plan.md`; all seven prior
-packets are now closed locally, so Milestone 0 is the next required
-post-stack refresh before owner-routing edits start
+packets are now closed locally, Milestone 0 is resolved from the live
+post-stack refresh, and Milestone 1 owner-case bootstrap is now the next
+active code-changing slice
 Owner context: active governance-first follow-on for the remaining
 milestone-owned hygiene debt in `config/hygiene_policy.yaml`. This packet
 assumes the earlier boundary and test packets have already reduced the major
@@ -18,6 +19,57 @@ service and test hotspots first. Milestone 0 must refresh the live post-stack
 state, bind or reuse explicit owner cases for every remaining ratcheted
 residual, and then remove the `owner_milestone` fallback from the active
 hygiene contract so future sessions cannot hide debt behind milestone labels.
+
+## Local Progress
+
+Milestone 0 is resolved locally in the current refresh window. The stacked
+queue assumptions were revalidated against the live repo state, the exact
+remaining residual owner set is now frozen in the active docs, and Milestone 1
+owner-case bootstrap is the next active slice.
+
+Local Milestone 0 results:
+
+- confirmed the seven upstream packets named in this plan are already closed
+  locally, so this packet is no longer blocked on earlier stacked work
+- confirmed the live residual hygiene-routing set still contains exactly eight
+  `owner_milestone=residual-weakness-milestone-2` entries:
+  `app/architecture_inspection.py`,
+  `app/architecture_inspection_rules.py`,
+  `app/services/claim_support_evaluations.py`,
+  `app/services/claim_support_policy_governance.py`,
+  `app/services/claim_support_replay_alert_fixture_corpus.py`,
+  `app/services/improvement_case_intake.py`,
+  `app/services/improvement_cases.py`, and
+  `app/services/semantic_governance.py`
+- confirmed none of those eight residual files already have explicit owner
+  cases in `config/improvement_cases.yaml`, so Milestone 1 still needs the
+  planned architecture-governance, claim-support support, and
+  semantic-governance owner bootstrap
+- refreshed the active routing artifacts so this plan, the handoff, and the
+  architecture index now agree that Milestone 0 is closed and Milestone 1 is
+  the next code-changing slice
+- confirmed the surrounding architecture state remains aligned with the
+  oversized-test closeout baseline: `case_count=33`, `status_counts.open=22`,
+  `status_counts.deployed=10`, `hotspot_count=10`,
+  `max_hotspot_risk_score=501.06`, and Python cycle components=`5`
+
+Local Milestone 0 verification:
+
+- `git status -sb`: `## main...origin/main [ahead 42]`
+- `uv run docling-system-improvement-case-summary`: `case_count=33`,
+  `status_counts.open=22`, `status_counts.deployed=10`,
+  `status_counts.measured=1`, `actionable_buckets.open_unconverted_count=22`
+- `uv run docling-system-improvement-case-validate`: `valid=true`,
+  `issue_count=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+  `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `rg -n "owner_milestone: residual-weakness-milestone-2" config/hygiene_policy.yaml`:
+  `150`, `155`, `343`, `348`, `369`, `472`, `477`, `550`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`:
+  top hotspot `app/services/search.py`; the targeted residual files remain
+  large but unchanged; Python cycle components=`5`
 
 ## Purpose
 
@@ -248,6 +300,8 @@ captured here, update the live residual set before changing any routing.
 
 ### Milestone 0 - Refresh the post-stack state and freeze the live residual set
 
+Status: resolved locally in the current refresh window
+
 Outcome label: reduced
 
 Purpose: do not implement this packet against stale queue assumptions. Refresh
@@ -281,6 +335,8 @@ Acceptance signal:
 - No config edits begin until the post-stack state is refreshed.
 
 ### Milestone 1 - Bootstrap explicit owner cases for every live residual family
+
+Status: next active code-changing slice
 
 Outcome label: resolved
 
