@@ -13,8 +13,8 @@ Status: active stacked follow-on after
 packets are now closed locally, the hygiene owner-case routing packet is
 closed locally through closeout commit `9876f67`, it has bound explicit owner
 cases for the residual governance files, Milestone 0 live refresh is resolved
-locally in the current worktree, and Milestone 1 gate-first architecture
-import contract is now the next active slice
+locally through baseline commit `46b90a7`, and Milestone 1 gate-first
+architecture import contract is now the next active slice
 Owner context: active follow-on for the architecture-governance owner family
 now that the hygiene owner-case routing packet has closed locally and bound
 explicit owner cases for the residual governance files. This packet consumes the
@@ -24,12 +24,12 @@ that broader later-stack coordination plan.
 
 ## Local Progress
 
-Milestone 0 is resolved locally in the current worktree. `IC-08C078FD4F45` is
-now confirmed as the live architecture-governance owner case across both
-`config/improvement_cases.yaml` and `config/hygiene_policy.yaml`, the exact
-post-stack architecture-control cycle baseline is frozen from the current
-probe output, and Milestone 1 gate-first architecture import contract is now
-the next active slice.
+Milestone 0 is resolved locally through baseline commit `46b90a7`.
+`IC-08C078FD4F45` is now confirmed as the live architecture-governance owner
+case across both `config/improvement_cases.yaml` and
+`config/hygiene_policy.yaml`, the exact post-stack architecture-control cycle
+baseline is frozen from the current probe output, and Milestone 1 gate-first
+architecture import contract is now the next active slice.
 
 ## Purpose
 
@@ -304,7 +304,7 @@ the prior stacked packets close, refresh this plan before editing code.
 
 ### Milestone 0 - Refresh the post-stack state and bind the live owner case
 
-Status: resolved locally in the current worktree
+Status: resolved locally through baseline commit `46b90a7`
 
 Outcome label: reduced
 
@@ -328,6 +328,9 @@ Implementation:
   this plan, the handoff, and the architecture index.
 - Freeze the current global cycle baseline and the exact architecture-control
   cycle component from the probe output.
+- Run the architecture-quality, hotspot-prevention, and hygiene gates so the
+  refreshed baseline proves the packet is not forming a new hotspot or shifting
+  debt into adjacent owner surfaces before Milestone 1 begins.
 - If Milestone 0 finds that the owner case does not yet exist, stop and close
   the hygiene owner-case routing packet first instead of creating a duplicate
   case here.
@@ -337,6 +340,9 @@ Acceptance signal:
 - The plan names the live owner case that this packet is working under.
 - The architecture-control cycle component is captured from the post-stack
   baseline before implementation begins.
+- Architecture-quality, hotspot-prevention, and hygiene remain green, so the
+  refreshed baseline does not create new hotspots or shift debt into other
+  governed surfaces.
 
 Local result:
 
@@ -374,6 +380,15 @@ Local verification:
   `violation_count=0`
 - `uv run docling-system-capability-contracts`: `valid=true`,
   `facade_count=6`, `function_count=110`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+  `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `uv run docling-system-hotspot-prevention-check --strict`:
+  `known_hotspots=21`, `changed_hotspots=0`, `blocked=0`, `allowed=0`,
+  `exceptions=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`;
+  inherited budget debt stays routed through explicit owner cases rather than
+  new milestone labels
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`:
   top hotspot `app/services/search.py`; Python cycle components=`5`; the
   architecture-control cycle component still contains
@@ -556,6 +571,8 @@ Acceptance signal:
 - `uv run docling-system-improvement-case-validate`
 - `uv run docling-system-improvement-case-summary`
 - `uv run docling-system-hygiene-check`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-hotspot-prevention-check --strict`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`
 - `uv run docling-system-architecture-inspect --write-map` or the repo-equivalent map refresh command if the contract map changed
 - `uv run docling-system-architecture-decisions --write-map` if the decision map changed

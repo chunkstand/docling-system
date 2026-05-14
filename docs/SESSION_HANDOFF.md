@@ -36,6 +36,8 @@ Hygiene Owner-Case Routing Milestone 1 checkpoint:
 `d4f082c`
 Hygiene Owner-Case Routing closeout checkpoint:
 `9876f67`
+Architecture Governance Cycle Milestone 0 checkpoint:
+`46b90a7`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -59,15 +61,18 @@ as `0dbd4c7`. Milestone 4 routing-packet closeout now leaves zero live
 durable routing map, and hands the next active slice to
 `docs/architecture_governance_cycle_boundary_milestone_plan.md`.
 The architecture-governance cycle packet remains the active bounded follow-on.
-Milestone 0 live refresh is now resolved locally in the current worktree:
-`IC-08C078FD4F45` is confirmed across `config/improvement_cases.yaml` and
-`config/hygiene_policy.yaml`, architecture inspection and capability contracts
-remain valid, the exact architecture-control cycle component is frozen as
-`app.architecture_decisions`,
-`app.architecture_inspection`,
-`app.architecture_inspection_rules`,
-`app.hygiene`, and
-`app.services.improvement_case_intake`, and Milestone 1 gate-first
+Milestone 0 live refresh is now resolved locally through baseline commit
+`46b90a7`: `IC-08C078FD4F45` is confirmed across
+`config/improvement_cases.yaml` and `config/hygiene_policy.yaml`,
+architecture inspection and capability contracts remain valid, the exact
+architecture-control cycle component is frozen as
+`app.architecture_decisions`, `app.architecture_inspection`,
+`app.architecture_inspection_rules`, `app.hygiene`, and
+`app.services.improvement_case_intake`, the architecture-quality report still
+measures `hotspot_count=10` and `max_hotspot_risk_score=501.06`,
+`docling-system-hotspot-prevention-check --strict` stays at
+`changed_hotspots=0`, `blocked=0`, and `docling-system-hygiene-check`
+continues to report `new hygiene regressions: none`. Milestone 1 gate-first
 architecture import contract is now the next active slice.
 The oversized-test packet is now resolved locally in the 2026-05-14 closeout
 window through closeout commit `65c0c67`. Deployed follow-on cases are
@@ -252,13 +257,15 @@ closeout commit `9876f67`, and the next active slice is
 
 Active stacked follow-on after the hygiene owner-case routing packet:
 `docs/architecture_governance_cycle_boundary_milestone_plan.md`. Milestone 0
-live refresh is now resolved locally in the current worktree: the packet
-reuses `IC-08C078FD4F45` across `config/improvement_cases.yaml` and
+live refresh is now resolved locally through baseline commit `46b90a7`: the
+packet reuses `IC-08C078FD4F45` across `config/improvement_cases.yaml` and
 `config/hygiene_policy.yaml`, freezes the architecture-control cycle component
 as `app.architecture_decisions`, `app.architecture_inspection`,
 `app.architecture_inspection_rules`, `app.hygiene`, and
-`app.services.improvement_case_intake`, and leaves Milestone 1 gate-first
-architecture import contract as the next active slice for removing the
+`app.services.improvement_case_intake`, and confirms architecture-quality,
+hotspot-prevention, and hygiene remain green so the baseline does not form new
+hotspots or shift debt into adjacent owner surfaces. Milestone 1 gate-first
+architecture import contract is the next active slice for removing the
 `app.architecture_decisions` / `app.architecture_inspection` recursive
 contract-discovery dependency, and eliminating the architecture-governance
 cycle component from the architecture probe without broadening into the other
@@ -283,6 +290,9 @@ baseline is:
   `hotspot_count=10`, `max_hotspot_risk_score=501.06`
 - `uv run docling-system-improvement-case-validate`: `valid=true`,
   `issue_count=0`
+- `uv run docling-system-hotspot-prevention-check --strict`:
+  `known_hotspots=21`, `changed_hotspots=0`, `blocked=0`, `allowed=0`,
+  `exceptions=0`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
 - `uv run docling-system-improvement-case-import --source hygiene --dry-run`:
   `candidate_count=0`, `imported_count=0`, `skipped_count=0`
@@ -296,11 +306,11 @@ baseline is:
 
 ## Architecture Governance Cycle Boundary Milestone 0 Local Refresh
 
-Milestone 0 is resolved locally in the current worktree. The post-stack
-baseline is now refreshed against the live owner-case map, the exact
-architecture-control cycle component is frozen before code motion begins, and
-Milestone 1 gate-first architecture import contract is now the next active
-slice.
+Milestone 0 is resolved locally through baseline commit `46b90a7`. The
+post-stack baseline is now refreshed against the live owner-case map, the
+exact architecture-control cycle component is frozen before code motion
+begins, and Milestone 1 gate-first architecture import contract is now the
+next active slice.
 
 Results:
 
@@ -320,6 +330,11 @@ Results:
   `app.architecture_inspection_rules`,
   `app.hygiene`, and
   `app.services.improvement_case_intake`
+- confirmed the refreshed baseline is not shifting debt: the architecture
+  quality summary remains `hotspot_count=10` with
+  `max_hotspot_risk_score=501.06`, `docling-system-hotspot-prevention-check
+  --strict` reports `changed_hotspots=0` and `blocked=0`, and
+  `docling-system-hygiene-check` still reports `new hygiene regressions: none`
 - updated the active plan, handoff, and architecture index so Milestone 1
   gate-first architecture import contract is now the next active code-changing
   slice
@@ -338,6 +353,13 @@ Verification:
   `violation_count=0`
 - `uv run docling-system-capability-contracts`: `valid=true`,
   `facade_count=6`, `function_count=110`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+  `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `uv run docling-system-hotspot-prevention-check --strict`:
+  `known_hotspots=21`, `changed_hotspots=0`, `blocked=0`, `allowed=0`,
+  `exceptions=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`:
   top hotspot `app/services/search.py`; Python cycle components=`5`; the
   architecture-control cycle component still contains
