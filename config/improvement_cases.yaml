@@ -196,10 +196,10 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: Provenance-export boundary closeout reduced
-      app/services/evidence_provenance_exports.py to a compatibility facade and
-      added app/services/evidence_provenance_export_graph_core.py,
+    deployed_ref: "1aa8378"
+    notes: Provenance-export boundary closeout commit 1aa8378 reduced
+      app/services/evidence_provenance_exports.py to a compatibility facade
+      and added app/services/evidence_provenance_export_graph_core.py,
       app/services/evidence_provenance_export_graph_report.py, and
       app/services/evidence_provenance_export_lifecycle.py. The broader
       owner-family case remains open because multiple extracted evidence owner

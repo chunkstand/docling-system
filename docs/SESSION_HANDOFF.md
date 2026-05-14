@@ -14,6 +14,8 @@ Evaluations Service Boundary Milestone 3 checkpoint:
 `b05def0`
 Evaluations Service Boundary Milestone 4 checkpoint:
 `1159297`
+Evidence Provenance Exports Boundary closeout checkpoint:
+`1aa8378`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -86,8 +88,9 @@ churn hotspots, so the broader owner case is now deployed locally rather than
 remaining an open reduced hotspot.
 
 `docs/evidence_provenance_exports_boundary_milestone_plan.md` is now resolved
-locally on 2026-05-13. `app/services/evidence_provenance_exports.py` is now a
-14-line compatibility facade, provenance graph scaffolding now lives in
+locally through closeout commit `1aa8378` on 2026-05-13.
+`app/services/evidence_provenance_exports.py` is now a 14-line compatibility
+facade, provenance graph scaffolding now lives in
 `app/services/evidence_provenance_export_graph_core.py` at 549 lines,
 report-trace and claim-lineage graph ownership now lives in
 `app/services/evidence_provenance_export_graph_report.py` at 218 lines, and
@@ -203,17 +206,21 @@ window is:
   after the boundary split; and the Python cycle component count remains `4`
   without `app.services.evaluations` in the remaining cycle list
 
-Reduced or routed follow-on cases remain open after this evaluations
-Milestone 4 closeout: `IC-1D03DBFE8492` / `app/services/search.py`,
+At the time of this evaluations Milestone 4 closeout, the reduced or routed
+follow-on cases were `IC-1D03DBFE8492` / `app/services/search.py`,
 `IC-E2270F89B397` / `app/services/claim_support_policy_impacts.py`,
 `IC-65AF4A6D8B1E` / `app/services/evidence_provenance_exports.py`, and
-`IC-6C1B516A3F92` / `app/hotspot_prevention_classifier.py`.
+`IC-6C1B516A3F92` / `app/hotspot_prevention_classifier.py`. Current routing is
+captured at the top of this handoff; after provenance-export closeout commit
+`1aa8378`, `IC-65AF4A6D8B1E` now routes through
+`app/services/evidence_technical_report_exports.py`.
 
 ## Evidence Provenance Exports Boundary Local Closeout
 
-Milestone 3 is resolved locally on 2026-05-13. It closes the scoped
-provenance-export knot under `IC-65AF4A6D8B1E` while leaving the broader
-evidence owner-family case reduced/open.
+Milestone 3 is resolved locally through closeout commit `1aa8378` on
+2026-05-13. It closes the scoped provenance-export knot under
+`IC-65AF4A6D8B1E` while leaving the broader evidence owner-family case
+reduced/open.
 
 Results:
 

@@ -1,7 +1,7 @@
 # Evidence Provenance Exports Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-13 UTC
-Status: resolved locally on 2026-05-13 after
+Status: resolved locally through closeout commit `1aa8378` on 2026-05-13 after
 `docs/search_execution_orchestration_boundary_milestone_plan.md`,
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md`, and
 `docs/evaluations_service_boundary_milestone_plan.md` all closed first.
@@ -19,7 +19,8 @@ bounded implementation brief.
 
 - Milestone 0 refreshed the post-search-orchestration, claim-support, and
   evaluations state and confirmed the provenance-export knot was still the next
-  routed evidence owner surface.
+  routed evidence owner surface before closeout commit `1aa8378` landed the
+  boundary split.
 - Milestones 1-3 extracted provenance graph scaffolding into
   `app/services/evidence_provenance_export_graph_core.py` at 549 lines,
   report-trace and claim-lineage graph ownership into
