@@ -18,6 +18,8 @@ Evidence Provenance Exports Boundary closeout checkpoint:
 `1aa8378`
 Semantics Service Boundary closeout checkpoint:
 `a2eb27e`
+CLI Command Dispatch Milestone 0 checkpoint:
+`381ca15`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -125,11 +127,11 @@ architecture probe no longer lists the semantics facade among the top 12 churn
 hotspots.
 
 `docs/cli_command_dispatch_boundary_milestone_plan.md` is now refreshed
-through Milestone 0. The prior stacked prerequisites are closed locally as
-`3d7d090`, `1159297`, `1aa8378`, and `a2eb27e`, `app/cli.py` remains the top
-architecture-probe hotspot at `55` revisions / `1231` lines / `score 67705`,
-and Milestone 1 is now the next active CLI facade-prevention slice under
-`IC-9812A0B138D9`.
+through Milestone 0 closeout commit `381ca15`. The prior stacked
+prerequisites are closed locally as `3d7d090`, `1159297`, `1aa8378`, and
+`a2eb27e`, `app/cli.py` remains the top architecture-probe hotspot at
+`55` revisions / `1231` lines / `score 67705`, and Milestone 1 is now the
+next active CLI facade-prevention slice under `IC-9812A0B138D9`.
 
 Queued stacked follow-on after the CLI packet:
 `docs/agent_task_schema_aggregation_boundary_milestone_plan.md`. Its
@@ -267,10 +269,10 @@ Verification:
 
 ## CLI Command Dispatch Boundary Milestone 0 Local Refresh
 
-Milestone 0 is resolved locally on 2026-05-13 local / 2026-05-14 UTC. The
-stacked drafted baseline has been replaced with the live post-semantics
-system state, and Milestone 1 is now the next active CLI implementation
-slice.
+Milestone 0 is resolved locally through closeout commit `381ca15` on
+2026-05-13 local / 2026-05-14 UTC. The stacked drafted baseline has been
+replaced with the live post-semantics system state, and Milestone 1 is now
+the next active CLI implementation slice.
 
 Results:
 
@@ -280,6 +282,9 @@ Results:
   queued stacked draft to the current active bounded implementation brief
 - rerouted the active local follow-up owner case to
   `IC-9812A0B138D9` / `app/cli.py`
+- refreshed `config/improvement_cases.yaml` and `config/hygiene_policy.yaml`
+  so the active CLI owner case, live hotspot evidence, and hygiene routing
+  agree before Milestone 1 begins
 - refreshed the live CLI baseline: `app/cli.py` remains the top hotspot at
   `55` revisions / `1231` lines / `score 67705`, and the oldest open
   improvement case remains `IC-9812A0B138D9`
@@ -289,6 +294,8 @@ Results:
   `app/cli_commands/common.py` at `6` lines, so the remaining hotspot is
   still the direct command-body cluster in `app/cli.py`
 - refreshed the downstream CLI cycle baseline to `5` Python cycle components
+- local closeout commit:
+  `381ca15`
 
 Verification:
 

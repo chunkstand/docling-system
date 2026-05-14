@@ -275,14 +275,17 @@ cases:
   title: 'Architecture hotspot: app/cli.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: app/cli.py is an architecture hotspot with risk_score=507.3, line_count=1283,
-    changes_90d=54, hygiene_finding_count=0.
+  observed_failure: app/cli.py remains the top routed CLI hotspot after the Milestone 0
+    refresh, with architecture_probe_score=67705, probe_line_count=1231, changes_90d=54,
+    hygiene_finding_count=0.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/cli.py
     notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
-      artifact_target_path=app/cli.py; verification_command=uv run docling-system-architecture-quality-report;
-      stop_condition=Hotspot risk decreases or the surface has a narrower owner contract.
+      artifact_target_path=app/cli.py; summary_command=uv run docling-system-architecture-quality-report
+      --summary; probe_command=python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 12; stop_condition=Hotspot risk decreases or the surface has a
+      narrower owner contract.
   artifact:
     artifact_type: contract
     target_path: app/cli.py
@@ -290,37 +293,17 @@ cases:
   verification:
     commands:
     - git diff --check
-    - uv run ruff check app/services/evaluations.py
-      app/services/evaluation_fixtures.py
-      app/services/evaluation_scoring.py
-      app/services/evaluation_reads.py
-      app/services/evaluation_execution.py app/services/documents.py
-      app/services/runs.py app/services/quality.py
-      app/services/semantic_backfill.py
-      app/services/evaluation_corpus_runner.py
-      app/services/evaluation_embedding_cache.py
-      app/services/knowledge_base_reset.py
-      app/services/capabilities/evaluation.py
-      tests/unit/test_evaluation_service.py
-      tests/unit/test_evaluation_fixtures.py
-      tests/unit/test_evaluation_scoring.py
-      tests/unit/test_evaluation_reads.py tests/unit/test_documents_api.py
-      tests/unit/test_quality_service.py tests/unit/test_eval_config.py
-      tests/unit/test_capability_contracts.py
-      tests/unit/test_api_architecture.py
+    - uv run ruff check app/cli.py app/cli_commands/common.py
+      app/cli_commands/ingest.py app/cli_commands/improvement_cases.py
+      app/cli_commands/runtime.py app/cli_commands/search_harness.py
+      app/hotspot_prevention_classifier.py tests/unit/test_cli.py
+      tests/unit/test_cli_runtime.py tests/unit/test_cli_search_harness.py
       tests/unit/test_hotspot_prevention.py
-    - uv run pytest -q tests/unit/test_evaluation_service.py
-      tests/unit/test_evaluation_fixtures.py
-      tests/unit/test_evaluation_scoring.py
-      tests/unit/test_evaluation_reads.py tests/unit/test_documents_api.py
-      tests/unit/test_quality_service.py tests/unit/test_eval_config.py
-      tests/unit/test_capability_contracts.py
-      tests/unit/test_api_architecture.py
+      tests/unit/test_cli_improvement_cases.py
+    - uv run pytest -q tests/unit/test_cli.py tests/unit/test_cli_runtime.py
+      tests/unit/test_cli_search_harness.py
       tests/unit/test_hotspot_prevention.py
-    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
-      tests/integration/test_postgres_roundtrip.py
-      tests/integration/test_multivector_retrieval.py
-      tests/integration/test_eval_workbench_roundtrip.py
+      tests/unit/test_cli_improvement_cases.py
     - uv run docling-system-hotspot-prevention-check --strict
     - uv run docling-system-hygiene-check
     - uv run docling-system-architecture-inspect
@@ -328,19 +311,15 @@ cases:
     - uv run docling-system-architecture-quality-report --summary
     - uv run docling-system-improvement-case-validate
     - uv run docling-system-improvement-case-summary
-    - uv run docling-system-evaluation-data-readiness --output
-      storage/evaluation_data_readiness.latest.json
     - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
-      --format markdown --top 15
+      --format markdown --top 12
     - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
     acceptance_conditions:
-    - app/services/evaluations.py remains a narrow orchestration and
-      compatibility facade at 283 lines / 1 private helper with fixture,
-      scoring, structural, and latest-read ownership moved into focused owner
-      modules.
-    - The latest-evaluation route family, capability facade, and stable
-      evaluation-service import surface remain behavior-compatible for callers
-      and tests.
+    - app/cli.py remains a narrow console-script compatibility and dispatch
+      surface while direct command bodies move into bounded app/cli_commands
+      owner modules.
+    - Stable app.cli run_* entrypoints and pyproject console-script targets
+      remain behavior-compatible for callers and tests.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
@@ -348,12 +327,13 @@ cases:
     deployed_ref: null
     notes: null
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: architecture_probe_hotspot_score
+    current_value: 67705.0
+    measurement_window: 2026-05-13 CLI Milestone 0 refresh
+    notes: app/cli.py remains the top architecture-probe hotspot at 55
+      revisions / 1231 lines after the stacked Milestone 0 rebaseline.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-14T03:14:43Z'
 - case_id: IC-A1E186A34097
   title: 'Architecture hotspot: app/services/agent_task_actions.py'
   status: deployed

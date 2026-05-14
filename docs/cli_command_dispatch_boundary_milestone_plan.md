@@ -1,7 +1,8 @@
 # CLI Command Dispatch Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-14 UTC
-Status: Milestone 0 resolved locally on 2026-05-13 local / 2026-05-14 UTC
+Status: Milestone 0 resolved locally through closeout commit `381ca15` on
+2026-05-13 local / 2026-05-14 UTC
 after `docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
 `docs/evaluations_service_boundary_milestone_plan.md`,
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`, and
@@ -14,9 +15,9 @@ promoted Milestone 1 of this plan to the next active implementation step.
 
 ## Local Progress
 
-Milestone 0 is resolved locally. The drafted stacked baseline has been
-replaced with the live post-semantics state, and the remaining CLI packet is
-still valid.
+Milestone 0 is resolved locally as closeout commit `381ca15`. The drafted
+stacked baseline has been replaced with the live post-semantics state, and the
+remaining CLI packet is still valid.
 
 Local Milestone 0 snapshot:
 
@@ -26,6 +27,9 @@ Local Milestone 0 snapshot:
   implementation brief, with Milestone 1 as the next code-changing slice
 - updated the handoff and architecture index so the active local follow-up now
   routes through `IC-9812A0B138D9` / `app/cli.py`
+- refreshed `config/improvement_cases.yaml` and `config/hygiene_policy.yaml`
+  so the active CLI owner case, live hotspot evidence, and hygiene routing all
+  agree before Milestone 1 begins
 - refreshed the live CLI baseline: `app/cli.py` measures `1231` lines by
   `wc -l`, remains the top architecture-probe hotspot at `55` revisions /
   `score 67705`, and the oldest open improvement case remains
@@ -37,6 +41,8 @@ Local Milestone 0 snapshot:
   still the older direct command-body cluster in `app/cli.py`
 - refreshed the Python cycle baseline for the downstream CLI packet to `5`
   components after the stacked closeouts
+- local closeout commit:
+  `381ca15`
 
 Local Milestone 0 verification:
 
