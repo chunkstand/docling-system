@@ -1,20 +1,21 @@
 # Agent Task Schema Aggregation Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-13 UTC
-Status: drafted on 2026-05-13 as a stacked follow-on after
+Status: active bounded follow-on after
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
 `docs/evaluations_service_boundary_milestone_plan.md`,
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`,
 `docs/semantics_service_boundary_milestone_plan.md`, and
-`docs/cli_command_dispatch_boundary_milestone_plan.md`; do not start
-implementation until all five prior packets close locally
-Owner context: queued follow-on under `IC-24F3558D6091` /
-`app/schemas/agent_tasks.py`. This plan assumes the current claim-support
-packet completes first, the queued evaluations packet completes second, the
-queued evidence provenance-export packet completes third, the queued semantics
-packet completes fourth, the queued CLI packet completes fifth, and
-Milestone 0 then refreshes the live system state before any schema-facade work
-begins.
+`docs/cli_command_dispatch_boundary_milestone_plan.md` all closed locally
+through commits `3d7d090`, `1159297`, `1aa8378`, `a2eb27e`, and `4a79a82`;
+Milestone 0 is now the next active refresh slice before any schema-facade
+work begins
+Owner context: active follow-on under `IC-24F3558D6091` /
+`app/schemas/agent_tasks.py`. The prior claim-support packet completed first,
+the evaluations packet completed second, the evidence provenance-export packet
+completed third, the semantics packet completed fourth, the CLI packet
+completed fifth, and Milestone 0 now refreshes the live system state before
+any schema-facade work begins.
 
 ## Purpose
 
@@ -38,8 +39,13 @@ catalog file or another new `app/schemas/agent_task_*.py` sink.
 
 ## Current Evidence
 
-Live repo evidence refreshed from the current local checkout on 2026-05-13
-local / 2026-05-13 UTC:
+This section preserves the drafted baseline captured when the packet was first
+written. Milestone 0 is now the active refresh step and must replace this
+baseline with current live checkout evidence before any schema-facade changes
+begin.
+
+Draft baseline captured from the local checkout on 2026-05-13 local /
+2026-05-13 UTC:
 
 ```text
 git status -sb

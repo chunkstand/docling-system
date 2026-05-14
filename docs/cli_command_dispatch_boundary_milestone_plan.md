@@ -1,26 +1,28 @@
 # CLI Command Dispatch Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-14 UTC
-Status: Milestone 3 is implemented and verified locally in the working tree
-after the Milestone 2 closeout `f5a4260`, the Milestone 1 closeout `c674871`,
-and the Milestone 0 rebaseline closeout `381ca15`; the closeout commit is
-still pending, so Milestone 4 is now the next active CLI closeout slice
-Owner context: active bounded follow-on under `IC-9812A0B138D9` /
+Status: resolved locally through closeout commit `4a79a82` after the
+Milestone 2 closeout `f5a4260`, the Milestone 1 closeout `c674871`, and the
+Milestone 0 rebaseline closeout `381ca15`
+Owner context: scoped CLI packet resolved under `IC-9812A0B138D9` /
 `app/cli.py`. Milestone 0 refreshed the live post-stack state, Milestone 1
 tightened the facade-prevention ratchet, Milestone 2 extracted the runtime and
-maintenance command owner, Milestone 3 extracted the retrieval-learning and
-search-harness command owner in the working tree, and Milestone 4 is now the
-next active closeout step.
+maintenance command owner, and the closeout commit `4a79a82` completed the
+retrieval-learning and search-harness owner extraction plus the required
+governance updates. The broader CLI owner case remains reduced/open, and the
+next active bounded follow-on now routes through `IC-24F3558D6091` /
+`app/schemas/agent_tasks.py`.
 
 ## Local Progress
 
-Milestone 3 is implemented and verified locally in the working tree. Milestone
-2 remains closed as commit `f5a4260`, Milestone 1 remains closed as commit
-`c674871`, Milestone 0 remains closed as commit `381ca15`, the runtime and
-maintenance command owner remains in `app/cli_commands/runtime.py`, and
-Milestone 4 is now the next active CLI closeout slice.
+Milestones 3 and 4 are resolved locally through closeout commit `4a79a82`.
+Milestone 2 remains closed as commit `f5a4260`, Milestone 1 remains closed as
+commit `c674871`, Milestone 0 remains closed as commit `381ca15`, the runtime
+and maintenance command owner remains in `app/cli_commands/runtime.py`, and
+the next active bounded follow-on is now
+`docs/agent_task_schema_aggregation_boundary_milestone_plan.md`.
 
-Local Milestone 3 working-tree snapshot:
+Local CLI closeout snapshot:
 
 - added `app/cli_commands/search_harness.py` as the focused retrieval-learning
   and search-harness owner at `604` lines, covering
@@ -54,11 +56,20 @@ Local Milestone 3 working-tree snapshot:
   paths so the broader owner case remains reduced/open
 - refreshed `config/hygiene_policy.yaml` and `config/improvement_cases.yaml` so
   the CLI facade and both owner modules now carry exact verified local
-  ceilings, and `IC-9812A0B138D9` now reflects the Milestone 3 working-tree
-  measurements rather than the older `926`-line runtime-only state
-- local closeout commit: pending
+  ceilings, and `IC-9812A0B138D9` now reflects the committed `375`-line facade
+  state rather than the older `926`-line runtime-only state
+- recorded `4a79a82` as the CLI packet closeout checkpoint because that commit
+  already contained the extracted owners, focused tests, governance ratchets,
+  improvement-case refresh, handoff, and architecture-index updates; this
+  follow-on alignment pass only repairs the stale "working-tree pending"
+  wording around that checkpoint
+- the next active bounded follow-on now routes to
+  `docs/agent_task_schema_aggregation_boundary_milestone_plan.md` for
+  `IC-24F3558D6091` / `app/schemas/agent_tasks.py`
+- local closeout commit:
+  `4a79a82`
 
-Local Milestone 3 working-tree verification:
+Local CLI closeout verification:
 
 - `git diff --check`: pass
 - `uv run ruff check app/cli.py app/cli_commands/common.py app/cli_commands/ingest.py app/cli_commands/improvement_cases.py app/cli_commands/runtime.py app/cli_commands/search_harness.py tests/unit/test_cli.py tests/unit/test_cli_entrypoints.py tests/unit/test_cli_runtime.py tests/unit/test_cli_improvement_cases.py tests/unit/test_cli_search_harness.py tests/unit/test_cli_ingest.py tests/unit/test_hotspot_prevention.py`: pass
@@ -593,7 +604,7 @@ Acceptance:
 
 ### Milestone 3 - Retrieval-Learning And Search-Harness Command Owner Extraction
 
-Status: implemented locally in working tree; closeout commit pending
+Status: resolved locally through closeout commit `4a79a82`
 Outcome label: `resolved` for the scoped CLI scaffolding issue and `reduced`
 for the broader owner case unless the live hotspot fully retires
 
@@ -646,7 +657,7 @@ Acceptance:
 
 ### Milestone 4 - Closeout, Ratchets, And Residual Routing
 
-Status: next active closeout slice
+Status: resolved locally through closeout commit `4a79a82`
 Outcome label: `reduced`
 
 Implementation:
@@ -658,8 +669,10 @@ Implementation:
 - refresh `docs/SESSION_HANDOFF.md`, `docs/agentic_architecture_index.md`, and
   this plan with the closeout hash, verification commands, and post-closeout
   routing
-- stage only the verified CLI milestone slice and close with one local atomic
-  commit
+- recorded the verified CLI milestone slice against the committed checkpoint
+  `4a79a82`, then refreshed this plan, the handoff, the architecture index,
+  and the CLI improvement-case routing so the durable artifacts agree on the
+  closeout state and next active follow-on
 
 Acceptance:
 

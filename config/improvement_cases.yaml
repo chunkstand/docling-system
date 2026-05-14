@@ -280,7 +280,7 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/cli.py remains a routed CLI hotspot after the
-    Milestone 3 retrieval-learning and search-harness extraction, with
+    closeout commit 4a79a82 reduced the facade to 375 lines, with
     architecture_quality_risk_score=425.5, line_count=375, changes_90d=56,
     hygiene_finding_count=0.
   source:
@@ -329,28 +329,30 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "f5a4260"
+    deployed_ref: "4a79a82"
     notes: >-
-      The latest committed checkpoint remains the Milestone 2 closeout
-      f5a4260. The local working tree now moves retrieval-learning and
-      search-harness command ownership into app/cli_commands/search_harness.py
-      at 604 lines, reduces app/cli.py to 375 lines with explicit forwarding
-      wrappers, keeps app/cli_commands/runtime.py at 463 lines, and reduces
-      tests/unit/test_cli.py to an empty compatibility placeholder while
-      direct owner tests live in tests/unit/test_cli_search_harness.py.
-      Closeout commit pending.
+      CLI Command Dispatch Milestones 3 and 4 closed locally as 4a79a82. The
+      committed packet moves retrieval-learning and search-harness command
+      ownership into app/cli_commands/search_harness.py at 604 lines, keeps
+      runtime and maintenance ownership in app/cli_commands/runtime.py at 463
+      lines, reduces app/cli.py to 375 lines with explicit forwarding
+      wrappers, and reduces tests/unit/test_cli.py to an empty compatibility
+      placeholder while direct owner tests live in
+      tests/unit/test_cli_search_harness.py. The broader owner case remains
+      open and reduced because the architecture-quality summary still routes
+      app/cli.py among the top hotspot paths.
   measurement:
     metric_name: architecture_quality_risk_score
     current_value: 425.5
-    measurement_window: 2026-05-13 CLI Milestone 3 working-tree verification
-    notes: The live architecture-quality report now measures app/cli.py at 375
-      lines, 56 changes_90d, and risk_score 425.5. The architecture-quality
-      summary still routes the facade among the top hotspot paths, but the live
-      architecture probe no longer lists app/cli.py in the top 12 churn
-      hotspots and the narrowed facade now stays under the default 600-line
-      budget.
+    measurement_window: 2026-05-14 post-closeout alignment refresh
+    notes: The live architecture-quality report measures app/cli.py at 375
+      lines, 56 changes_90d, and risk_score 425.5 after the closeout commit.
+      The architecture-quality summary still routes the facade among the top
+      hotspot paths, but the live architecture probe no longer lists app/cli.py
+      in the top 12 churn hotspots and the narrowed facade now stays under the
+      default 600-line budget.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-14T04:38:47Z'
+  updated_at: '2026-05-14T05:10:00Z'
 - case_id: IC-A1E186A34097
   title: 'Architecture hotspot: app/services/agent_task_actions.py'
   status: deployed
