@@ -1,23 +1,55 @@
 # CLI Command Dispatch Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-14 UTC
-Status: Milestone 0 resolved locally through closeout commit `381ca15` on
-2026-05-13 local / 2026-05-14 UTC
-after `docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
-`docs/evaluations_service_boundary_milestone_plan.md`,
-`docs/evidence_provenance_exports_boundary_milestone_plan.md`, and
-`docs/semantics_service_boundary_milestone_plan.md` all closed locally;
-Milestone 1 is now the next active CLI implementation slice
+Status: Milestone 1 resolved locally on 2026-05-13 local / 2026-05-14 UTC
+after the Milestone 0 rebaseline closeout `381ca15`; Milestone 2 is now the
+next active CLI implementation slice
 Owner context: active bounded follow-on under `IC-9812A0B138D9` /
-`app/cli.py`. Milestone 0 refreshed the live post-stack state, confirmed that
-the repeated command-body scaffolding still lives in `app/cli.py`, and
-promoted Milestone 1 of this plan to the next active implementation step.
+`app/cli.py`. Milestone 0 refreshed the live post-stack state, Milestone 1
+tightened the facade-prevention ratchet, and Milestone 2 is now the next
+active implementation step.
 
 ## Local Progress
 
-Milestone 0 is resolved locally as closeout commit `381ca15`. The drafted
-stacked baseline has been replaced with the live post-semantics state, and the
-remaining CLI packet is still valid.
+Milestone 1 is resolved locally. Milestone 0 remains closed as commit
+`381ca15`, the CLI facade now has the tightened prevention rule required
+before code extraction begins, and Milestone 2 is now the next active CLI
+implementation slice.
+
+Local Milestone 1 snapshot:
+
+- tightened the `app/cli.py` hotspot-prevention rule so the facade now blocks
+  new direct session or storage wiring plus direct parser-body or JSON-render
+  scaffolding, in addition to the existing command-body and
+  `ArgumentParser(...)` guards
+- preserved the existing allowed seam for explicit forwarding wrappers and
+  parser registration so `app.cli` can keep its compatibility dispatch role
+  while command bodies move into `app/cli_commands/*`
+- added focused controlled-violation tests proving direct
+  `get_session_factory()`, `with session_factory()`, `StorageService()`,
+  `parser.add_argument(...)`, `parser.parse_args()`, and `json.dumps(...)`
+  growth in `app/cli.py` is now blocked while the forwarding-wrapper pattern
+  remains allowed
+- refreshed `config/hygiene_policy.yaml` and `config/improvement_cases.yaml`
+  for the classifier follow-on case `IC-6C1B516A3F92` after the stricter CLI
+  facade gate expanded `app/hotspot_prevention_classifier.py` to `879` lines
+- Milestone 2 remains the next routed CLI slice for runtime and maintenance
+  command owner extraction
+
+Local Milestone 1 verification:
+
+- `git diff --check`: pass
+- `uv run ruff check app/cli.py app/hotspot_prevention_classifier.py tests/unit/test_hotspot_prevention.py`: pass
+- `uv run pytest -q tests/unit/test_hotspot_prevention.py`: `31 passed`
+- `uv run docling-system-hotspot-prevention-check --strict`: `known_hotspots=11`, `changed_hotspots=0`, `blocked=0`, `allowed=0`, `exceptions=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`, `facade_count=6`, `function_count=110`
+- `uv run docling-system-architecture-quality-report --summary`: `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `uv run docling-system-improvement-case-validate`: `valid=true`, `issue_count=0`
+- `uv run docling-system-improvement-case-summary`: `case_count=29`, `status_counts.open=21`, `status_counts.deployed=7`, `status_counts.measured=1`, `measured_case_count=20`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`: `app/cli.py` remains the top hotspot at `55` revisions / `1231` lines / `score 67705`; Python cycle components=`5`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1928 passed`
 
 Local Milestone 0 snapshot:
 
@@ -378,7 +410,7 @@ Acceptance:
 
 ### Milestone 1 - CLI Facade Prevention Ratchet
 
-Status: drafted
+Status: resolved locally
 Outcome label: `resolved`
 
 Implementation:

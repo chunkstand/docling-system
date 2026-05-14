@@ -208,7 +208,7 @@ file_budgets:
       owner_case_id: IC-F2A8110185EB
     app/hotspot_prevention_classifier.py:
       max_lines: 600
-      ratchet_max_lines: 850
+      ratchet_max_lines: 879
       max_private_helpers: 20
       owner_case_id: IC-6C1B516A3F92
     app/schemas/agent_tasks.py:

@@ -774,6 +774,46 @@ def test_cli_replaced_command_body_with_keyword_forwarding_is_allowed() -> None:
     assert report["findings"][0]["category"] == "explicit_forwarding_function"
 
 
+def test_cli_direct_session_or_storage_wiring_is_blocked() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/cli.py",
+            [
+                "session_factory = get_session_factory()",
+                "with session_factory() as session:",
+                "storage_service = StorageService()",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 3
+    assert {finding["category"] for finding in report["findings"]} == {
+        "session_or_storage_wiring"
+    }
+
+
+def test_cli_parser_body_and_json_render_scaffolding_is_blocked() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/cli.py",
+            [
+                "parser.add_argument('--limit', type=int, default=5)",
+                "args = parser.parse_args()",
+                "print(json.dumps({'limit': args.limit}))",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 3
+    assert {finding["category"] for finding in report["findings"]} == {
+        "json_render_or_parser_body_scaffolding"
+    }
+
+
 def test_policy_exception_requires_ownership_and_allows_marked_growth() -> None:
     policy = _policy_for(
         "app/services/evidence.py",

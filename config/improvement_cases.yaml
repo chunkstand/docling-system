@@ -257,20 +257,24 @@ cases:
       evidence_provenance_exports hotspot classifier rules. The semantics
       service-boundary closeout expanded the classifier again to cover
       semantic lifecycle, review, read, and registry-preview regrowth in
-      app/services/semantics.py. The hygiene follow-on remains open.
+      app/services/semantics.py. The CLI Milestone 1 facade-prevention ratchet
+      expanded the classifier again to block direct session or storage wiring
+      plus parser-body or JSON-render scaffolding in app/cli.py. The hygiene
+      follow-on remains open.
   measurement:
     metric_name: hotspot_prevention_classifier_line_count
-    current_value: 850.0
-    measurement_window: 2026-05-13 semantics service-boundary closeout refresh
+    current_value: 879.0
+    measurement_window: 2026-05-13 CLI Milestone 1 closeout refresh
     notes: The classifier still carries the earlier registry-composition and
       search-boundary allowances and now also blocks provenance-graph,
       report-lineage, lifecycle, and governance-change-impact growth in
       app/services/evidence_provenance_exports.py plus semantic pass
-      lifecycle, review persistence, active-pass read, and registry-preview
-      regrowth in app/services/semantics.py, leaving the file above the
-      default budget at 850 lines.
+      lifecycle, review persistence, active-pass read, registry-preview
+      regrowth in app/services/semantics.py, and direct session or storage
+      wiring plus parser-body or JSON-render scaffolding in app/cli.py,
+      leaving the file above the default budget at 879 lines.
   created_at: '2026-05-13T00:00:00+00:00'
-  updated_at: '2026-05-14T03:20:00Z'
+  updated_at: '2026-05-14T03:29:04Z'
 - case_id: IC-9812A0B138D9
   title: 'Architecture hotspot: app/cli.py'
   status: open

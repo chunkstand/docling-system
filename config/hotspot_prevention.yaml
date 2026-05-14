@@ -63,6 +63,8 @@ known_hotspots:
     block_new:
       - command_implementation
       - broad_parser_logic
+      - session_or_storage_wiring
+      - json_render_or_parser_body_scaffolding
     allow:
       - explicit_forwarding_function
       - parser_registration

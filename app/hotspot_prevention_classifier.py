@@ -374,6 +374,35 @@ def classify_cli_addition(
             "broad_parser_logic",
             "broad parser logic belongs in app/cli_commands/",
         )
+    if any(
+        token in stripped
+        for token in (
+            "session_factory = get_session_factory()",
+            "with session_factory() as session",
+            "storage_service = StorageService(",
+            "storage_service=StorageService(",
+        )
+    ):
+        return blocked(
+            line,
+            "session_or_storage_wiring",
+            "session or storage wiring belongs in app/cli_commands/",
+        )
+    if any(
+        token in stripped
+        for token in (
+            "parser.add_argument(",
+            "parser.parse_args(",
+            "parser.error(",
+            "json.dumps(",
+            "model_dump(",
+        )
+    ):
+        return blocked(
+            line,
+            "json_render_or_parser_body_scaffolding",
+            "parser-body and JSON-render scaffolding belongs in app/cli_commands/",
+        )
     return None
 def classify_agent_action_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
     if stripped.startswith("class "):
