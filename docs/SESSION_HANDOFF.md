@@ -32,6 +32,8 @@ Agent Task Schema Aggregation closeout checkpoint:
 `efe6d4e`
 Hygiene Owner-Case Routing Milestone 0 checkpoint:
 `08a1a75`
+Hygiene Owner-Case Routing Milestone 1 checkpoint:
+`d4f082c`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -46,7 +48,7 @@ Latest resolved bounded implementation brief:
 `docs/oversized_test_hotspots_boundary_milestone_plan.md`
 The hygiene owner-case routing packet remains the active bounded follow-on.
 Its Milestone 0 refresh is committed locally as `08a1a75`, Milestone 1
-owner-case bootstrap is resolved locally in the current worktree through
+owner-case bootstrap is committed locally as `d4f082c` through
 `IC-08C078FD4F45`, `IC-7C73737C689F`, and `IC-81C531769EB3`, and Milestone 2
 owner-case binding conversion is the next active code-changing slice.
 The oversized-test packet is now resolved locally in the 2026-05-14 closeout
@@ -207,9 +209,9 @@ measure `756`, `636` or `630` or `653`, `621`, and `799` lines respectively.
 Active stacked follow-on after the oversized-test packet:
 `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`. Milestone 0 is
 resolved locally through baseline commit `08a1a75`, and Milestone 1
-owner-case bootstrap is resolved locally in the current worktree: the seven
-prerequisite packets are closed locally, the live residual owner-routing set
-still contains exactly eight
+owner-case bootstrap is resolved locally through checkpoint `d4f082c`: the
+seven prerequisite packets are closed locally, the live residual owner-routing
+set still contains exactly eight
 `owner_milestone=residual-weakness-milestone-2` entries in
 `app/architecture_inspection.py`,
 `app/architecture_inspection_rules.py`,
@@ -254,21 +256,15 @@ bootstrap is:
   `hotspot_count=10`, `max_hotspot_risk_score=501.06`
 - `uv run docling-system-improvement-case-validate`: `valid=true`,
   `issue_count=0`
-- `uv run docling-system-hotspot-prevention-check --strict`:
-  `known_hotspots=21`, `changed_hotspots=6`, `blocked=0`, `allowed=39`,
-  `exceptions=2`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
 - `rg -n "owner_milestone: residual-weakness-milestone-2" config/hygiene_policy.yaml`:
   `150`, `155`, `343`, `348`, `369`, `472`, `477`, `550`
 - `rg -n "app/architecture_inspection.py|app/architecture_inspection_rules.py|app/services/claim_support_evaluations.py|app/services/claim_support_policy_governance.py|app/services/claim_support_replay_alert_fixture_corpus.py|app/services/improvement_case_intake.py|app/services/improvement_cases.py|app/services/semantic_governance.py" config/improvement_cases.yaml`:
   registry hits now route the eight residual files through
   `IC-08C078FD4F45`, `IC-7C73737C689F`, and `IC-81C531769EB3`
-- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py tests/unit/test_db_models_facade_contract.py tests/unit/test_agent_task_context.py tests/unit/test_agent_task_context_*.py tests/unit/test_agent_tasks_api.py tests/unit/test_agent_tasks_api_*.py tests/unit/test_agent_tasks.py tests/unit/test_agent_task_worker.py tests/unit/test_cli_agent_tasks.py tests/unit/test_evaluation_service.py tests/unit/test_evaluation_fixtures.py tests/unit/test_evaluation_scoring.py tests/unit/test_evaluation_reads.py tests/unit/test_search_service.py tests/unit/test_search_hydration.py tests/unit/test_search_execution_persistence.py tests/unit/test_search_execution_orchestration.py tests/unit/test_search_metadata_supplement.py tests/unit/test_search_service_ranking.py tests/unit/test_search_service_orchestration.py tests/unit/test_search_service_persistence.py tests/unit/test_hotspot_prevention.py`: `741 passed`
-- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py tests/integration/test_retrieval_learning_ledger.py tests/integration/retrieval_learning_ledger_support.py tests/integration/test_retrieval_learning_ledger_*.py tests/integration/test_technical_report_harness_roundtrip.py tests/integration/test_technical_report_harness_*.py tests/integration/test_semantic_governance_ledger.py`: `339 passed`
-- architecture probe top hotspot is now `app/services/search.py`; none of the
-  seven selected residual files remain in the top 20 hotspot list; the Python
-  cycle component count remains `5`
-- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1957 passed`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`:
+  top hotspot `app/services/search.py`; the targeted residual files remain
+  large; Python cycle components=`5`
 
 ## Hygiene Owner-Case Routing Boundary Milestone 0 Local Refresh
 
@@ -320,8 +316,8 @@ Verification:
 
 ## Hygiene Owner-Case Routing Boundary Milestone 1 Owner-Case Bootstrap
 
-Milestone 1 is resolved locally in the current worktree. The packet now has
-explicit family owner cases for every live residual
+Milestone 1 is resolved locally through checkpoint `d4f082c`. The packet now
+has explicit family owner cases for every live residual
 `owner_milestone=residual-weakness-milestone-2` surface, and Milestone 2
 owner-case binding conversion is the next active code-changing slice.
 

@@ -11,7 +11,7 @@ Status: active stacked follow-on after
 `docs/oversized_test_hotspots_boundary_milestone_plan.md`; all seven prior
 packets are now closed locally, Milestone 0 is resolved from the live
 post-stack refresh through baseline commit `08a1a75`, Milestone 1 owner-case
-bootstrap is resolved locally in the current worktree, and Milestone 2
+bootstrap is resolved locally through checkpoint `d4f082c`, and Milestone 2
 owner-case binding conversion is now the next active code-changing slice
 Owner context: active governance-first follow-on for the remaining
 milestone-owned hygiene debt in `config/hygiene_policy.yaml`. This packet
@@ -24,7 +24,8 @@ hygiene contract so future sessions cannot hide debt behind milestone labels.
 ## Local Progress
 
 Milestone 0 is resolved locally through baseline commit `08a1a75`, and
-Milestone 1 owner-case bootstrap is resolved locally in the current worktree.
+Milestone 1 owner-case bootstrap is resolved locally through checkpoint
+`d4f082c`.
 The stacked queue assumptions were revalidated against the live repo state,
 the exact remaining residual owner set is now frozen in the active docs, the
 three required family owner cases are now present in the registry, and
@@ -96,6 +97,9 @@ Local Milestone 1 results:
   Milestone 0 now has a discoverable case ID in `config/improvement_cases.yaml`
   and no residual file remains routed only through
   `residual-weakness-milestone-2`
+- recorded checkpoint `d4f082c` in the routed docs so the owner-bootstrap
+  slice is anchored to a real committed milestone checkpoint instead of a
+  worktree-only note
 - refreshed the live registry counts after the bootstrap:
   `case_count=36`, `status_counts.open=25`, `status_counts.deployed=10`,
   `status_counts.measured=1`, `measured_case_count=31`
@@ -386,7 +390,7 @@ Acceptance signal:
 
 ### Milestone 1 - Bootstrap explicit owner cases for every live residual family
 
-Status: resolved locally in the current worktree
+Status: resolved locally through checkpoint `d4f082c`
 
 Outcome label: resolved
 
