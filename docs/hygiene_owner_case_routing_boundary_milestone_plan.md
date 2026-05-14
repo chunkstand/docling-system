@@ -14,8 +14,8 @@ post-stack refresh through baseline commit `08a1a75`, Milestone 1 owner-case
 bootstrap is resolved locally through checkpoint `d4f082c`, Milestone 2
 owner-case binding conversion is resolved locally through closeout commit
 `7ef99cd`, Milestone 3 owner-case-only hygiene-contract enforcement is
-resolved locally in the current worktree, and Milestone 4 routing-packet
-closeout is now the next active slice
+resolved locally through closeout commit `0dbd4c7`, and Milestone 4
+routing-packet closeout is now the next active slice
 Owner context: active governance-first follow-on for the remaining
 milestone-owned hygiene debt in `config/hygiene_policy.yaml`. This packet
 assumes the earlier boundary and test packets have already reduced the major
@@ -30,6 +30,8 @@ Milestone 0 is resolved locally through baseline commit `08a1a75`, and
 Milestone 1 owner-case bootstrap is resolved locally through checkpoint
 `d4f082c`. Milestone 2 owner-case binding conversion is resolved locally
 through closeout commit `7ef99cd`.
+Milestone 3 owner-case-only hygiene-contract enforcement is resolved locally
+through closeout commit `0dbd4c7`.
 The stacked queue assumptions were revalidated against the live repo state,
 the exact remaining residual owner set is now frozen in the active docs, the
 three required family owner cases are now present in the registry, the live
@@ -550,7 +552,7 @@ Local result:
 
 ### Milestone 3 - Remove the fallback from the hygiene contract and prove the negative case
 
-Status: resolved locally in the current worktree
+Status: resolved locally through closeout commit `0dbd4c7`
 
 Outcome label: resolved
 

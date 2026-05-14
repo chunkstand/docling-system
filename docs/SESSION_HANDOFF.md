@@ -51,9 +51,9 @@ Its Milestone 0 refresh is committed locally as `08a1a75`, Milestone 1
 owner-case bootstrap is committed locally as `d4f082c` through
 `IC-08C078FD4F45`, `IC-7C73737C689F`, and `IC-81C531769EB3`, and Milestone 2
 owner-case binding conversion is committed locally as `7ef99cd`.
-Milestone 3 owner-case-only hygiene-contract enforcement is resolved locally in
-the current worktree. Milestone 4 hygiene owner-case routing closeout is now
-the next active slice.
+Milestone 3 owner-case-only hygiene-contract enforcement is committed locally
+as `0dbd4c7`. Milestone 4 hygiene owner-case routing closeout is now the next
+active slice.
 The oversized-test packet is now resolved locally in the 2026-05-14 closeout
 window through closeout commit `65c0c67`. Deployed follow-on cases are
 `IC-5F0E1C8B0D42`,
@@ -228,7 +228,7 @@ entries for
 `app/services/improvement_cases.py`, and
 `app/services/semantic_governance.py`. No residual file remains routed through
 the old milestone label, and Milestone 3 owner-case-only hygiene-contract
-enforcement is resolved locally in the current worktree: `app/hygiene.py`,
+enforcement is committed locally as `0dbd4c7`: `app/hygiene.py`,
 `app/hygiene_types.py`, `tests/unit/test_hygiene.py`, and
 `docs/improvement_loop.md` now reject `owner_milestone` as a live owner
 reference. Milestone 4 routing-packet closeout is now the next active slice.
@@ -409,7 +409,7 @@ Verification:
 
 ## Hygiene Owner-Case Routing Boundary Milestone 3 Contract Enforcement
 
-Milestone 3 is resolved locally in the current worktree. The hygiene contract
+Milestone 3 is resolved locally through closeout commit `0dbd4c7`. The hygiene contract
 now rejects `owner_milestone` as a valid ratchet owner reference, and
 Milestone 4 routing-packet closeout is the next active slice.
 
