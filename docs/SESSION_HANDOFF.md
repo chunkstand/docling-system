@@ -38,16 +38,17 @@ remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
 remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
 Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
-Active local follow-up owner case: pending Milestone 1 owner bootstrap for the
-eight residual
-`owner_milestone=residual-weakness-milestone-2` hygiene entries
+Active local follow-up owner case: Milestone 2 owner-case binding conversion
+across `IC-08C078FD4F45`, `IC-7C73737C689F`, and `IC-81C531769EB3`
 Latest planned bounded implementation brief:
 `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`
 Latest resolved bounded implementation brief:
 `docs/oversized_test_hotspots_boundary_milestone_plan.md`
 The hygiene owner-case routing packet remains the active bounded follow-on.
-Its Milestone 0 refresh is now committed locally as `08a1a75`, and Milestone
-1 owner-case bootstrap is the next active code-changing slice.
+Its Milestone 0 refresh is committed locally as `08a1a75`, Milestone 1
+owner-case bootstrap is resolved locally in the current worktree through
+`IC-08C078FD4F45`, `IC-7C73737C689F`, and `IC-81C531769EB3`, and Milestone 2
+owner-case binding conversion is the next active code-changing slice.
 The oversized-test packet is now resolved locally in the 2026-05-14 closeout
 window through closeout commit `65c0c67`. Deployed follow-on cases are
 `IC-5F0E1C8B0D42`,
@@ -205,9 +206,10 @@ measure `756`, `636` or `630` or `653`, `621`, and `799` lines respectively.
 
 Active stacked follow-on after the oversized-test packet:
 `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`. Milestone 0 is
-now resolved locally in the current refresh window: the seven prerequisite
-packets are closed locally, the live residual owner-routing set still contains
-exactly eight
+resolved locally through baseline commit `08a1a75`, and Milestone 1
+owner-case bootstrap is resolved locally in the current worktree: the seven
+prerequisite packets are closed locally, the live residual owner-routing set
+still contains exactly eight
 `owner_milestone=residual-weakness-milestone-2` entries in
 `app/architecture_inspection.py`,
 `app/architecture_inspection_rules.py`,
@@ -216,11 +218,12 @@ exactly eight
 `app/services/claim_support_replay_alert_fixture_corpus.py`,
 `app/services/improvement_case_intake.py`,
 `app/services/improvement_cases.py`, and
-`app/services/semantic_governance.py`, and none of those files yet have
-explicit owner cases in `config/improvement_cases.yaml`. Milestone 1
-owner-case bootstrap is now the next active code-changing slice before the
-packet can remove the milestone-owned fallback from the active hygiene
-contract.
+`app/services/semantic_governance.py`. Those files are now bound in the
+registry through `IC-08C078FD4F45`, `IC-7C73737C689F`, and
+`IC-81C531769EB3`, so no residual file remains routed only through the old
+milestone label. Milestone 2 owner-case binding conversion is now the next
+active code-changing slice before the packet can remove the milestone-owned
+fallback from the active hygiene contract.
 
 Queued stacked follow-on after the hygiene owner-case routing packet:
 `docs/architecture_governance_cycle_boundary_milestone_plan.md`. Its
@@ -239,12 +242,12 @@ Additional committed later-stack follow-ons now exist for
 earlier routed packets closing first, and the broader coordination queue now
 also sits behind the architecture-governance cycle packet above.
 
-The live alignment snapshot after the hygiene owner-case routing Milestone 0
-refresh is:
+The live alignment snapshot after the hygiene owner-case routing Milestone 1
+bootstrap is:
 
-- `uv run docling-system-improvement-case-summary`: `case_count=33`,
-  `status_counts.open=22`, `status_counts.deployed=10`,
-  `status_counts.measured=1`, `measured_case_count=28`,
+- `uv run docling-system-improvement-case-summary`: `case_count=36`,
+  `status_counts.open=25`, `status_counts.deployed=10`,
+  `status_counts.measured=1`, `measured_case_count=31`,
   `oldest_open_case_id=IC-9812A0B138D9`
 - `uv run docling-system-architecture-quality-report --summary`:
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
@@ -258,7 +261,8 @@ refresh is:
 - `rg -n "owner_milestone: residual-weakness-milestone-2" config/hygiene_policy.yaml`:
   `150`, `155`, `343`, `348`, `369`, `472`, `477`, `550`
 - `rg -n "app/architecture_inspection.py|app/architecture_inspection_rules.py|app/services/claim_support_evaluations.py|app/services/claim_support_policy_governance.py|app/services/claim_support_replay_alert_fixture_corpus.py|app/services/improvement_case_intake.py|app/services/improvement_cases.py|app/services/semantic_governance.py" config/improvement_cases.yaml`:
-  no hits; explicit owner cases still need Milestone 1 bootstrap
+  registry hits now route the eight residual files through
+  `IC-08C078FD4F45`, `IC-7C73737C689F`, and `IC-81C531769EB3`
 - `uv run pytest -q tests/unit/test_db_model_import_compatibility.py tests/unit/test_db_models_facade_contract.py tests/unit/test_agent_task_context.py tests/unit/test_agent_task_context_*.py tests/unit/test_agent_tasks_api.py tests/unit/test_agent_tasks_api_*.py tests/unit/test_agent_tasks.py tests/unit/test_agent_task_worker.py tests/unit/test_cli_agent_tasks.py tests/unit/test_evaluation_service.py tests/unit/test_evaluation_fixtures.py tests/unit/test_evaluation_scoring.py tests/unit/test_evaluation_reads.py tests/unit/test_search_service.py tests/unit/test_search_hydration.py tests/unit/test_search_execution_persistence.py tests/unit/test_search_execution_orchestration.py tests/unit/test_search_metadata_supplement.py tests/unit/test_search_service_ranking.py tests/unit/test_search_service_orchestration.py tests/unit/test_search_service_persistence.py tests/unit/test_hotspot_prevention.py`: `741 passed`
 - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py tests/integration/test_retrieval_learning_ledger.py tests/integration/retrieval_learning_ledger_support.py tests/integration/test_retrieval_learning_ledger_*.py tests/integration/test_technical_report_harness_roundtrip.py tests/integration/test_technical_report_harness_*.py tests/integration/test_semantic_governance_ledger.py`: `339 passed`
 - architecture probe top hotspot is now `app/services/search.py`; none of the
@@ -270,8 +274,8 @@ refresh is:
 
 Milestone 0 is resolved locally through baseline commit `08a1a75`. The
 stacked preconditions were revalidated from the live repo state, the exact
-remaining milestone-owned hygiene-routing set is now frozen in the active
-docs, and Milestone 1 owner-case bootstrap is the next active code-changing
+remaining milestone-owned hygiene-routing set was frozen in the active docs,
+and Milestone 1 owner-case bootstrap became the next active code-changing
 slice.
 
 Results:
@@ -313,6 +317,47 @@ Verification:
   `hotspot_count=10`, `max_hotspot_risk_score=501.06`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`:
   top hotspot `app/services/search.py`; Python cycle components=`5`
+
+## Hygiene Owner-Case Routing Boundary Milestone 1 Owner-Case Bootstrap
+
+Milestone 1 is resolved locally in the current worktree. The packet now has
+explicit family owner cases for every live residual
+`owner_milestone=residual-weakness-milestone-2` surface, and Milestone 2
+owner-case binding conversion is the next active code-changing slice.
+
+Results:
+
+- created `IC-08C078FD4F45` for the architecture-governance residual family
+  anchored to `app/architecture_inspection.py` and covering
+  `app/architecture_inspection.py`,
+  `app/architecture_inspection_rules.py`,
+  `app/services/improvement_case_intake.py`, and
+  `app/services/improvement_cases.py`
+- created `IC-7C73737C689F` for the claim-support support residual family
+  anchored to `app/services/claim_support_policy_governance.py` and covering
+  `app/services/claim_support_evaluations.py`,
+  `app/services/claim_support_policy_governance.py`, and
+  `app/services/claim_support_replay_alert_fixture_corpus.py`
+- created `IC-81C531769EB3` for the semantic-governance residual owner
+  anchored to `app/services/semantic_governance.py`
+- eliminated missing-case routing for the packet: every live residual file now
+  has a discoverable case ID in `config/improvement_cases.yaml`, even though
+  the live hygiene policy still points at the old milestone label until
+  Milestone 2 converts those entries
+
+Verification:
+
+- `uv run docling-system-improvement-case-summary`: `case_count=36`,
+  `status_counts.open=25`, `status_counts.deployed=10`,
+  `status_counts.measured=1`, `measured_case_count=31`
+- `uv run docling-system-improvement-case-validate`: `valid=true`,
+  `issue_count=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+  `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `rg -n "app/architecture_inspection.py|app/architecture_inspection_rules.py|app/services/claim_support_evaluations.py|app/services/claim_support_policy_governance.py|app/services/claim_support_replay_alert_fixture_corpus.py|app/services/improvement_case_intake.py|app/services/improvement_cases.py|app/services/semantic_governance.py|IC-08C078FD4F45|IC-7C73737C689F|IC-81C531769EB3" config/improvement_cases.yaml`:
+  all eight residual files now resolve through the three new family case IDs
 
 ## Oversized Test Hotspots Boundary Local Closeout
 

@@ -10,8 +10,9 @@ Status: active stacked follow-on after
 `docs/agent_task_schema_aggregation_boundary_milestone_plan.md`, and
 `docs/oversized_test_hotspots_boundary_milestone_plan.md`; all seven prior
 packets are now closed locally, Milestone 0 is resolved from the live
-post-stack refresh through baseline commit `08a1a75`, and Milestone 1
-owner-case bootstrap is now the next active code-changing slice
+post-stack refresh through baseline commit `08a1a75`, Milestone 1 owner-case
+bootstrap is resolved locally in the current worktree, and Milestone 2
+owner-case binding conversion is now the next active code-changing slice
 Owner context: active governance-first follow-on for the remaining
 milestone-owned hygiene debt in `config/hygiene_policy.yaml`. This packet
 assumes the earlier boundary and test packets have already reduced the major
@@ -22,10 +23,12 @@ hygiene contract so future sessions cannot hide debt behind milestone labels.
 
 ## Local Progress
 
-Milestone 0 is resolved locally through baseline commit `08a1a75`. The
-stacked queue assumptions were revalidated against the live repo state, the
-exact remaining residual owner set is now frozen in the active docs, and
-Milestone 1 owner-case bootstrap is the next active slice.
+Milestone 0 is resolved locally through baseline commit `08a1a75`, and
+Milestone 1 owner-case bootstrap is resolved locally in the current worktree.
+The stacked queue assumptions were revalidated against the live repo state,
+the exact remaining residual owner set is now frozen in the active docs, the
+three required family owner cases are now present in the registry, and
+Milestone 2 owner-case binding conversion is the next active slice.
 
 Local Milestone 0 results:
 
@@ -46,8 +49,8 @@ Local Milestone 0 results:
   planned architecture-governance, claim-support support, and
   semantic-governance owner bootstrap
 - refreshed the active routing artifacts so this plan, the handoff, and the
-  architecture index now agree that Milestone 0 is closed and Milestone 1 is
-  the next code-changing slice
+  architecture index then agreed that Milestone 0 was closed and Milestone 1
+  was the next code-changing slice
 - recorded baseline checkpoint `08a1a75` directly in the routed docs so the
   packet no longer reads like a pre-commit refresh snapshot
 - confirmed the surrounding architecture state remains aligned with the
@@ -73,6 +76,50 @@ Local Milestone 0 verification:
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`:
   top hotspot `app/services/search.py`; the targeted residual files remain
   large but unchanged; Python cycle components=`5`
+
+Local Milestone 1 results:
+
+- created the architecture-governance residual family case
+  `IC-08C078FD4F45`, anchored to `app/architecture_inspection.py`, covering
+  `app/architecture_inspection.py`,
+  `app/architecture_inspection_rules.py`,
+  `app/services/improvement_case_intake.py`, and
+  `app/services/improvement_cases.py`
+- created the claim-support support residual family case `IC-7C73737C689F`,
+  anchored to `app/services/claim_support_policy_governance.py`, covering
+  `app/services/claim_support_evaluations.py`,
+  `app/services/claim_support_policy_governance.py`, and
+  `app/services/claim_support_replay_alert_fixture_corpus.py`
+- created the semantic-governance residual owner case `IC-81C531769EB3`,
+  anchored to `app/services/semantic_governance.py`
+- moved the packet past missing-case routing: every live residual file from
+  Milestone 0 now has a discoverable case ID in `config/improvement_cases.yaml`
+  and no residual file remains routed only through
+  `residual-weakness-milestone-2`
+- refreshed the live registry counts after the bootstrap:
+  `case_count=36`, `status_counts.open=25`, `status_counts.deployed=10`,
+  `status_counts.measured=1`, `measured_case_count=31`
+- left the live hygiene policy unchanged for this milestone, so the eight
+  residual `owner_milestone` entries still remain in
+  `config/hygiene_policy.yaml` and Milestone 2 is now the next active
+  code-changing slice
+
+Local Milestone 1 verification:
+
+- `uv run docling-system-improvement-case-summary`: `case_count=36`,
+  `status_counts.open=25`, `status_counts.deployed=10`,
+  `status_counts.measured=1`, `measured_case_count=31`,
+  `actionable_buckets.open_unconverted_count=25`
+- `uv run docling-system-improvement-case-validate`: `valid=true`,
+  `issue_count=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`;
+  inherited budget debt still lists the eight residual files under
+  `owner=residual-weakness-milestone-2`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+  `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `rg -n "app/architecture_inspection.py|app/architecture_inspection_rules.py|app/services/claim_support_evaluations.py|app/services/claim_support_policy_governance.py|app/services/claim_support_replay_alert_fixture_corpus.py|app/services/improvement_case_intake.py|app/services/improvement_cases.py|app/services/semantic_governance.py|IC-08C078FD4F45|IC-7C73737C689F|IC-81C531769EB3" config/improvement_cases.yaml`:
+  all eight residual files now resolve through the three new family case IDs
 
 ## Purpose
 
@@ -339,7 +386,7 @@ Acceptance signal:
 
 ### Milestone 1 - Bootstrap explicit owner cases for every live residual family
 
-Status: next active code-changing slice
+Status: resolved locally in the current worktree
 
 Outcome label: resolved
 
@@ -372,7 +419,15 @@ Acceptance signal:
   `config/improvement_cases.yaml`.
 - No file remains routed only through `residual-weakness-milestone-2`.
 
+Local result:
+
+- architecture-governance residual family -> `IC-08C078FD4F45`
+- claim-support support residual family -> `IC-7C73737C689F`
+- semantic-governance residual owner -> `IC-81C531769EB3`
+
 ### Milestone 2 - Convert the live hygiene policy to `owner_case_id` only
+
+Status: next active code-changing slice
 
 Outcome label: resolved
 

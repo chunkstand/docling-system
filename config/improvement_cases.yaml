@@ -1903,3 +1903,164 @@ cases:
       411, 621, 580, and 208 lines respectively.
   created_at: '2026-05-14T00:00:00+00:00'
   updated_at: '2026-05-14T00:00:00+00:00'
+- case_id: IC-08C078FD4F45
+  title: 'Architecture hotspot: app/architecture_inspection.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/architecture_inspection.py and the broader
+    architecture-governance residual family still rely on milestone-owned
+    hygiene routing after the post-stack refresh, with
+    app/architecture_inspection.py, app/architecture_inspection_rules.py,
+    app/services/improvement_case_intake.py, and
+    app/services/improvement_cases.py measuring 412, 604, 820, and 876 lines
+    respectively and still mapped only through
+    residual-weakness-milestone-2.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/architecture_inspection.py
+    notes: Refreshed during the hygiene owner-case routing Milestone 1
+      bootstrap after the live residual file-budget set remained
+      milestone-owned. Family members=app/architecture_inspection.py,
+      app/architecture_inspection_rules.py,
+      app/services/improvement_case_intake.py,
+      app/services/improvement_cases.py.
+  artifact:
+    artifact_type: contract
+    target_path: app/architecture_inspection.py
+    description: Architecture-governance residual owner-family anchor.
+  verification:
+    commands:
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - app/architecture_inspection.py, app/architecture_inspection_rules.py,
+      app/services/improvement_case_intake.py, and
+      app/services/improvement_cases.py are reduced or split until each
+      governed owner surface is within the configured budget without
+      reintroducing milestone-owned routing.
+    - The architecture-governance cycle follow-on resolves the remaining
+      contract-discovery cycle while reusing this family owner case.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: Created during the hygiene owner-case routing Milestone 1 bootstrap.
+      The broader family remains open until the residual architecture-governance
+      files are reduced and the queued cycle packet closes the remaining import
+      cycle.
+  measurement:
+    metric_name: architecture_governance_family_max_line_count
+    current_value: 876.0
+    measurement_window: 2026-05-14 hygiene owner-case routing Milestone 1 bootstrap
+    notes: app/architecture_inspection.py measures 412 lines,
+      app/architecture_inspection_rules.py 604,
+      app/services/improvement_case_intake.py 820, and
+      app/services/improvement_cases.py 876 after the Milestone 0 refresh.
+  created_at: '2026-05-14T16:09:02Z'
+  updated_at: '2026-05-14T16:09:02Z'
+- case_id: IC-7C73737C689F
+  title: 'Architecture hotspot: app/services/claim_support_policy_governance.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/claim_support_policy_governance.py and the
+    remaining claim-support support family still rely on milestone-owned
+    hygiene routing after the post-stack refresh, with
+    app/services/claim_support_evaluations.py,
+    app/services/claim_support_policy_governance.py, and
+    app/services/claim_support_replay_alert_fixture_corpus.py measuring 1142,
+    1259, and 972 lines respectively and still mapped only through
+    residual-weakness-milestone-2.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/services/claim_support_policy_governance.py
+    notes: Refreshed during the hygiene owner-case routing Milestone 1
+      bootstrap after the live residual file-budget set remained
+      milestone-owned. Family members=app/services/claim_support_evaluations.py,
+      app/services/claim_support_policy_governance.py,
+      app/services/claim_support_replay_alert_fixture_corpus.py.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/claim_support_policy_governance.py
+    description: Claim-support support residual owner-family anchor.
+  verification:
+    commands:
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - app/services/claim_support_evaluations.py,
+      app/services/claim_support_policy_governance.py, and
+      app/services/claim_support_replay_alert_fixture_corpus.py are reduced or
+      split until each governed owner surface is within the configured budget
+      while preserving claim-support evaluation, governance, and replay-fixture
+      contracts.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: Created during the hygiene owner-case routing Milestone 1 bootstrap.
+      The broader family remains open until the residual claim-support support
+      files are reduced under explicit owner routing.
+  measurement:
+    metric_name: claim_support_support_family_max_line_count
+    current_value: 1259.0
+    measurement_window: 2026-05-14 hygiene owner-case routing Milestone 1 bootstrap
+    notes: app/services/claim_support_evaluations.py measures 1142 lines,
+      app/services/claim_support_policy_governance.py 1259, and
+      app/services/claim_support_replay_alert_fixture_corpus.py 972 after the
+      Milestone 0 refresh.
+  created_at: '2026-05-14T16:09:02Z'
+  updated_at: '2026-05-14T16:09:02Z'
+- case_id: IC-81C531769EB3
+  title: 'Architecture hotspot: app/services/semantic_governance.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/semantic_governance.py remains a
+    milestone-owned hygiene residual at 1157 lines after the semantics
+    service-boundary closeout reduced app/services/semantics.py to a narrow
+    compatibility facade, so the residual governance owner still lacks an
+    explicit durable case.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/services/semantic_governance.py
+    notes: Refreshed during the hygiene owner-case routing Milestone 1
+      bootstrap after the live residual file-budget set remained
+      milestone-owned.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/semantic_governance.py
+    description: Semantic-governance residual owner surface.
+  verification:
+    commands:
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - app/services/semantic_governance.py is reduced under the configured
+      budget or split into focused owner modules without weakening semantic
+      governance contracts.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: Created during the hygiene owner-case routing Milestone 1 bootstrap.
+      The residual semantic-governance owner remains open until the oversized
+      governance surface is reduced under explicit owner routing.
+  measurement:
+    metric_name: semantic_governance_owner_line_count
+    current_value: 1157.0
+    measurement_window: 2026-05-14 hygiene owner-case routing Milestone 1 bootstrap
+    notes: app/services/semantic_governance.py measures 1157 lines after the
+      Milestone 0 refresh and still exceeds the default 600-line budget.
+  created_at: '2026-05-14T16:09:02Z'
+  updated_at: '2026-05-14T16:09:02Z'
