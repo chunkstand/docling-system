@@ -1,7 +1,7 @@
 # Architecture Governance Cycle Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-13 UTC
-Status: active stacked follow-on after
+Status: resolved locally in the current worktree after
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
 `docs/evaluations_service_boundary_milestone_plan.md`,
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`,
@@ -14,16 +14,17 @@ packets are now closed locally, the hygiene owner-case routing packet is
 closed locally through closeout commit `9876f67`, it has bound explicit owner
 cases for the residual governance files, Milestone 0 live refresh is resolved
 locally through baseline commit `46b90a7`, Milestone 1 gate-first
-architecture import contract is resolved locally through checkpoint `4338d4e`, the
-minimal contract-only seam already removed the targeted
-architecture-governance cycle component, and Milestone 4 closeout is now the
-next active slice
-Owner context: active follow-on for the architecture-governance owner family
-now that the hygiene owner-case routing packet has closed locally and bound
-explicit owner cases for the residual governance files. This packet consumes the
-architecture-control cycle slice currently named in
-`docs/boring_change_architecture_milestone_plan.md`, but it does not replace
-that broader later-stack coordination plan.
+architecture import contract is resolved locally through checkpoint `4338d4e`,
+the minimal contract-only seam already removed the targeted
+architecture-governance cycle component, and Milestone 4 closeout has now
+realigned the next active slice to
+`docs/runtime_health_orchestration_milestone_plan.md`
+Owner context: resolved closeout packet for the architecture-governance owner
+family. `IC-08C078FD4F45` remains the residual owner anchor for
+`app/architecture_inspection.py`, `app/architecture_inspection_rules.py`,
+`app/services/improvement_case_intake.py`, and
+`app/services/improvement_cases.py` because those governed files still exceed
+the configured hygiene budget even though the cycle-removal slice is closed.
 
 ## Local Progress
 
@@ -42,9 +43,16 @@ four Python cycle components instead of the Milestone 0 baseline of five, and
 the removed component is the targeted architecture-governance cycle containing
 `app.architecture_decisions`, `app.architecture_inspection`,
 `app.architecture_inspection_rules`, `app.hygiene`, and
-`app.services.improvement_case_intake`. Milestone 4 closeout is now the next
-active slice because the Milestone 1 implementation already subsumed the
-planned shared-contract extraction and direct-runtime-import removal work.
+`app.services.improvement_case_intake`. This packet is now resolved locally in
+the current worktree. Milestone 4 closeout revalidated architecture
+inspection, capability contracts, improvement-case routing, hygiene, hotspot
+prevention, and the architecture probe; the remaining global cycle backlog is
+now the four non-governance components for the
+search/documents/evaluations/runs/semantics family, claim-support policy
+impacts/promotions, evidence-provenance export graph, and evidence-search
+packages/trace-store. The next active stacked follow-on is
+`docs/runtime_health_orchestration_milestone_plan.md` Milestone 0 refresh /
+owner-case bootstrap.
 
 ## Purpose
 
@@ -581,6 +589,22 @@ Acceptance signal:
 ### Milestone 4 - Close out the packet and realign the stacked route
 
 Outcome label: resolved
+
+Current local state: resolved locally in the current worktree. `uv run
+docling-system-architecture-inspect` and `uv run
+docling-system-capability-contracts` remain valid, `uv run
+docling-system-hotspot-prevention-check --strict` stays at
+`changed_hotspots=0`, `blocked=0`, and the remaining Python cycle backlog is
+reduced to four non-governance components: the
+search/documents/evaluations/runs/semantics family,
+`app.services.claim_support_policy_impacts` /
+`app.services.claim_support_replay_alert_promotions`,
+`app.services.evidence_provenance_export_graph_core` /
+`app.services.evidence_provenance_export_graph_report`, and
+`app.services.evidence_search_packages` /
+`app.services.evidence_search_trace_store`. The next stacked follow-on is
+`docs/runtime_health_orchestration_milestone_plan.md` Milestone 0 because no
+dedicated runtime-health owner case exists yet.
 
 Purpose: finish with aligned docs, refreshed evidence, and a clear reduced
 global cycle backlog.

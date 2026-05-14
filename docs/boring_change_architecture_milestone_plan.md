@@ -32,8 +32,9 @@ three different kinds of drift:
 
 - source-of-truth docs still name several old hotspots that are already reduced
   to small compatibility facades
-- the live architecture probe still reports 3 Python cycle components
-- the live architecture probe still reports 52 code files above 800 lines,
+- the live architecture probe still reports non-zero Python cycle components
+  outside the already-closed architecture-governance slice
+- the live architecture probe still reports code files above 800 lines,
   including both production code and test monoliths
 
 This plan resolves that scoped gap end to end by refreshing stale routing,
@@ -149,9 +150,12 @@ Repo-current structural evidence:
   `app/services/claim_support_policy_impacts.py`,
   `app/services/evidence.py`,
   and `app/services/retrieval_learning.py`.
-  The remaining live cycle components and many of the large test files do not
-  yet have a single clearly discoverable coordination packet that closes them as
-  one boring-change program.
+  The remaining live cycle components and many of the large test files still do
+  not have a single clearly discoverable coordination packet that closes them as
+  one boring-change program, but the former architecture-control cycle is now
+  owned and closed by
+  `docs/architecture_governance_cycle_boundary_milestone_plan.md` and should
+  not be reopened here.
 - The current checked-in architecture workflow does not yet enforce the probe's
   suggested `--fail-on-cycles` and `--max-file-lines 800` gates, so the repo can
   still drift back toward broad files and cycles even when architecture

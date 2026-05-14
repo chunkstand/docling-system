@@ -1,12 +1,19 @@
 # Runtime Health Orchestration Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-13 UTC
-Status: drafted on 2026-05-13 as a stacked follow-on after
-`docs/search_execution_orchestration_boundary_milestone_plan.md`,
-`docs/claim_support_policy_impacts_boundary_milestone_plan.md`, and
-`docs/evaluations_service_boundary_milestone_plan.md`; do not start
-implementation until those prior packets close locally
-Owner context: queued follow-on for the production-orchestration health gap
+Status: active stacked follow-on after
+`docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
+`docs/evaluations_service_boundary_milestone_plan.md`,
+`docs/evidence_provenance_exports_boundary_milestone_plan.md`,
+`docs/semantics_service_boundary_milestone_plan.md`,
+`docs/cli_command_dispatch_boundary_milestone_plan.md`,
+`docs/agent_task_schema_aggregation_boundary_milestone_plan.md`,
+`docs/oversized_test_hotspots_boundary_milestone_plan.md`,
+`docs/hygiene_owner_case_routing_boundary_milestone_plan.md`, and
+`docs/architecture_governance_cycle_boundary_milestone_plan.md`; those prior
+packets are now closed locally, and Milestone 0 refresh / owner-case bootstrap
+is the next active slice
+Owner context: active follow-on for the production-orchestration health gap
 across `app/api/routers/system.py`, `app/services/runtime.py`,
 `app/workers/poller.py`, `app/workers/agent_poller.py`, and
 `docker-compose.yml`. No dedicated runtime-health improvement case is currently

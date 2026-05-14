@@ -47,11 +47,11 @@ remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
 Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
 Active local follow-up owner case:
-`IC-08C078FD4F45` / architecture-governance cycle Milestone 4 closeout
+`pending` / runtime-health Milestone 0 owner-case bootstrap
 Latest planned bounded implementation brief:
-`docs/architecture_governance_cycle_boundary_milestone_plan.md`
+`docs/runtime_health_orchestration_milestone_plan.md`
 Latest resolved bounded implementation brief:
-`docs/hygiene_owner_case_routing_boundary_milestone_plan.md`
+`docs/architecture_governance_cycle_boundary_milestone_plan.md`
 The hygiene owner-case routing packet is now resolved locally through closeout
 commit `9876f67`. Its Milestone 0 refresh is committed locally as `08a1a75`,
 Milestone 1 owner-case bootstrap is committed locally as `d4f082c` through
@@ -59,38 +59,32 @@ Milestone 1 owner-case bootstrap is committed locally as `d4f082c` through
 owner-case binding conversion is committed locally as `7ef99cd`, and
 Milestone 3 owner-case-only hygiene-contract enforcement is committed locally
 as `0dbd4c7`. Milestone 4 routing-packet closeout now leaves zero live
-`owner_milestone` entries, keeps those three owner-case bindings as the
-durable routing map, and hands the next active slice to
-`docs/architecture_governance_cycle_boundary_milestone_plan.md`.
-The architecture-governance cycle packet remains the active bounded follow-on.
-Milestone 0 live refresh is now resolved locally through baseline commit
-`46b90a7`: `IC-08C078FD4F45` is confirmed across
-`config/improvement_cases.yaml` and `config/hygiene_policy.yaml`,
-architecture inspection and capability contracts remain valid, the exact
-architecture-control cycle component is frozen as
-`app.architecture_decisions`, `app.architecture_inspection`,
-`app.architecture_inspection_rules`, `app.hygiene`, and
-`app.services.improvement_case_intake`, the architecture-quality report still
-measures `hotspot_count=10` and `max_hotspot_risk_score=501.06`,
-`docling-system-hotspot-prevention-check --strict` stays at
-`changed_hotspots=0`, `blocked=0`, and `docling-system-hygiene-check`
-continues to report `new hygiene regressions: none`. Milestone 1
-gate-first architecture import contract is now resolved locally through
-checkpoint `4338d4e`: `app/architecture_decisions.py` now uses
+`owner_milestone` entries and keeps those three owner-case bindings as the
+durable routing map.
+The architecture-governance cycle packet is now resolved locally in the
+current worktree. Milestone 0 live refresh remains baseline commit `46b90a7`,
+and Milestone 1 gate-first architecture import contract remains checkpoint
+`4338d4e`: `app/architecture_decisions.py` now uses
 `app/architecture_contract_catalog.py` instead of importing
 `app.architecture_inspection`, `app/architecture_inspection.py` now reads
 improvement-case and agent-action metadata through
 `app/services/improvement_case_contracts.py` and
-`app/services/agent_actions/contracts.py`, and the focused AST gate now lives
-in `tests/unit/test_architecture_governance_imports.py`. The post-change
-architecture probe now reports `4` Python cycle components instead of the
-Milestone 0 baseline of `5`, and the removed component is the targeted
-architecture-governance cycle containing
-`app.architecture_decisions`, `app.architecture_inspection`,
-`app.architecture_inspection_rules`, `app.hygiene`, and
-`app.services.improvement_case_intake`. Milestone 4 closeout is now the next
-active slice because the Milestone 1 implementation already subsumed the
-planned shared-contract extraction and direct-runtime-import removal work.
+`app/services/agent_actions/contracts.py`, and the focused AST gate lives in
+`tests/unit/test_architecture_governance_imports.py`. The closeout pass
+revalidated `docling-system-architecture-inspect`,
+`docling-system-capability-contracts`, improvement-case summary/validate,
+hygiene, architecture quality, hotspot prevention, and the architecture
+probe. The targeted architecture-governance cycle remains gone,
+`IC-08C078FD4F45` remains open only as the residual oversized-owner anchor,
+and the remaining global cycle backlog is now four non-governance components:
+the search/documents/evaluations/runs/semantics family, claim-support policy
+impacts/promotions, evidence-provenance export graph, and evidence-search
+packages/trace-store.
+The next active slice is
+`docs/runtime_health_orchestration_milestone_plan.md` Milestone 0 refresh /
+owner-case bootstrap. No dedicated runtime-health improvement case currently
+exists in `config/improvement_cases.yaml`, so that packet must bind or create
+one before code moves.
 The oversized-test packet is now resolved locally in the 2026-05-14 closeout
 window through closeout commit `65c0c67`. Deployed follow-on cases are
 `IC-5F0E1C8B0D42`,
