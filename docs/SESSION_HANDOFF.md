@@ -20,6 +20,8 @@ Semantics Service Boundary closeout checkpoint:
 `a2eb27e`
 CLI Command Dispatch Milestone 0 checkpoint:
 `381ca15`
+CLI Command Dispatch Milestone 1 checkpoint:
+`c674871`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -127,13 +129,13 @@ architecture probe no longer lists the semantics facade among the top 12 churn
 hotspots.
 
 `docs/cli_command_dispatch_boundary_milestone_plan.md` is now through
-Milestone 1 locally. The prior stacked prerequisites remain closed as
-`3d7d090`, `1159297`, `1aa8378`, and `a2eb27e`, the tightened CLI rule now
-blocks direct session or storage wiring plus parser-body or JSON-render
-scaffolding in `app/cli.py`, the facade remains the top architecture-probe
-hotspot at `55` revisions / `1231` lines / `score 67705`, and Milestone 2 is
-now the next active CLI command-owner extraction slice under
-`IC-9812A0B138D9`.
+Milestone 1 closeout commit `c674871`. The prior stacked prerequisites remain
+closed as `3d7d090`, `1159297`, `1aa8378`, and `a2eb27e`, the tightened CLI
+rule now blocks direct session or storage wiring plus parser-body or
+JSON-render scaffolding in `app/cli.py`, the facade remains the top
+architecture-probe hotspot at `55` revisions / `1231` lines / `score 67705`,
+and Milestone 2 is now the next active CLI command-owner extraction slice
+under `IC-9812A0B138D9`.
 
 Queued stacked follow-on after the CLI packet:
 `docs/agent_task_schema_aggregation_boundary_milestone_plan.md`. Its
@@ -303,9 +305,9 @@ Verification:
 
 ## CLI Command Dispatch Boundary Milestone 1 Local Closeout
 
-Milestone 1 is resolved locally on 2026-05-13 local / 2026-05-14 UTC. The
-CLI facade-prevention ratchet is now tightened, and Milestone 2 is the next
-active CLI implementation slice.
+Milestone 1 is resolved locally through closeout commit `c674871` on
+2026-05-13 local / 2026-05-14 UTC. The CLI facade-prevention ratchet is now
+tightened, and Milestone 2 is the next active CLI implementation slice.
 
 Results:
 
@@ -325,6 +327,8 @@ Results:
   gate expanded `app/hotspot_prevention_classifier.py` to `879` lines
 - left `IC-9812A0B138D9` open on `app/cli.py`; the next routed CLI slice is
   still Milestone 2 runtime and maintenance command extraction
+- local closeout commit:
+  `c674871`
 
 Verification:
 

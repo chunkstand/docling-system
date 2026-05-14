@@ -1,9 +1,9 @@
 # CLI Command Dispatch Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-14 UTC
-Status: Milestone 1 resolved locally on 2026-05-13 local / 2026-05-14 UTC
-after the Milestone 0 rebaseline closeout `381ca15`; Milestone 2 is now the
-next active CLI implementation slice
+Status: Milestone 1 resolved locally through closeout commit `c674871` on
+2026-05-13 local / 2026-05-14 UTC after the Milestone 0 rebaseline closeout
+`381ca15`; Milestone 2 is now the next active CLI implementation slice
 Owner context: active bounded follow-on under `IC-9812A0B138D9` /
 `app/cli.py`. Milestone 0 refreshed the live post-stack state, Milestone 1
 tightened the facade-prevention ratchet, and Milestone 2 is now the next
@@ -11,10 +11,10 @@ active implementation step.
 
 ## Local Progress
 
-Milestone 1 is resolved locally. Milestone 0 remains closed as commit
-`381ca15`, the CLI facade now has the tightened prevention rule required
-before code extraction begins, and Milestone 2 is now the next active CLI
-implementation slice.
+Milestone 1 is resolved locally as closeout commit `c674871`. Milestone 0
+remains closed as commit `381ca15`, the CLI facade now has the tightened
+prevention rule required before code extraction begins, and Milestone 2 is now
+the next active CLI implementation slice.
 
 Local Milestone 1 snapshot:
 
@@ -35,6 +35,8 @@ Local Milestone 1 snapshot:
   facade gate expanded `app/hotspot_prevention_classifier.py` to `879` lines
 - Milestone 2 remains the next routed CLI slice for runtime and maintenance
   command owner extraction
+- local closeout commit:
+  `c674871`
 
 Local Milestone 1 verification:
 
