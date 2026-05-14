@@ -1921,7 +1921,8 @@ cases:
     notes: Refreshed during the hygiene owner-case routing Milestone 1
       bootstrap and revalidated after architecture-governance checkpoint
       4338d4e removed the targeted import cycle and the architecture-governance
-      Milestone 4 closeout resolved the scoped cycle packet locally. Family
+      Milestone 4 closeout commit 7a4c5b0 resolved the scoped cycle packet
+      locally. Family
       members=app/architecture_inspection.py,
       app/architecture_inspection_rules.py,
       app/services/improvement_case_intake.py,
@@ -1952,9 +1953,9 @@ cases:
     deployed_ref: null
     notes: Created during the hygiene owner-case routing Milestone 1 bootstrap.
       Architecture-governance checkpoint 4338d4e removed the targeted import
-      cycle, and the scoped architecture-governance packet is now resolved
-      locally in the current worktree, but the broader family remains open
-      until the residual governed files are reduced within budget.
+      cycle, and architecture-governance closeout commit 7a4c5b0 resolved the
+      scoped packet locally, but the broader family remains open until the
+      residual governed files are reduced within budget.
   measurement:
     metric_name: architecture_governance_family_max_line_count
     current_value: 876.0
@@ -1965,7 +1966,7 @@ cases:
       app/services/improvement_cases.py 876 after checkpoint 4338d4e removed
       the targeted architecture-governance cycle.
   created_at: '2026-05-14T16:09:02Z'
-  updated_at: '2026-05-14T20:50:09Z'
+  updated_at: '2026-05-14T20:55:20Z'
 - case_id: IC-7C73737C689F
   title: 'Architecture hotspot: app/services/claim_support_policy_governance.py'
   status: open

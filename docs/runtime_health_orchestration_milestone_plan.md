@@ -11,8 +11,9 @@ Status: active stacked follow-on after
 `docs/oversized_test_hotspots_boundary_milestone_plan.md`,
 `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`, and
 `docs/architecture_governance_cycle_boundary_milestone_plan.md`; those prior
-packets are now closed locally, and Milestone 0 refresh / owner-case bootstrap
-is the next active slice
+packets are now closed locally, including architecture-governance closeout
+commit `7a4c5b0`, and Milestone 0 refresh / owner-case bootstrap is the next
+active slice
 Owner context: active follow-on for the production-orchestration health gap
 across `app/api/routers/system.py`, `app/services/runtime.py`,
 `app/workers/poller.py`, `app/workers/agent_poller.py`, and

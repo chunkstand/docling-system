@@ -1,7 +1,7 @@
 # Architecture Governance Cycle Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-13 UTC
-Status: resolved locally in the current worktree after
+Status: resolved locally through closeout commit `7a4c5b0` after
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
 `docs/evaluations_service_boundary_milestone_plan.md`,
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`,
@@ -43,8 +43,8 @@ four Python cycle components instead of the Milestone 0 baseline of five, and
 the removed component is the targeted architecture-governance cycle containing
 `app.architecture_decisions`, `app.architecture_inspection`,
 `app.architecture_inspection_rules`, `app.hygiene`, and
-`app.services.improvement_case_intake`. This packet is now resolved locally in
-the current worktree. Milestone 4 closeout revalidated architecture
+`app.services.improvement_case_intake`. This packet is now resolved locally
+through closeout commit `7a4c5b0`. Milestone 4 closeout revalidated architecture
 inspection, capability contracts, improvement-case routing, hygiene, hotspot
 prevention, and the architecture probe; the remaining global cycle backlog is
 now the four non-governance components for the
@@ -590,7 +590,7 @@ Acceptance signal:
 
 Outcome label: resolved
 
-Current local state: resolved locally in the current worktree. `uv run
+Current local state: resolved locally through closeout commit `7a4c5b0`. `uv run
 docling-system-architecture-inspect` and `uv run
 docling-system-capability-contracts` remain valid, `uv run
 docling-system-hotspot-prevention-check --strict` stays at

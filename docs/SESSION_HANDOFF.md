@@ -40,6 +40,8 @@ Architecture Governance Cycle Milestone 0 checkpoint:
 `46b90a7`
 Architecture Governance Cycle Milestone 1 checkpoint:
 `4338d4e`
+Architecture Governance Cycle closeout checkpoint:
+`7a4c5b0`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -61,8 +63,8 @@ Milestone 3 owner-case-only hygiene-contract enforcement is committed locally
 as `0dbd4c7`. Milestone 4 routing-packet closeout now leaves zero live
 `owner_milestone` entries and keeps those three owner-case bindings as the
 durable routing map.
-The architecture-governance cycle packet is now resolved locally in the
-current worktree. Milestone 0 live refresh remains baseline commit `46b90a7`,
+The architecture-governance cycle packet is now resolved locally through
+closeout commit `7a4c5b0`. Milestone 0 live refresh remains baseline commit `46b90a7`,
 and Milestone 1 gate-first architecture import contract remains checkpoint
 `4338d4e`: `app/architecture_decisions.py` now uses
 `app/architecture_contract_catalog.py` instead of importing
