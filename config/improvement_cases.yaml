@@ -269,11 +269,60 @@ cases:
     description: Architecture quality owner surface for app/cli.py.
   verification:
     commands:
-    - uv run docling-system-architecture-quality-report
+    - git diff --check
+    - uv run ruff check app/services/evaluations.py
+      app/services/evaluation_fixtures.py
+      app/services/evaluation_scoring.py
+      app/services/evaluation_reads.py
+      app/services/evaluation_execution.py app/services/documents.py
+      app/services/runs.py app/services/quality.py
+      app/services/semantic_backfill.py
+      app/services/evaluation_corpus_runner.py
+      app/services/evaluation_embedding_cache.py
+      app/services/knowledge_base_reset.py
+      app/services/capabilities/evaluation.py
+      tests/unit/test_evaluation_service.py
+      tests/unit/test_evaluation_fixtures.py
+      tests/unit/test_evaluation_scoring.py
+      tests/unit/test_evaluation_reads.py tests/unit/test_documents_api.py
+      tests/unit/test_quality_service.py tests/unit/test_eval_config.py
+      tests/unit/test_capability_contracts.py
+      tests/unit/test_api_architecture.py
+      tests/unit/test_hotspot_prevention.py
+    - uv run pytest -q tests/unit/test_evaluation_service.py
+      tests/unit/test_evaluation_fixtures.py
+      tests/unit/test_evaluation_scoring.py
+      tests/unit/test_evaluation_reads.py tests/unit/test_documents_api.py
+      tests/unit/test_quality_service.py tests/unit/test_eval_config.py
+      tests/unit/test_capability_contracts.py
+      tests/unit/test_api_architecture.py
+      tests/unit/test_hotspot_prevention.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_postgres_roundtrip.py
+      tests/integration/test_multivector_retrieval.py
+      tests/integration/test_eval_workbench_roundtrip.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-inspect
+    - uv run docling-system-capability-contracts
+    - uv run docling-system-architecture-quality-report --summary
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-evaluation-data-readiness --output
+      storage/evaluation_data_readiness.latest.json
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 15
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
     acceptance_conditions:
-    - Hotspot risk decreases or the surface has a narrower owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    - app/services/evaluations.py remains a narrow orchestration and
+      compatibility facade at 283 lines / 1 private helper with fixture,
+      scoring, structural, and latest-read ownership moved into focused owner
+      modules.
+    - The latest-evaluation route family, capability facade, and stable
+      evaluation-service import surface remain behavior-compatible for callers
+      and tests.
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
@@ -987,7 +1036,7 @@ cases:
   updated_at: '2026-05-13T16:28:33+00:00'
 - case_id: IC-BF180637814C
   title: 'Architecture hotspot: app/services/evaluations.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/services/evaluations.py is an architecture hotspot with risk_score=227.64,
     line_count=2159, changes_90d=20, hygiene_finding_count=0.
@@ -1004,34 +1053,91 @@ cases:
     description: Architecture quality owner surface for app/services/evaluations.py.
   verification:
     commands:
-    - uv run docling-system-architecture-quality-report
+    - git diff --check
+    - uv run ruff check app/services/evaluations.py
+      app/services/evaluation_fixtures.py
+      app/services/evaluation_scoring.py
+      app/services/evaluation_reads.py
+      app/services/evaluation_execution.py app/services/documents.py
+      app/services/runs.py app/services/quality.py
+      app/services/semantic_backfill.py
+      app/services/evaluation_corpus_runner.py
+      app/services/evaluation_embedding_cache.py
+      app/services/knowledge_base_reset.py
+      app/services/capabilities/evaluation.py
+      tests/unit/test_evaluation_service.py
+      tests/unit/test_evaluation_fixtures.py
+      tests/unit/test_evaluation_scoring.py
+      tests/unit/test_evaluation_reads.py tests/unit/test_documents_api.py
+      tests/unit/test_quality_service.py tests/unit/test_eval_config.py
+      tests/unit/test_capability_contracts.py
+      tests/unit/test_api_architecture.py
+      tests/unit/test_hotspot_prevention.py
+    - uv run pytest -q tests/unit/test_evaluation_service.py
+      tests/unit/test_evaluation_fixtures.py
+      tests/unit/test_evaluation_scoring.py
+      tests/unit/test_evaluation_reads.py tests/unit/test_documents_api.py
+      tests/unit/test_quality_service.py tests/unit/test_eval_config.py
+      tests/unit/test_capability_contracts.py
+      tests/unit/test_api_architecture.py
+      tests/unit/test_hotspot_prevention.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_postgres_roundtrip.py
+      tests/integration/test_multivector_retrieval.py
+      tests/integration/test_eval_workbench_roundtrip.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-inspect
+    - uv run docling-system-capability-contracts
+    - uv run docling-system-architecture-quality-report --summary
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-evaluation-data-readiness --output
+      storage/evaluation_data_readiness.latest.json
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 15
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
     acceptance_conditions:
-    - Hotspot risk decreases or the surface has a narrower owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    - app/services/evaluations.py remains a narrow orchestration and
+      compatibility facade at 283 lines / 1 private helper with fixture,
+      scoring, structural, and latest-read ownership moved into focused owner
+      modules.
+    - The latest-evaluation route family, capability facade, and stable
+      evaluation-service import surface remain behavior-compatible for callers
+      and tests.
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "b05def0"
+    deployed_ref: "pending_local_milestone_4_commit"
     notes: >-
-      Milestone 3 scoring/structural extraction is committed locally as
-      b05def0: the evaluation facade is now narrow, the scoring owner now
-      lives in app/services/evaluation_scoring.py, and the broader owner case
-      remains open only until Milestone 4 moves the latest-read ownership out
-      of app/services/evaluations.py.
+      Milestone 4 latest-read extraction is committed locally as
+      pending_local_milestone_4_commit: app/services/evaluations.py is now a
+      283-line / 1-private-helper orchestration and compatibility facade,
+      latest-evaluation summary and detail reads now live in
+      app/services/evaluation_reads.py at 154 lines / 1 private helper, and
+      the architecture probe no longer lists the facade among the top 15 churn
+      hotspots or in the remaining Python cycle components. The exact local
+      closeout hash must be recorded by the post-commit alignment pass because
+      this milestone commit cannot self-reference its final hash before it
+      exists.
   measurement:
     metric_name: evaluation_hotspot_line_count
-    current_value: 400.0
-    measurement_window: 2026-05-13 local Milestone 3 scoring/structural verification
+    current_value: 283.0
+    measurement_window: 2026-05-13 local Milestone 4 latest-read verification
     notes: >-
-      Milestone 3 moved retrieval scoring, answer evaluation, failure-kind
-      classification, reciprocal-rank summaries, merge-expectation checks, and
-      structural summary assembly into app/services/evaluation_scoring.py,
-      reducing app/services/evaluations.py to 400 lines / 2 private helpers.
-      The fixture owner remains at 966 lines / 32 private helpers, the new
-      scoring owner closes at 897 lines / 25 private helpers, and Milestone 4
-      latest-read extraction is the next reduction gate.
+      Milestone 4 moved evaluation summary DTO assembly plus latest-evaluation
+      summary/detail reads into app/services/evaluation_reads.py, reducing
+      app/services/evaluations.py to 283 lines / 1 private helper while
+      preserving the stable evaluate_run(...), resolve_baseline_run_id(...),
+      and latest-read forwarding surface. The fixture owner remains at
+      966 lines / 32 private helpers, the scoring owner remains at
+      897 lines / 25 private helpers, the new read owner closes at
+      154 lines / 1 private helper, and the architecture probe no longer
+      routes the evaluations facade in the top 15 churn hotspots or remaining
+      Python cycle components.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-13T23:52:59Z'
+  updated_at: '2026-05-13T23:59:59Z'
 - case_id: IC-E52B6C7B22FD
   title: 'Architecture hotspot: app/services/agent_task_context.py'
   status: deployed
