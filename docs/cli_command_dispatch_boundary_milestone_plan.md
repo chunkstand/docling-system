@@ -1,22 +1,77 @@
 # CLI Command Dispatch Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-14 UTC
-Status: Milestone 2 resolved locally through closeout commit `f5a4260` after
-the Milestone 1 closeout `c674871` and the Milestone 0 rebaseline closeout
-`381ca15`; Milestone 3 is now the next active CLI implementation slice
+Status: Milestone 3 is implemented and verified locally in the working tree
+after the Milestone 2 closeout `f5a4260`, the Milestone 1 closeout `c674871`,
+and the Milestone 0 rebaseline closeout `381ca15`; the closeout commit is
+still pending, so Milestone 4 is now the next active CLI closeout slice
 Owner context: active bounded follow-on under `IC-9812A0B138D9` /
 `app/cli.py`. Milestone 0 refreshed the live post-stack state, Milestone 1
 tightened the facade-prevention ratchet, Milestone 2 extracted the runtime and
-maintenance command owner, and Milestone 3 is now the next active
-implementation step.
+maintenance command owner, Milestone 3 extracted the retrieval-learning and
+search-harness command owner in the working tree, and Milestone 4 is now the
+next active closeout step.
 
 ## Local Progress
 
-Milestone 2 is resolved locally as closeout commit `f5a4260`. Milestone 1
-remains closed as commit `c674871`, Milestone 0 remains closed as commit
-`381ca15`, the runtime and maintenance command owner now lives in
-`app/cli_commands/runtime.py`, and Milestone 3 is now the next active CLI
-implementation slice.
+Milestone 3 is implemented and verified locally in the working tree. Milestone
+2 remains closed as commit `f5a4260`, Milestone 1 remains closed as commit
+`c674871`, Milestone 0 remains closed as commit `381ca15`, the runtime and
+maintenance command owner remains in `app/cli_commands/runtime.py`, and
+Milestone 4 is now the next active CLI closeout slice.
+
+Local Milestone 3 working-tree snapshot:
+
+- added `app/cli_commands/search_harness.py` as the focused retrieval-learning
+  and search-harness owner at `604` lines, covering
+  `run_materialize_retrieval_learning_dataset(...)`,
+  `run_evaluate_retrieval_learning_candidate(...)`,
+  `run_create_retrieval_reranker_artifact(...)`,
+  `run_eval_reranker(...)`,
+  `run_search_harness_evaluation_list(...)`,
+  `run_search_harness_evaluation_show(...)`,
+  `run_gate_search_harness_release(...)`,
+  `run_search_harness_release_audit_bundle(...)`,
+  `run_retrieval_training_run_audit_bundle(...)`,
+  `run_audit_bundle_validation_receipt(...)`, and
+  `run_optimize_search_harness(...)`
+- reduced `app/cli.py` from `926` lines to `375` lines by replacing the
+  remaining direct retrieval-learning and search-harness command bodies with
+  explicit forwarding wrappers while preserving the stable `app.cli:run_*`
+  entrypoint names and the stable service-wrapper monkeypatch seam names
+- moved direct owner coverage into `tests/unit/test_cli_search_harness.py` at
+  `714` lines, expanded `tests/unit/test_cli_entrypoints.py` to `102` lines
+  for the forwarding-dependency contract, and reduced
+  `tests/unit/test_cli.py` to an empty compatibility placeholder so the legacy
+  hotspot no longer absorbs direct owner assertions
+- kept `app/cli_commands/runtime.py` at `463` lines and
+  `app/cli_commands/common.py` at `6` lines, so the split stayed within the
+  two-owner plan boundary and did not create a generic CLI framework sink
+- the live architecture-quality report now measures `app/cli.py` at `375`
+  lines, `56` changes over 90 days, and `risk_score 425.5`; the architecture
+  probe no longer lists `app/cli.py` in the top 12 churn hotspots, but the
+  architecture-quality summary still routes the facade among the top hotspot
+  paths so the broader owner case remains reduced/open
+- refreshed `config/hygiene_policy.yaml` and `config/improvement_cases.yaml` so
+  the CLI facade and both owner modules now carry exact verified local
+  ceilings, and `IC-9812A0B138D9` now reflects the Milestone 3 working-tree
+  measurements rather than the older `926`-line runtime-only state
+- local closeout commit: pending
+
+Local Milestone 3 working-tree verification:
+
+- `git diff --check`: pass
+- `uv run ruff check app/cli.py app/cli_commands/common.py app/cli_commands/ingest.py app/cli_commands/improvement_cases.py app/cli_commands/runtime.py app/cli_commands/search_harness.py tests/unit/test_cli.py tests/unit/test_cli_entrypoints.py tests/unit/test_cli_runtime.py tests/unit/test_cli_improvement_cases.py tests/unit/test_cli_search_harness.py tests/unit/test_cli_ingest.py tests/unit/test_hotspot_prevention.py`: pass
+- `uv run pytest -q tests/unit/test_cli.py tests/unit/test_cli_entrypoints.py tests/unit/test_cli_runtime.py tests/unit/test_cli_improvement_cases.py tests/unit/test_cli_search_harness.py tests/unit/test_cli_ingest.py tests/unit/test_hotspot_prevention.py`: `73 passed`
+- `uv run docling-system-hotspot-prevention-check --strict`: `known_hotspots=11`, `changed_hotspots=2`, `blocked=0`, `allowed=3`, `exceptions=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`, `facade_count=6`, `function_count=110`
+- `uv run docling-system-architecture-quality-report --summary`: `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `uv run docling-system-improvement-case-validate`: `valid=true`, `issue_count=0`
+- `uv run docling-system-improvement-case-summary`: `case_count=29`, `status_counts.open=21`, `status_counts.deployed=7`, `status_counts.measured=1`, `measured_case_count=20`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`: top hotspot remains `tests/unit/test_agent_tasks_api.py`; `app/cli.py` is absent from the top 12 churn hotspots; Python cycle components=`5`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1939 passed`
 
 Local Milestone 2 snapshot:
 
@@ -538,7 +593,7 @@ Acceptance:
 
 ### Milestone 3 - Retrieval-Learning And Search-Harness Command Owner Extraction
 
-Status: drafted
+Status: implemented locally in working tree; closeout commit pending
 Outcome label: `resolved` for the scoped CLI scaffolding issue and `reduced`
 for the broader owner case unless the live hotspot fully retires
 
@@ -591,7 +646,7 @@ Acceptance:
 
 ### Milestone 4 - Closeout, Ratchets, And Residual Routing
 
-Status: drafted
+Status: next active closeout slice
 Outcome label: `reduced`
 
 Implementation:
@@ -644,8 +699,8 @@ index after the semantics milestone completes.
 ## Required Verification Gates
 
 - `git diff --check`
-- `uv run ruff check app/cli.py app/cli_commands/common.py app/cli_commands/ingest.py app/cli_commands/improvement_cases.py app/cli_commands/runtime.py app/cli_commands/search_harness.py app/hotspot_prevention_classifier.py tests/unit/test_cli.py tests/unit/test_cli_runtime.py tests/unit/test_cli_search_harness.py tests/unit/test_hotspot_prevention.py tests/unit/test_cli_improvement_cases.py`
-- `uv run pytest -q tests/unit/test_cli.py tests/unit/test_cli_runtime.py tests/unit/test_cli_search_harness.py tests/unit/test_hotspot_prevention.py tests/unit/test_cli_improvement_cases.py`
+- `uv run ruff check app/cli.py app/cli_commands/common.py app/cli_commands/ingest.py app/cli_commands/improvement_cases.py app/cli_commands/runtime.py app/cli_commands/search_harness.py app/hotspot_prevention_classifier.py tests/unit/test_cli.py tests/unit/test_cli_entrypoints.py tests/unit/test_cli_runtime.py tests/unit/test_cli_search_harness.py tests/unit/test_hotspot_prevention.py tests/unit/test_cli_improvement_cases.py tests/unit/test_cli_ingest.py`
+- `uv run pytest -q tests/unit/test_cli.py tests/unit/test_cli_entrypoints.py tests/unit/test_cli_runtime.py tests/unit/test_cli_search_harness.py tests/unit/test_hotspot_prevention.py tests/unit/test_cli_improvement_cases.py tests/unit/test_cli_ingest.py`
 - `uv run docling-system-hotspot-prevention-check --strict`
 - `uv run docling-system-hygiene-check`
 - `uv run docling-system-architecture-inspect`
