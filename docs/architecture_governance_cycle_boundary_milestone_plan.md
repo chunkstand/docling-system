@@ -10,9 +10,10 @@ Status: active stacked follow-on after
 `docs/agent_task_schema_aggregation_boundary_milestone_plan.md`,
 `docs/oversized_test_hotspots_boundary_milestone_plan.md`, and
 `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`; those prior
-packets are now closed locally, the hygiene owner-case routing packet has
-bound explicit owner cases for the residual governance files, and Milestone 0
-live refresh is now the next active slice
+packets are now closed locally, the hygiene owner-case routing packet is
+closed locally through closeout commit `9876f67`, it has bound explicit owner
+cases for the residual governance files, and Milestone 0 live refresh is now
+the next active slice
 Owner context: active follow-on for the architecture-governance owner family
 now that the hygiene owner-case routing packet has closed locally and bound
 explicit owner cases for the residual governance files. This packet consumes the

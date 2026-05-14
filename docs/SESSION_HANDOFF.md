@@ -34,6 +34,8 @@ Hygiene Owner-Case Routing Milestone 0 checkpoint:
 `08a1a75`
 Hygiene Owner-Case Routing Milestone 1 checkpoint:
 `d4f082c`
+Hygiene Owner-Case Routing closeout checkpoint:
+`9876f67`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -46,8 +48,8 @@ Latest planned bounded implementation brief:
 `docs/architecture_governance_cycle_boundary_milestone_plan.md`
 Latest resolved bounded implementation brief:
 `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`
-The hygiene owner-case routing packet is now resolved locally in the current
-worktree. Its Milestone 0 refresh is committed locally as `08a1a75`,
+The hygiene owner-case routing packet is now resolved locally through closeout
+commit `9876f67`. Its Milestone 0 refresh is committed locally as `08a1a75`,
 Milestone 1 owner-case bootstrap is committed locally as `d4f082c` through
 `IC-08C078FD4F45`, `IC-7C73737C689F`, and `IC-81C531769EB3`, Milestone 2
 owner-case binding conversion is committed locally as `7ef99cd`, and
@@ -233,8 +235,8 @@ the old milestone label, and Milestone 3 owner-case-only hygiene-contract
 enforcement is committed locally as `0dbd4c7`: `app/hygiene.py`,
 `app/hygiene_types.py`, `tests/unit/test_hygiene.py`, and
 `docs/improvement_loop.md` now reject `owner_milestone` as a live owner
-reference. Milestone 4 routing-packet closeout is now resolved locally in the
-current worktree, and the next active slice is
+reference. Milestone 4 routing-packet closeout is now resolved locally through
+closeout commit `9876f67`, and the next active slice is
 `docs/architecture_governance_cycle_boundary_milestone_plan.md`.
 
 Active stacked follow-on after the hygiene owner-case routing packet:
@@ -456,10 +458,11 @@ Verification:
 
 ## Hygiene Owner-Case Routing Boundary Milestone 4 Packet Closeout
 
-Milestone 4 is resolved locally in the current worktree. The packet now closes
-with explicit owner-case routing only, the active docs no longer describe the
-residual files as milestone-owned hygiene debt, and the next active bounded
-packet is `docs/architecture_governance_cycle_boundary_milestone_plan.md`.
+Milestone 4 is resolved locally through closeout commit `9876f67`. The packet
+now closes with explicit owner-case routing only, the active docs no longer
+describe the residual files as milestone-owned hygiene debt, and the next
+active bounded packet is
+`docs/architecture_governance_cycle_boundary_milestone_plan.md`.
 
 Results:
 

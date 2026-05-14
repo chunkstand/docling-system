@@ -1,7 +1,7 @@
 # Hygiene Owner-Case Routing Boundary Milestone Plan
 
 Date: 2026-05-14 local / 2026-05-14 UTC
-Status: resolved locally in the current worktree after
+Status: resolved locally through closeout commit `9876f67` after
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
 `docs/evaluations_service_boundary_milestone_plan.md`,
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`,
@@ -15,7 +15,8 @@ bootstrap is resolved locally through checkpoint `d4f082c`, Milestone 2
 owner-case binding conversion is resolved locally through closeout commit
 `7ef99cd`, Milestone 3 owner-case-only hygiene-contract enforcement is
 resolved locally through closeout commit `0dbd4c7`, and Milestone 4
-routing-packet closeout is now resolved locally in the current worktree
+routing-packet closeout is now resolved locally through closeout commit
+`9876f67`
 Owner context: resolved governance-first follow-on for the remaining
 milestone-owned hygiene debt in `config/hygiene_policy.yaml`. This packet
 assumes the earlier boundary and test packets have already reduced the major
@@ -37,8 +38,9 @@ the exact remaining residual owner set is now frozen in the active docs, the
 three required family owner cases are now present in the registry, the live
 hygiene policy now binds all eight residual files through explicit
 `owner_case_id` values, the hygiene contract now rejects
-`owner_milestone`, and Milestone 4 routing-packet closeout now hands the
-active stacked follow-on to
+`owner_milestone`, and Milestone 4 routing-packet closeout is resolved
+locally through closeout commit `9876f67` and now hands the active stacked
+follow-on to
 `docs/architecture_governance_cycle_boundary_milestone_plan.md`.
 
 Local Milestone 0 results:
@@ -588,7 +590,7 @@ Local result:
 
 ### Milestone 4 - Close out the routing packet and record the new owner map
 
-Status: resolved locally in the current worktree
+Status: resolved locally through closeout commit `9876f67`
 
 Outcome label: resolved
 
