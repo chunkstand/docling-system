@@ -14,8 +14,8 @@ Status: active stacked follow-on after
 packets are now closed locally, including architecture-governance closeout
 commit `7a4c5b0`, and Milestone 0 refresh / owner-case bootstrap is now
 committed locally as checkpoint `289f15a` through `IC-0F89DBB1CF9F`.
-Milestone 1 gate-first health contract is now resolved locally in the current
-worktree. Milestone 2 hardened API and authenticated runtime-health behavior
+Milestone 1 gate-first health contract is now committed locally as checkpoint
+`a84728c`. Milestone 2 hardened API and authenticated runtime-health behavior
 is now the next active slice
 Owner context: active follow-on for the production-orchestration health gap
 across `app/api/routers/system.py`, `app/services/runtime.py`,
@@ -28,7 +28,7 @@ process-heartbeat publication, and Compose healthchecks remain unimplemented.
 ## Local Progress
 
 Milestone 0 is committed locally as checkpoint `289f15a`. Milestone 1 is now
-resolved locally in the current worktree: `app/services/runtime_health.py`
+committed locally as checkpoint `a84728c`: `app/services/runtime_health.py`
 owns the shared health contract at `256` lines, the
 `system_governance` capability now exposes the bounded public health seam at
 `64` lines, `GET /health` now delegates to that seam and returns only bounded
@@ -112,8 +112,8 @@ Repo-current structural evidence:
 - `docs/agentic_architecture_index.md` and `docs/SESSION_HANDOFF.md` now both
   route runtime-health as the next active packet after architecture-governance
   closeout commit `7a4c5b0`. Milestone 0 is closed, Milestone 1 is now
-  resolved locally in the current worktree, and Milestone 2 is the next active
-  slice.
+  committed locally as checkpoint `a84728c`, and Milestone 2 is the next
+  active slice.
 - `app/api/routers/system.py` currently serves a public `GET /health` route
   backed by `system_governance.get_public_health()` and a gated
   `GET /runtime/status` route. The public route is now bounded and can fail on
@@ -338,7 +338,7 @@ Stop conditions:
 
 Outcome label: `reduced`
 
-Current local state: resolved locally in the current worktree. The shared
+Current local state: committed locally as checkpoint `a84728c`. The shared
 runtime-health owner module, bounded public route contract, focused unit
 coverage, and checked-in workflow gate are now in place. Authenticated
 detailed diagnostics, process-heartbeat publication, and Compose healthchecks

@@ -2016,7 +2016,7 @@ cases:
     deployed_ref: null
     notes: Runtime-health Milestone 0 refresh / owner-case bootstrap remains
       committed locally as checkpoint 289f15a, and Milestone 1 gate-first
-      health contract is now resolved locally in the current worktree.
+      health contract is now committed locally as checkpoint a84728c.
       app/services/runtime_health.py owns the shared health contract, /health
       now returns only bounded ok or error payloads, and the checked-in
       architecture workflow now runs docker compose config --quiet plus focused
@@ -2034,7 +2034,7 @@ cases:
       tests/unit/test_runtime_health.py=113,
       .github/workflows/architecture-governance.yml=81.
   created_at: '2026-05-14T20:58:15Z'
-  updated_at: '2026-05-14T21:18:20Z'
+  updated_at: '2026-05-14T21:28:12Z'
 - case_id: IC-7C73737C689F
   title: 'Architecture hotspot: app/services/claim_support_policy_governance.py'
   status: open
