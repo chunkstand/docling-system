@@ -23,7 +23,7 @@ CLI Command Dispatch Milestone 0 checkpoint:
 CLI Command Dispatch Milestone 1 checkpoint:
 `c674871`
 CLI Command Dispatch Milestone 2 checkpoint:
-current worktree closeout pending local commit
+`f5a4260`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -132,14 +132,14 @@ architecture probe no longer lists the semantics facade among the top 12 churn
 hotspots.
 
 `docs/cli_command_dispatch_boundary_milestone_plan.md` is now through
-Milestone 2 local closeout in the current worktree. The prior stacked
-prerequisites remain closed as `3d7d090`, `1159297`, `1aa8378`, and
-`a2eb27e`, the tightened CLI rule still blocks direct session or storage
-wiring plus parser-body or JSON-render scaffolding in `app/cli.py`, runtime
-and maintenance command ownership now lives in `app/cli_commands/runtime.py`
-at `463` lines, `app/cli.py` is reduced to `926` lines, and Milestone 3 is
-now the next active CLI retrieval-learning and search-harness command-owner
-extraction slice under `IC-9812A0B138D9`.
+Milestone 2 closeout commit `f5a4260`. The prior stacked prerequisites remain
+closed as `3d7d090`, `1159297`, `1aa8378`, and `a2eb27e`, the tightened CLI
+rule still blocks direct session or storage wiring plus parser-body or
+JSON-render scaffolding in `app/cli.py`, runtime and maintenance command
+ownership now lives in `app/cli_commands/runtime.py` at `463` lines,
+`app/cli.py` is reduced to `926` lines, and Milestone 3 is now the next
+active CLI retrieval-learning and search-harness command-owner extraction
+slice under `IC-9812A0B138D9`.
 
 Queued stacked follow-on after the CLI packet:
 `docs/agent_task_schema_aggregation_boundary_milestone_plan.md`. Its
@@ -352,9 +352,9 @@ Verification:
 
 ## CLI Command Dispatch Boundary Milestone 2 Local Closeout
 
-Milestone 2 is resolved locally in the current worktree. The runtime and
-maintenance command owner now lives in `app/cli_commands/runtime.py`, the CLI
-facade is reduced, and Milestone 3 is the next active CLI implementation
+Milestone 2 is resolved locally through closeout commit `f5a4260`. The runtime
+and maintenance command owner now lives in `app/cli_commands/runtime.py`, the
+CLI facade is reduced, and Milestone 3 is the next active CLI implementation
 slice.
 
 Results:
@@ -377,7 +377,7 @@ Results:
   architecture-quality hotspot routing and still exceeds the default
   `600`-line budget even though it is no longer the top probe hotspot
 - local closeout commit:
-  pending this milestone commit
+  `f5a4260`
 
 Verification:
 

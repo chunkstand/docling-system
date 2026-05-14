@@ -328,12 +328,12 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: Runtime and maintenance command ownership now lives in
+    deployed_ref: "f5a4260"
+    notes: >-
+      Runtime and maintenance command ownership now lives in
       app/cli_commands/runtime.py at 463 lines, app/cli.py is reduced to 926
       lines with narrow zero-argument forwarding wrappers, and the focused CLI
-      runtime and forwarding suites are green. Local closeout commit is
-      pending this milestone commit.
+      runtime and forwarding suites are green. Local closeout commit: f5a4260.
   measurement:
     metric_name: architecture_probe_hotspot_score
     current_value: 50930.0
@@ -344,7 +344,7 @@ cases:
       lists the facade among the top hotspot paths and the file remains above
       the default 600-line budget.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-14T04:06:00Z'
+  updated_at: '2026-05-14T03:54:19Z'
 - case_id: IC-A1E186A34097
   title: 'Architecture hotspot: app/services/agent_task_actions.py'
   status: deployed

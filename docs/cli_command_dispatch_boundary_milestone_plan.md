@@ -1,10 +1,9 @@
 # CLI Command Dispatch Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-14 UTC
-Status: Milestone 2 resolved locally in the current worktree after the
-Milestone 1 closeout `c674871` and the Milestone 0 rebaseline closeout
-`381ca15`; local closeout commit pending this milestone commit, and Milestone 3
-is now the next active CLI implementation slice
+Status: Milestone 2 resolved locally through closeout commit `f5a4260` after
+the Milestone 1 closeout `c674871` and the Milestone 0 rebaseline closeout
+`381ca15`; Milestone 3 is now the next active CLI implementation slice
 Owner context: active bounded follow-on under `IC-9812A0B138D9` /
 `app/cli.py`. Milestone 0 refreshed the live post-stack state, Milestone 1
 tightened the facade-prevention ratchet, Milestone 2 extracted the runtime and
@@ -13,9 +12,9 @@ implementation step.
 
 ## Local Progress
 
-Milestone 2 is resolved locally in the current worktree. Milestone 1 remains
-closed as commit `c674871`, Milestone 0 remains closed as commit `381ca15`,
-the runtime and maintenance command owner now lives in
+Milestone 2 is resolved locally as closeout commit `f5a4260`. Milestone 1
+remains closed as commit `c674871`, Milestone 0 remains closed as commit
+`381ca15`, the runtime and maintenance command owner now lives in
 `app/cli_commands/runtime.py`, and Milestone 3 is now the next active CLI
 implementation slice.
 
@@ -46,7 +45,7 @@ Local Milestone 2 snapshot:
 - Milestone 3 is now the next routed CLI slice for retrieval-learning and
   search-harness command-owner extraction
 - local closeout commit:
-  pending this milestone commit
+  `f5a4260`
 
 Local Milestone 2 verification:
 
@@ -485,7 +484,7 @@ Acceptance:
 
 ### Milestone 2 - Runtime Command Owner Extraction
 
-Status: resolved locally in the current worktree
+Status: resolved locally through closeout commit `f5a4260`
 Outcome label: `reduced`
 
 Implementation:
