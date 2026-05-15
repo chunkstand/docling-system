@@ -168,10 +168,10 @@ cases:
   cause_class: unclear_ownership
   observed_failure: app/services/evidence_provenance_exports.py is now a 14-line
     compatibility facade, but the broader evidence owner-family case remains
-    reduced rather than retired because app/services/evidence_technical_report_exports.py,
-    app/services/evidence_semantic_trace.py, app/services/evidence_claim_feedback.py,
-    and app/services/evidence_audit_views.py remain above the 600-line default
-    budget at 884, 837, 834, and 699 lines respectively, while
+    reduced rather than retired because app/services/evidence_semantic_trace.py,
+    app/services/evidence_claim_feedback.py, and app/services/evidence_audit_views.py
+    remain above the 600-line default budget at 837, 834, and 699 lines
+    respectively, while
     app/services/evidence_manifest_traces.py, app/services/evidence_manifests.py,
     and app/services/evidence_claim_support_replay_alerts.py also still exceed
     budget at 980, 725, and 646 lines.
@@ -182,11 +182,13 @@ cases:
       provenance-export boundary closeout proved app/services/evidence_provenance_exports.py
       could stay a thin compatibility facade and the remaining evidence
       owner-family budgets were remeasured against the selected four-file packet.
+      Milestone 1 then reduced the selected technical-report export owner below
+      budget without retiring the broader owner-family case.
   artifact:
     artifact_type: contract
     target_path: app/services/evidence_technical_report_exports.py
-    description: Largest remaining routed evidence owner-family module after
-      the provenance-export split.
+    description: Selected technical-report export owner in the residual evidence
+      packet; broader owner-family max line count now remains elsewhere.
   verification:
     commands:
     - uv run docling-system-hygiene-check
@@ -211,17 +213,27 @@ cases:
       packet focused on the selected four files and leaves broader case
       retirement as a routed follow-on. Milestone 0 closeout commit `44bec70`
       adds the selected-scope lock, handoff or index alignment, and skeletal
-      owner-test seams without changing production evidence behavior.
+      owner-test seams without changing production evidence behavior. Milestone
+      1 is resolved locally in the current checkout where it reduced
+      app/services/evidence_technical_report_exports.py to 396 lines by moving
+      provenance-lock lookup or assembly into
+      app/services/evidence_technical_report_export_provenance_locks.py and
+      claim-derivation contract checks into
+      app/services/evidence_technical_report_export_contracts.py while keeping
+      the broader owner-family case open.
   measurement:
     metric_name: evidence_owner_family_max_line_count
-    current_value: 884.0
-    measurement_window: 2026-05-15 evidence residual Milestone 0 scope lock
+    current_value: 980.0
+    measurement_window: 2026-05-15 evidence residual Milestone 1 boundary split
     notes: app/services/evidence_provenance_exports.py remains at 14 lines,
       app/services/evidence_provenance_export_graph_core.py remains at 549,
       app/services/evidence_provenance_export_graph_report.py remains at 218,
       and app/services/evidence_provenance_export_lifecycle.py remains at 278.
-      The active selected packet still targets
-      app/services/evidence_technical_report_exports.py at 884 lines,
+      The active selected packet reduced
+      app/services/evidence_technical_report_exports.py to 396 lines and added
+      app/services/evidence_technical_report_export_provenance_locks.py at 426
+      plus app/services/evidence_technical_report_export_contracts.py at 112.
+      The remaining selected owners still measure
       app/services/evidence_semantic_trace.py at 837,
       app/services/evidence_claim_feedback.py at 834, and
       app/services/evidence_audit_views.py at 699, while broader retirement is
@@ -229,7 +241,7 @@ cases:
       app/services/evidence_manifests.py at 725, and
       app/services/evidence_claim_support_replay_alerts.py at 646.
   created_at: '2026-05-12T00:00:00+00:00'
-  updated_at: '2026-05-15T16:00:00+00:00'
+  updated_at: '2026-05-15T20:45:00+00:00'
 - case_id: IC-6C1B516A3F92
   title: 'Hygiene budget hotspot: app/hotspot_prevention_classifier.py'
   status: open

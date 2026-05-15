@@ -3,8 +3,9 @@
 Date: 2026-05-15 local / 2026-05-15 UTC
 Status: active standalone follow-on after
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`; Milestone 0 is
-resolved locally through closeout commit `44bec70` on 2026-05-15 and
-Milestone 1 is now the next implementation slice
+resolved locally through closeout commit `44bec70` on 2026-05-15, Milestone 1
+is resolved locally in the current checkout, and Milestone 2 is now the next
+implementation slice
 Owner context: residual evidence owner-family debt after the closeout that
 reduced `app/services/evidence.py` to a 141-line compatibility facade and
 `app/services/evidence_provenance_exports.py` to a 14-line compatibility
@@ -22,38 +23,50 @@ four selected residual evidence owners:
   selected evidence owners still measure `884`, `837`, `834`, and `699` lines
   respectively, so the packet remains narrowed to those four files rather than
   widening into immediate retirement of `IC-65AF4A6D8B1E`.
+- Milestone 1 is resolved locally in the current checkout. `app/services/evidence_technical_report_exports.py`
+  now measures `396` lines after moving release-binding and
+  audit-bundle or receipt lookup plus provenance-lock assembly into
+  `app/services/evidence_technical_report_export_provenance_locks.py` at `426`
+  lines and claim-derivation contract mismatch checks into
+  `app/services/evidence_technical_report_export_contracts.py` at `112` lines.
+- The technical-report export public surface remains stable for
+  `app/services/evidence.py`, `app/services/technical_reports.py`,
+  `app/services/evidence_semantic_trace.py`, and
+  `app/services/evidence_audit_views.py` because the existing imports still
+  route through `app/services/evidence_technical_report_exports.py`.
 - `IC-65AF4A6D8B1E` remains broader than the selected packet because
-  `app/services/evidence_manifest_traces.py` still measures `980` lines,
+  `app/services/evidence_semantic_trace.py` still measures `837` lines,
+  `app/services/evidence_claim_feedback.py` still measures `834`,
+  `app/services/evidence_audit_views.py` still measures `699`,
+  `app/services/evidence_manifest_traces.py` still measures `980`,
   `app/services/evidence_manifests.py` still measures `725`, and
   `app/services/evidence_claim_support_replay_alerts.py` still measures `646`.
-  Broader case retirement remains an explicit follow-on, not a Milestone 0
+  Broader case retirement remains an explicit follow-on, not a Milestone 1
   claim.
 - Skeletal owner-test seams now exist in
   `tests/unit/test_evidence_claim_feedback.py`,
   `tests/unit/test_evidence_semantic_trace.py`, and
   `tests/unit/test_evidence_audit_views.py`, so the next production split does
   not start from zero direct owner coverage.
-- Milestone 0 closeout verification is recorded and green: `git diff --check`,
-  focused `ruff`, focused evidence-owner `pytest` at `13 passed`,
-  improvement-case validate or summary, hygiene, architecture inspection,
-  architecture quality summary, and the architecture probe all stayed green
-  without rerunning the full DB-backed suite because the slice changed only
-  docs, registry metadata, and owner-test seams.
-- Milestone 1, `Technical Report Derivation And Lock Boundary`, is now the next
+- Milestone 1 verification is green: focused `ruff`, focused unit and adjacent
+  caller tests at `36 passed`, `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q`
+  at `2004 passed`, improvement-case validate or summary, hygiene,
+  architecture inspection, and architecture quality summary all passed on the
+  post-split checkout.
+- Milestone 2, `Technical Report Export Persistence Closeout`, is now the next
   active implementation slice for this packet.
 
 ## Local Verification
 
 - `git diff --check` passed
-- `uv run ruff check tests/unit/test_evidence_technical_report_exports.py tests/unit/test_evidence_claim_feedback.py tests/unit/test_evidence_semantic_trace.py tests/unit/test_evidence_audit_views.py tests/unit/test_evidence_facade_contract.py` passed
-- `uv run pytest -q tests/unit/test_evidence_technical_report_exports.py tests/unit/test_evidence_claim_feedback.py tests/unit/test_evidence_semantic_trace.py tests/unit/test_evidence_audit_views.py tests/unit/test_evidence_facade_contract.py` passed at `13 passed`
+- `uv run ruff check app/services/evidence_technical_report_exports.py app/services/evidence_technical_report_export_contracts.py app/services/evidence_technical_report_export_provenance_locks.py tests/unit/test_evidence_technical_report_exports.py` passed
+- `uv run pytest -q tests/unit/test_evidence_technical_report_exports.py tests/unit/test_evidence_provenance.py tests/unit/test_technical_reports.py tests/unit/test_evidence_semantic_trace.py tests/unit/test_evidence_facade_contract.py` passed at `36 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` passed at `2004 passed`
 - `uv run docling-system-improvement-case-validate` returned `valid=true`
-- `uv run docling-system-improvement-case-summary` reported `case_count=46`, `status_counts.open=30`, and `measured_case_count=41`
+- `uv run docling-system-improvement-case-summary` reported `case_count=38`, `status_counts.open=22`, and `measured_case_count=33`
 - `uv run docling-system-hygiene-check` reported `new hygiene regressions: none`
 - `uv run docling-system-architecture-inspect` remained `valid=true` with `violation_count=0`
-- `uv run docling-system-architecture-quality-report --summary` reported `hotspot_count=10` and `max_hotspot_risk_score=501.06`
-- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20` still reported `3` Python cycle components
-- Full DB-backed integration was intentionally not rerun for this slice because Milestone 0 changed no production code, API contracts, DB schema, or runtime paths
+- `uv run docling-system-architecture-quality-report --summary` reported `agent_legibility_average_score=90.0`, `broad_facade_count=2`, `hotspot_count=10`, and `max_hotspot_risk_score=501.06`
 
 ## Purpose
 
@@ -127,9 +140,9 @@ uv run docling-system-hygiene-check
     app/services/evidence_manifest_traces.py = 980 lines under IC-65AF4A6D8B1E
 
 uv run docling-system-improvement-case-summary
-  case_count=46
-  status_counts.open=30
-  measured_case_count=41
+  case_count=38
+  status_counts.open=22
+  measured_case_count=33
 
 uv run docling-system-architecture-quality-report --summary
   hotspot_count=10
@@ -378,23 +391,31 @@ Acceptance:
 
 ### Milestone 1 - Technical Report Derivation And Lock Boundary
 
-Status: drafted
+Status: resolved locally in the current checkout
 Outcome label: `reduced`
 
-- Extract release-binding lookup, audit-bundle or receipt lookup, provenance
-  lock application, and contract-mismatch helpers out of
+- Extracted release-binding lookup, audit-bundle or receipt lookup, and
+  provenance-lock application out of
   `app/services/evidence_technical_report_exports.py`
-  into focused technical-report export siblings.
-- Keep derivation-package shaping and persistence behavior stable through the
-  existing public import surface.
-- Add focused unit coverage for provenance-lock and derivation-contract paths.
+  into `app/services/evidence_technical_report_export_provenance_locks.py`.
+- Extracted claim-derivation provenance-lock and support-judgment contract
+  mismatch helpers into
+  `app/services/evidence_technical_report_export_contracts.py`.
+- Kept derivation-package shaping and persistence behavior stable through the
+  existing public import surface in
+  `app/services/evidence_technical_report_exports.py`.
+- Added focused unit coverage for provenance-lock assembly and
+  derivation-contract paths in
+  `tests/unit/test_evidence_technical_report_exports.py`.
 
 Acceptance:
 
-- the selected file is materially smaller and no longer owns both contract
-  mismatch checks and persistence entrypoints
-- public callers remain stable through existing imports
-- focused export tests cover both contract-mismatch and good-path lock assembly
+- satisfied locally in the current checkout:
+  `app/services/evidence_technical_report_exports.py` is reduced to `396`
+  lines, no longer owns the contract mismatch helpers or provenance-lock
+  assembly body, adjacent callers remain stable through existing imports, and
+  focused export tests cover both contract-mismatch and good-path lock
+  assembly
 
 ### Milestone 2 - Technical Report Export Persistence Closeout
 
@@ -403,14 +424,15 @@ Outcome label: `resolved`
 
 - Extract export persistence, attachment helpers, and row-payload shaping into
   focused technical-report export lifecycle or payload owners.
-- Reduce `app/services/evidence_technical_report_exports.py` to `<= 600`
-  lines with a narrow stable owner seam or forwarding surface.
+- Preserve the already-achieved `<= 600` line budget for
+  `app/services/evidence_technical_report_exports.py` while narrowing it to a
+  stable lifecycle or payload seam.
 - Update focused unit coverage and relevant integration slices for technical
   report harness roundtrip and integrity behavior.
 
 Acceptance:
 
-- `app/services/evidence_technical_report_exports.py` is `<= 600` lines
+- `app/services/evidence_technical_report_exports.py` remains `<= 600` lines
 - persistence, attachment, and payload concerns no longer cohabit with the
   derivation-lock machinery in the same file
 - targeted unit and integration gates are green

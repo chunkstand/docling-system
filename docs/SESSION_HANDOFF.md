@@ -73,19 +73,32 @@ Latest resolved bounded implementation brief:
 The broader coordination brief remains
 `docs/boring_change_architecture_milestone_plan.md`. Milestone 0 of the
 active evidence-owner packet is now resolved locally through closeout commit
-`44bec70`: the selected files still measure `884`, `837`, `834`, and `699`
-lines, broader `IC-65AF4A6D8B1E` retirement is still out of scope because
+`44bec70`, and Milestone 1 is resolved locally in the current checkout:
+`app/services/evidence_technical_report_exports.py` now measures `396` lines
+after moving release-binding and audit-bundle or receipt lookup plus
+provenance-lock assembly into
+`app/services/evidence_technical_report_export_provenance_locks.py` at `426`
+lines and claim-derivation contract mismatch helpers into
+`app/services/evidence_technical_report_export_contracts.py` at `112` lines.
+The selected packet remains intentionally narrower than the broader
+`IC-65AF4A6D8B1E` owner case because
+`app/services/evidence_semantic_trace.py`,
+`app/services/evidence_claim_feedback.py`,
+`app/services/evidence_audit_views.py`,
 `app/services/evidence_manifest_traces.py`,
 `app/services/evidence_manifests.py`, and
 `app/services/evidence_claim_support_replay_alerts.py`
-still measure `980`, `725`, and `646`, skeletal owner-test seams now exist in
+still measure `837`, `834`, `699`, `980`, `725`, and `646`, and skeletal
+owner-test seams now exist in
 `tests/unit/test_evidence_claim_feedback.py`,
 `tests/unit/test_evidence_semantic_trace.py`, and
-`tests/unit/test_evidence_audit_views.py`, and focused Milestone 0 verification
-stayed green without rerunning the full DB-backed suite because the slice
-changed no production code. Milestone 1,
-`Technical Report Derivation And Lock Boundary`, is now the next
-implementation slice.
+`tests/unit/test_evidence_audit_views.py`. Milestone 1 verification is green:
+`git diff --check`, focused technical-report export `ruff`, the focused export
+and adjacent-caller unit slice at `36 passed`,
+`DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` at `2004 passed`,
+improvement-case validate or summary, hygiene, and architecture inspection all
+passed on the post-split checkout. Milestone 2, `Technical Report Export
+Persistence Closeout`, is now the next implementation slice.
 The hygiene owner-case routing packet is now resolved locally through closeout
 commit `9876f67`. Its Milestone 0 refresh is committed locally as `08a1a75`,
 Milestone 1 owner-case bootstrap is committed locally as `d4f082c` through
