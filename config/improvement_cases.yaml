@@ -161,7 +161,7 @@ cases:
       Postgres-backed test suite passes, and the architecture probe no longer
       lists app/services/evidence.py in the top 12 churn hotspots.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-13T00:00:00+00:00'
+  updated_at: '2026-05-15T00:00:00+00:00'
 - case_id: IC-65AF4A6D8B1E
   title: 'Architecture hotspot: evidence owner-family modules'
   status: open
@@ -171,14 +171,17 @@ cases:
     reduced rather than retired because app/services/evidence_technical_report_exports.py,
     app/services/evidence_semantic_trace.py, app/services/evidence_claim_feedback.py,
     and app/services/evidence_audit_views.py remain above the 600-line default
-    budget at 884, 837, 834, and 699 lines respectively.
+    budget at 884, 837, 834, and 699 lines respectively, while
+    app/services/evidence_manifest_traces.py, app/services/evidence_manifests.py,
+    and app/services/evidence_claim_support_replay_alerts.py also still exceed
+    budget at 980, 725, and 646 lines.
   source:
     source_type: hygiene_finding
     source_ref: hygiene:file-budget:app/services/evidence_technical_report_exports.py
-    notes: Refreshed during the provenance-export boundary closeout after
-      app/services/evidence_provenance_exports.py was reduced to a thin
-      compatibility facade and the remaining evidence owner-family budgets were
-      remeasured.
+    notes: Refreshed during the 2026-05-15 Milestone 0 scope lock after the
+      provenance-export boundary closeout proved app/services/evidence_provenance_exports.py
+      could stay a thin compatibility facade and the remaining evidence
+      owner-family budgets were remeasured against the selected four-file packet.
   artifact:
     artifact_type: contract
     target_path: app/services/evidence_technical_report_exports.py
@@ -203,17 +206,26 @@ cases:
       app/services/evidence_provenance_export_graph_report.py, and
       app/services/evidence_provenance_export_lifecycle.py. The broader
       owner-family case remains open because multiple extracted evidence owner
-      modules still exceed the default 600-line budget.
+      modules still exceed the default 600-line budget. Milestone 0 of
+      docs/evidence_residual_owner_family_milestone_plan.md keeps the active
+      packet focused on the selected four files and leaves broader case
+      retirement as a routed follow-on.
   measurement:
     metric_name: evidence_owner_family_max_line_count
     current_value: 884.0
-    measurement_window: 2026-05-13 provenance-export closeout refresh
-    notes: app/services/evidence_provenance_exports.py now measures 14 lines,
-      app/services/evidence_provenance_export_graph_core.py measures 549,
-      app/services/evidence_provenance_export_graph_report.py measures 218, and
-      app/services/evidence_provenance_export_lifecycle.py measures 278. The
-      largest remaining governed owner-family file is
-      app/services/evidence_technical_report_exports.py at 884 lines.
+    measurement_window: 2026-05-15 evidence residual Milestone 0 scope lock
+    notes: app/services/evidence_provenance_exports.py remains at 14 lines,
+      app/services/evidence_provenance_export_graph_core.py remains at 549,
+      app/services/evidence_provenance_export_graph_report.py remains at 218,
+      and app/services/evidence_provenance_export_lifecycle.py remains at 278.
+      The active selected packet still targets
+      app/services/evidence_technical_report_exports.py at 884 lines,
+      app/services/evidence_semantic_trace.py at 837,
+      app/services/evidence_claim_feedback.py at 834, and
+      app/services/evidence_audit_views.py at 699, while broader retirement is
+      still blocked by app/services/evidence_manifest_traces.py at 980,
+      app/services/evidence_manifests.py at 725, and
+      app/services/evidence_claim_support_replay_alerts.py at 646.
   created_at: '2026-05-12T00:00:00+00:00'
   updated_at: '2026-05-13T00:00:00+00:00'
 - case_id: IC-6C1B516A3F92

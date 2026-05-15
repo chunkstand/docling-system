@@ -1,6 +1,6 @@
 # Session Handoff
 
-Date: 2026-05-14 local / 2026-05-15 UTC
+Date: 2026-05-15 local / 2026-05-15 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
@@ -58,17 +58,32 @@ CI Release Gate Parity Milestone 3 checkpoint:
 `ad18d74`
 CI Release Gate Parity Milestone 4 closeout checkpoint:
 `0906e35`
+Evidence Residual Owner Family Milestone 0 status:
+`resolved locally in the current checkout`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
 remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
 Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
-No active local follow-up owner case is currently routed.
-Latest drafted bounded implementation brief:
-`docs/boring_change_architecture_milestone_plan.md`
+Latest active bounded implementation brief:
+`docs/evidence_residual_owner_family_milestone_plan.md`
 Latest resolved bounded implementation brief:
 `docs/claim_support_residual_owner_family_milestone_plan.md`
+The broader coordination brief remains
+`docs/boring_change_architecture_milestone_plan.md`. Milestone 0 of the
+active evidence-owner packet is now resolved locally in the current checkout:
+the selected files still measure `884`, `837`, `834`, and `699` lines,
+broader `IC-65AF4A6D8B1E` retirement is still out of scope because
+`app/services/evidence_manifest_traces.py`,
+`app/services/evidence_manifests.py`, and
+`app/services/evidence_claim_support_replay_alerts.py`
+still measure `980`, `725`, and `646`, skeletal owner-test seams now exist in
+`tests/unit/test_evidence_claim_feedback.py`,
+`tests/unit/test_evidence_semantic_trace.py`, and
+`tests/unit/test_evidence_audit_views.py`, and Milestone 1,
+`Technical Report Derivation And Lock Boundary`, is now the next
+implementation slice.
 The hygiene owner-case routing packet is now resolved locally through closeout
 commit `9876f67`. Its Milestone 0 refresh is committed locally as `08a1a75`,
 Milestone 1 owner-case bootstrap is committed locally as `d4f082c` through
