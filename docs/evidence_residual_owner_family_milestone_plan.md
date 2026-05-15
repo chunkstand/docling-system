@@ -3,8 +3,8 @@
 Date: 2026-05-15 local / 2026-05-15 UTC
 Status: active standalone follow-on after
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`; Milestone 0 is
-resolved locally in the current checkout on 2026-05-15 and Milestone 1 is now
-the next implementation slice
+resolved locally through closeout commit `44bec70` on 2026-05-15 and
+Milestone 1 is now the next implementation slice
 Owner context: residual evidence owner-family debt after the closeout that
 reduced `app/services/evidence.py` to a 141-line compatibility facade and
 `app/services/evidence_provenance_exports.py` to a 14-line compatibility
@@ -18,8 +18,8 @@ four selected residual evidence owners:
 
 ## Local Progress
 
-- Milestone 0 is resolved locally in the current checkout. The selected
-  evidence owners still measure `884`, `837`, `834`, and `699` lines
+- Milestone 0 is resolved locally through closeout commit `44bec70`. The
+  selected evidence owners still measure `884`, `837`, `834`, and `699` lines
   respectively, so the packet remains narrowed to those four files rather than
   widening into immediate retirement of `IC-65AF4A6D8B1E`.
 - `IC-65AF4A6D8B1E` remains broader than the selected packet because
@@ -33,8 +33,27 @@ four selected residual evidence owners:
   `tests/unit/test_evidence_semantic_trace.py`, and
   `tests/unit/test_evidence_audit_views.py`, so the next production split does
   not start from zero direct owner coverage.
+- Milestone 0 closeout verification is recorded and green: `git diff --check`,
+  focused `ruff`, focused evidence-owner `pytest` at `13 passed`,
+  improvement-case validate or summary, hygiene, architecture inspection,
+  architecture quality summary, and the architecture probe all stayed green
+  without rerunning the full DB-backed suite because the slice changed only
+  docs, registry metadata, and owner-test seams.
 - Milestone 1, `Technical Report Derivation And Lock Boundary`, is now the next
   active implementation slice for this packet.
+
+## Local Verification
+
+- `git diff --check` passed
+- `uv run ruff check tests/unit/test_evidence_technical_report_exports.py tests/unit/test_evidence_claim_feedback.py tests/unit/test_evidence_semantic_trace.py tests/unit/test_evidence_audit_views.py tests/unit/test_evidence_facade_contract.py` passed
+- `uv run pytest -q tests/unit/test_evidence_technical_report_exports.py tests/unit/test_evidence_claim_feedback.py tests/unit/test_evidence_semantic_trace.py tests/unit/test_evidence_audit_views.py tests/unit/test_evidence_facade_contract.py` passed at `13 passed`
+- `uv run docling-system-improvement-case-validate` returned `valid=true`
+- `uv run docling-system-improvement-case-summary` reported `case_count=46`, `status_counts.open=30`, and `measured_case_count=41`
+- `uv run docling-system-hygiene-check` reported `new hygiene regressions: none`
+- `uv run docling-system-architecture-inspect` remained `valid=true` with `violation_count=0`
+- `uv run docling-system-architecture-quality-report --summary` reported `hotspot_count=10` and `max_hotspot_risk_score=501.06`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20` still reported `3` Python cycle components
+- Full DB-backed integration was intentionally not rerun for this slice because Milestone 0 changed no production code, API contracts, DB schema, or runtime paths
 
 ## Purpose
 
@@ -322,7 +341,7 @@ Milestone 0 is mandatory and must run before any production code changes.
 
 ### Milestone 0 - Live Refresh And Scope Lock
 
-Status: resolved locally in the current checkout
+Status: resolved locally through closeout commit `44bec70`
 Outcome label: `reduced`
 
 - Refreshed `git status -sb`, selected `wc -l`,
@@ -351,7 +370,7 @@ Outcome label: `reduced`
 
 Acceptance:
 
-- satisfied locally in the current checkout:
+- satisfied locally through closeout commit `44bec70`:
   fresh live measurements are recorded in the plan and handoff,
   the selected-scope versus broader-case-retirement distinction is explicit,
   owner-test seams exist before large code moves,

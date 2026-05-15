@@ -209,7 +209,9 @@ cases:
       modules still exceed the default 600-line budget. Milestone 0 of
       docs/evidence_residual_owner_family_milestone_plan.md keeps the active
       packet focused on the selected four files and leaves broader case
-      retirement as a routed follow-on.
+      retirement as a routed follow-on. Milestone 0 closeout commit `44bec70`
+      adds the selected-scope lock, handoff or index alignment, and skeletal
+      owner-test seams without changing production evidence behavior.
   measurement:
     metric_name: evidence_owner_family_max_line_count
     current_value: 884.0
@@ -227,7 +229,7 @@ cases:
       app/services/evidence_manifests.py at 725, and
       app/services/evidence_claim_support_replay_alerts.py at 646.
   created_at: '2026-05-12T00:00:00+00:00'
-  updated_at: '2026-05-13T00:00:00+00:00'
+  updated_at: '2026-05-15T16:00:00+00:00'
 - case_id: IC-6C1B516A3F92
   title: 'Hygiene budget hotspot: app/hotspot_prevention_classifier.py'
   status: open
