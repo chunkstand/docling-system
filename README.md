@@ -762,6 +762,17 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_postgres_r
 DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_agent_task_triage_roundtrip.py -q
 ```
 
+The canonical local release gate now lives in one repo-owned runner:
+
+```bash
+uv run docling-system-release-gate-parity
+```
+
+That command owns the checked-in local release contract for Ruff,
+improvement-case validation, Alembic upgrade/current smoke, the Postgres
+`Base.metadata.create_all(...)` verification path, Compose config plus bounded
+runtime smoke, and the full DB-backed integration suite.
+
 That integration harness:
 
 - uses the local Postgres instance from `docker compose up -d db`

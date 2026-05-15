@@ -108,6 +108,12 @@ architecture posture is:
 
 Current verification status:
 
+- The canonical local release gate now runs through
+  `uv run docling-system-release-gate-parity`, which owns Ruff,
+  improvement-case validation, Alembic upgrade/current smoke, the Postgres
+  `Base.metadata.create_all(...)` verification path, Compose config plus
+  bounded runtime smoke, and the full DB-backed integration suite as one
+  repo-owned command.
 - Ruff, architecture inspection, capability contracts, architecture decisions,
   focused model metadata tests, Alembic drift checks, and the full DB-backed
   test suite pass locally.

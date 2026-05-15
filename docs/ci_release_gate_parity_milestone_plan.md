@@ -1,10 +1,13 @@
 # CI Release Gate Parity Milestone Plan
 
 Date: 2026-05-14 local / 2026-05-14 UTC
-Status: refreshed locally through Milestone 0 on 2026-05-14 and now the next
-active follow-on after `docs/runtime_health_orchestration_milestone_plan.md`;
-the runtime-health dependency is satisfied locally, so Milestone 1 is now the
-next code-changing slice
+Status: active through Milestone 1 local runner-contract closeout in the
+current checkout on 2026-05-14 after
+`docs/runtime_health_orchestration_milestone_plan.md`; the runtime-health
+dependency is satisfied locally, the repo-owned
+`docling-system-release-gate-parity` runner now exists and passes end to end
+locally, and Milestone 2 is the next code-changing slice after this milestone
+commit lands
 Owner context: active follow-on for the checked-in CI parity gap across
 `.github/workflows/architecture-governance.yml`,
 `.github/workflows/release-gate-parity.yml`,
@@ -19,13 +22,19 @@ stop condition for code-changing work is now cleared locally.
 Milestone 0 is now refreshed locally against the current checkout. The routed
 handoff and architecture index both confirm that runtime-health Milestone 4 is
 now closed locally, the repo-owned runtime-health contract plus Compose smoke
-for `api`, `worker`, and `agent-worker` are both proven locally, and the CI
-parity gap still exists because only `.github/workflows/architecture-governance.yml`
-is checked in and there is still no repo-owned
-`docling-system-release-gate-parity` runner or
-`.github/workflows/release-gate-parity.yml` workflow. `IC-2D8D5BF5A8C4` now
-anchors the active CI parity packet, and Milestone 1 is the next code-changing
-slice.
+for `api`, `worker`, and `agent-worker` are both proven locally, and
+`IC-2D8D5BF5A8C4` still anchors the active CI parity packet. Milestone 1 is
+now resolved locally in the current checkout: `app/release_gate_cli.py` owns
+the canonical local release-parity command, `pyproject.toml` exposes
+`docling-system-release-gate-parity`, focused unit coverage proves the runner
+step list plus compose lifecycle and teardown behavior, and
+`uv run docling-system-release-gate-parity` now passes end to end locally.
+That local runner proof covers Alembic upgrade/current smoke, the Postgres
+`Base.metadata.create_all(...)` verification path, bounded Compose health
+convergence for `db`, `api`, `worker`, and `agent-worker`, and the full
+DB-backed integration suite at `1980 passed`. The remaining scoped gap is the
+missing checked-in `.github/workflows/release-gate-parity.yml` workflow, so
+Milestone 2 is now the next code-changing slice.
 Milestone 0 alignment verification is now green:
 `git diff --check` passed,
 `uv run docling-system-improvement-case-validate` returned `valid=true`, and
@@ -61,15 +70,19 @@ changes cannot silently narrow CI without failing durable checks.
 
 ## Current Evidence
 
-Live repo evidence refreshed from the `a57f74f` runtime-health closeout
-checkpoint on 2026-05-14 local / 2026-05-14 UTC:
+Live repo evidence refreshed from the Milestone 1 local runner-contract
+closeout checkout on 2026-05-14 local / 2026-05-15 UTC:
 
 ```text
 git status -sb
-  ## main...origin/main [ahead 63]
+  ## main...origin/main [ahead 64]
 
 find .github/workflows -maxdepth 1 -type f | sort
   .github/workflows/architecture-governance.yml
+
+rg -n "docling-system-release-gate-parity|docling-system-runtime-health" pyproject.toml
+  36:docling-system-runtime-health = "app.runtime_health_cli:run"
+  37:docling-system-release-gate-parity = "app.release_gate_cli:run"
 
 uv run docling-system-improvement-case-summary
   case_count=38
@@ -78,12 +91,22 @@ uv run docling-system-improvement-case-summary
   status_counts.open=26
   oldest_open_case_id=IC-9812A0B138D9
 
-wc -l .github/workflows/architecture-governance.yml README.md SYSTEM_PLAN.md docker-compose.yml pyproject.toml
+uv run --extra dev python -m pytest -q tests/unit/test_release_gate_cli.py tests/unit/test_runtime_health_cli.py -rs
+  8 passed in 0.54s
+
+uv run docling-system-release-gate-parity
+  metadata verification: 335 passed in 2.39s
+  full DB-backed suite: 1980 passed in 117.71s
+  compose smoke: healthy db/api/worker/agent-worker and automatic teardown
+
+wc -l .github/workflows/architecture-governance.yml README.md SYSTEM_PLAN.md docker-compose.yml pyproject.toml app/release_gate_cli.py tests/unit/test_release_gate_cli.py
       81 .github/workflows/architecture-governance.yml
-     809 README.md
-     924 SYSTEM_PLAN.md
+     818 README.md
+     930 SYSTEM_PLAN.md
      124 docker-compose.yml
-     150 pyproject.toml
+     151 pyproject.toml
+     202 app/release_gate_cli.py
+     122 tests/unit/test_release_gate_cli.py
 ```
 
 Repo-current structural evidence:
@@ -103,8 +126,9 @@ Repo-current structural evidence:
   `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run --extra dev python -m pytest -q -rs`
   suite.
 - `pyproject.toml` already exposes many repo-owned console scripts, including
-  `docling-system-runtime-health`, but there is no current checked-in
-  `docling-system-release-gate-parity` runner.
+  `docling-system-runtime-health`; Milestone 1 now adds
+  `docling-system-release-gate-parity` as the canonical local release gate
+  runner, and that runner now passes end to end locally.
 - `README.md` and older milestone closeouts document the heavier local release
   gate, but that gate is not enforced in GitHub Actions today.
 - `docs/agentic_architecture_index.md` and `docs/SESSION_HANDOFF.md` now show
@@ -117,8 +141,9 @@ Repo-current structural evidence:
   `worker`, and `agent-worker`.
 - `config/improvement_cases.yaml` now binds `IC-2D8D5BF5A8C4` as the dedicated
   CI-parity owner case. The scoped gap remains open because the checked-in
-  workflow set still lacks a release-parity workflow and runner, but the
-  queued packet no longer depends on chat memory to identify its owner.
+  workflow set still lacks a release-parity workflow, but the packet no longer
+  depends on chat memory or ad hoc shell snippets to identify its local
+  release gate owner.
 
 ## Goal
 
@@ -251,7 +276,8 @@ Current local state: refreshed locally. `IC-2D8D5BF5A8C4` now anchors the
 queued CI parity gap, the runtime-health dependency is confirmed against the
 repo-owned health contract surfaces, and the scoped CI gap still exists. The
 runtime-health dependency is now satisfied at the repo-owned contract and
-Compose-smoke level, so Milestone 1 is the next active slice.
+Compose-smoke level, and Milestone 1 is now implemented locally through the
+repo-owned release-parity runner. Milestone 2 is the next active slice.
 
 Purpose: refresh this plan to the current post-stack checkout, confirm that
 runtime-health is now the only remaining dependency, and bind the CI parity gap
@@ -306,6 +332,14 @@ Outcome label: `reduced`
 
 Purpose: define the release-gate contract in one repo-owned surface before
 workflow wiring so future changes cannot silently reintroduce YAML-only drift.
+
+Current local state: resolved locally in the current checkout.
+`app/release_gate_cli.py` now owns the canonical release-parity runner,
+`pyproject.toml` exposes `docling-system-release-gate-parity`, focused runner
+coverage exists in `tests/unit/test_release_gate_cli.py`, and
+`uv run docling-system-release-gate-parity` now passes end to end locally.
+The next remaining scoped gap is the missing checked-in GitHub Actions
+workflow.
 
 Implementation:
 

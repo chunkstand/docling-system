@@ -55,7 +55,7 @@ remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
 Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
 Active local follow-up owner case:
-`IC-2D8D5BF5A8C4` / CI release-gate parity Milestone 1 release-parity runner contract
+`IC-2D8D5BF5A8C4` / CI release-gate parity Milestone 2 checked-in parity workflow
 Latest planned bounded implementation brief:
 `docs/ci_release_gate_parity_milestone_plan.md`
 Latest resolved bounded implementation brief:
@@ -117,11 +117,18 @@ The next active slice is
 `docs/ci_release_gate_parity_milestone_plan.md`. Its Milestone 0
 freshness/bootstrap is refreshed locally under `IC-2D8D5BF5A8C4`, the
 runtime-health dependency is now satisfied at the repo-owned contract and
-Compose-smoke level, and Milestone 1 is the next code-changing slice because
-only `.github/workflows/architecture-governance.yml` is checked in and there
-is still no repo-owned `docling-system-release-gate-parity` runner or
-`.github/workflows/release-gate-parity.yml` workflow. The Milestone 0
-alignment verification for that queued packet is green:
+Compose-smoke level, and Milestone 1 is now resolved locally in the current
+checkout: `app/release_gate_cli.py` owns the canonical release gate,
+`pyproject.toml` exposes `docling-system-release-gate-parity`,
+`tests/unit/test_release_gate_cli.py` plus
+`tests/unit/test_runtime_health_cli.py` passed at `8 passed`, and
+`uv run docling-system-release-gate-parity` now succeeds end to end with
+metadata verification at `335 passed`, healthy `db` / `api` / `worker` /
+`agent-worker` Compose smoke plus automatic teardown, and the full DB-backed
+integration suite at `1980 passed`. The remaining scoped gap is the missing
+checked-in `.github/workflows/release-gate-parity.yml` workflow, so Milestone 2
+is now the next code-changing slice. The Milestone 0 and Milestone 1
+alignment verification for that packet is green:
 `git diff --check` passed,
 `uv run docling-system-improvement-case-validate` returned `valid=true`, and
 `uv run docling-system-improvement-case-summary` reported
