@@ -6,8 +6,8 @@ Status: active standalone follow-on after
 resolved locally through closeout commit `44bec70` on 2026-05-15, Milestone 1
 is resolved locally through closeout commit `d9d79ef` on 2026-05-15, Milestone
 2 is resolved locally through closeout commit `115be15` on 2026-05-15,
-Milestone 3 is resolved locally in the current checkout, and Milestone 4 is
-now the next implementation slice
+Milestone 3 is resolved locally through closeout commit `245dc9f`, and
+Milestone 4 is now the next implementation slice
 Owner context: residual evidence owner-family debt after the closeout that
 reduced `app/services/evidence.py` to a 141-line compatibility facade and
 `app/services/evidence_provenance_exports.py` to a 14-line compatibility
@@ -39,7 +39,7 @@ four selected residual evidence owners:
   `app/services/evidence_technical_report_export_payloads.py` at `258` lines
   and export persistence plus attachment helpers into
   `app/services/evidence_technical_report_export_lifecycle.py` at `138` lines.
-- Milestone 3 is resolved locally in the current checkout.
+- Milestone 3 is resolved locally through closeout commit `245dc9f`.
   `app/services/evidence_claim_feedback.py` now measures `498` lines after
   moving verdict classification, retrieval-context materialization,
   evidence-ref shaping, and desired-row payload construction into
@@ -471,7 +471,7 @@ Acceptance:
 
 ### Milestone 3 - Claim Feedback Payload And Retrieval Context Boundary
 
-Status: resolved locally in the current checkout
+Status: resolved locally through closeout commit `245dc9f`
 Outcome label: `reduced`
 
 - Extract verdict classification, span or retrieval-context materialization,
@@ -482,7 +482,7 @@ Outcome label: `reduced`
 
 Acceptance:
 
-- satisfied locally in the current checkout:
+- satisfied locally through closeout commit `245dc9f`:
   `app/services/evidence_claim_feedback.py` now measures `498` lines, retrieval
   context assembly and desired-row payload shaping now live in
   `app/services/evidence_claim_feedback_payloads.py` at `376` lines, the new
