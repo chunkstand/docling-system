@@ -1,6 +1,6 @@
 # Session Handoff
 
-Date: 2026-05-14 local / 2026-05-14 UTC
+Date: 2026-05-14 local / 2026-05-15 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
@@ -48,6 +48,8 @@ Runtime Health Orchestration Milestone 1 checkpoint:
 `a84728c`
 Runtime Health Orchestration closeout checkpoint:
 `a57f74f`
+CI Release Gate Parity Milestone 1 checkpoint:
+`abecfa1`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -117,13 +119,13 @@ The next active slice is
 `docs/ci_release_gate_parity_milestone_plan.md`. Its Milestone 0
 freshness/bootstrap is refreshed locally under `IC-2D8D5BF5A8C4`, the
 runtime-health dependency is now satisfied at the repo-owned contract and
-Compose-smoke level, and Milestone 1 is now resolved locally in the current
-checkout: `app/release_gate_cli.py` owns the canonical release gate,
+Compose-smoke level, and Milestone 1 is now resolved locally through closeout
+commit `abecfa1`: `app/release_gate_cli.py` owns the canonical release gate,
 `pyproject.toml` exposes `docling-system-release-gate-parity`,
 `tests/unit/test_release_gate_cli.py` plus
 `tests/unit/test_runtime_health_cli.py` passed at `8 passed`, and
-`uv run docling-system-release-gate-parity` now succeeds end to end with
-metadata verification at `335 passed`, healthy `db` / `api` / `worker` /
+`uv run docling-system-release-gate-parity` succeeded end to end with metadata
+verification at `335 passed`, healthy `db` / `api` / `worker` /
 `agent-worker` Compose smoke plus automatic teardown, and the full DB-backed
 integration suite at `1980 passed`. The remaining scoped gap is the missing
 checked-in `.github/workflows/release-gate-parity.yml` workflow, so Milestone 2

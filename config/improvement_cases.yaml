@@ -2100,12 +2100,12 @@ cases:
   deployment:
     deployed_ref: null
     notes: >-
-      Milestone 1 is now resolved locally in the current checkout:
+      Milestone 1 is now resolved locally through closeout commit abecfa1:
       app/release_gate_cli.py owns the canonical
       docling-system-release-gate-parity runner, pyproject.toml exposes the
       script entrypoint, tests/unit/test_release_gate_cli.py plus
       tests/unit/test_runtime_health_cli.py passed at 8 passed, and
-      uv run docling-system-release-gate-parity now succeeds end to end with
+      uv run docling-system-release-gate-parity succeeded end to end with
       metadata verification at 335 passed, healthy db/api/worker/agent-worker
       Compose smoke plus automatic teardown, and the full DB-backed suite at
       1980 passed. The runtime-health dependency is satisfied at the contract
@@ -2114,7 +2114,7 @@ cases:
   measurement:
     metric_name: ci_release_gate_missing_check_count
     current_value: 5.0
-    measurement_window: 2026-05-14 CI release-gate parity Milestone 1 local runner closeout
+    measurement_window: 2026-05-14 CI release-gate parity Milestone 1 closeout commit
     notes: The repo now has a dedicated release-parity runner and it passes
       end to end locally, but the current checked-in workflow set still lacks
       the checked-in release-parity workflow that would execute Alembic
@@ -2122,7 +2122,7 @@ cases:
       verification path, and docker compose runtime smoke as GitHub-enforced
       release gates.
   created_at: '2026-05-14T23:16:30Z'
-  updated_at: '2026-05-15T00:17:07Z'
+  updated_at: '2026-05-15T00:21:44Z'
 - case_id: IC-7C73737C689F
   title: 'Architecture hotspot: app/services/claim_support_policy_governance.py'
   status: open

@@ -1,13 +1,12 @@
 # CI Release Gate Parity Milestone Plan
 
 Date: 2026-05-14 local / 2026-05-14 UTC
-Status: active through Milestone 1 local runner-contract closeout in the
-current checkout on 2026-05-14 after
+Status: active through Milestone 1 closeout commit `abecfa1` on 2026-05-14
+local / 2026-05-15 UTC after
 `docs/runtime_health_orchestration_milestone_plan.md`; the runtime-health
 dependency is satisfied locally, the repo-owned
 `docling-system-release-gate-parity` runner now exists and passes end to end
-locally, and Milestone 2 is the next code-changing slice after this milestone
-commit lands
+locally, and Milestone 2 is the next code-changing slice
 Owner context: active follow-on for the checked-in CI parity gap across
 `.github/workflows/architecture-governance.yml`,
 `.github/workflows/release-gate-parity.yml`,
@@ -19,22 +18,22 @@ stop condition for code-changing work is now cleared locally.
 
 ## Local Progress
 
-Milestone 0 is now refreshed locally against the current checkout. The routed
+Milestone 0 is now refreshed locally against the current system state. The routed
 handoff and architecture index both confirm that runtime-health Milestone 4 is
 now closed locally, the repo-owned runtime-health contract plus Compose smoke
 for `api`, `worker`, and `agent-worker` are both proven locally, and
 `IC-2D8D5BF5A8C4` still anchors the active CI parity packet. Milestone 1 is
-now resolved locally in the current checkout: `app/release_gate_cli.py` owns
-the canonical local release-parity command, `pyproject.toml` exposes
-`docling-system-release-gate-parity`, focused unit coverage proves the runner
-step list plus compose lifecycle and teardown behavior, and
-`uv run docling-system-release-gate-parity` now passes end to end locally.
-That local runner proof covers Alembic upgrade/current smoke, the Postgres
-`Base.metadata.create_all(...)` verification path, bounded Compose health
-convergence for `db`, `api`, `worker`, and `agent-worker`, and the full
-DB-backed integration suite at `1980 passed`. The remaining scoped gap is the
-missing checked-in `.github/workflows/release-gate-parity.yml` workflow, so
-Milestone 2 is now the next code-changing slice.
+now resolved locally through closeout commit `abecfa1`:
+`app/release_gate_cli.py` owns the canonical local release-parity command,
+`pyproject.toml` exposes `docling-system-release-gate-parity`, focused unit
+coverage proves the runner step list plus compose lifecycle and teardown
+behavior, and `uv run docling-system-release-gate-parity` passed end to end
+locally before commit. That local runner proof covers Alembic upgrade/current
+smoke, the Postgres `Base.metadata.create_all(...)` verification path, bounded
+Compose health convergence for `db`, `api`, `worker`, and `agent-worker`, and
+the full DB-backed integration suite at `1980 passed`. The remaining scoped
+gap is the missing checked-in `.github/workflows/release-gate-parity.yml`
+workflow, so Milestone 2 is now the next code-changing slice.
 Milestone 0 alignment verification is now green:
 `git diff --check` passed,
 `uv run docling-system-improvement-case-validate` returned `valid=true`, and
@@ -71,7 +70,8 @@ changes cannot silently narrow CI without failing durable checks.
 ## Current Evidence
 
 Live repo evidence refreshed from the Milestone 1 local runner-contract
-closeout checkout on 2026-05-14 local / 2026-05-15 UTC:
+closeout before closeout commit `abecfa1` on 2026-05-14 local / 2026-05-15
+UTC:
 
 ```text
 git status -sb
@@ -333,7 +333,7 @@ Outcome label: `reduced`
 Purpose: define the release-gate contract in one repo-owned surface before
 workflow wiring so future changes cannot silently reintroduce YAML-only drift.
 
-Current local state: resolved locally in the current checkout.
+Current local state: resolved locally through closeout commit `abecfa1`.
 `app/release_gate_cli.py` now owns the canonical release-parity runner,
 `pyproject.toml` exposes `docling-system-release-gate-parity`, focused runner
 coverage exists in `tests/unit/test_release_gate_cli.py`, and
