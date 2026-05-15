@@ -62,6 +62,8 @@ Evidence Residual Owner Family Milestone 0 checkpoint:
 `44bec70`
 Evidence Residual Owner Family Milestone 1 closeout checkpoint:
 `d9d79ef`
+Evidence Residual Owner Family Milestone 2 closeout checkpoint:
+`115be15`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -82,7 +84,7 @@ plus provenance-lock assembly into
 `app/services/evidence_technical_report_export_provenance_locks.py` at `426`
 lines and claim-derivation contract mismatch helpers into
 `app/services/evidence_technical_report_export_contracts.py` at `112` lines.
-Milestone 2 is now resolved locally in the current checkout:
+Milestone 2 is now resolved locally through closeout commit `115be15`:
 `app/services/evidence_technical_report_exports.py` measures `45` lines after
 moving derivation package shaping and claim-derivation row payload shaping into
 `app/services/evidence_technical_report_export_payloads.py` at `258` lines and

@@ -5,8 +5,8 @@ Status: active standalone follow-on after
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`; Milestone 0 is
 resolved locally through closeout commit `44bec70` on 2026-05-15, Milestone 1
 is resolved locally through closeout commit `d9d79ef` on 2026-05-15, Milestone
-2 is resolved locally in the current checkout, and Milestone 3 is now the next
-implementation slice
+2 is resolved locally through closeout commit `115be15` on 2026-05-15, and
+Milestone 3 is now the next implementation slice
 Owner context: residual evidence owner-family debt after the closeout that
 reduced `app/services/evidence.py` to a 141-line compatibility facade and
 `app/services/evidence_provenance_exports.py` to a 14-line compatibility
@@ -31,7 +31,7 @@ four selected residual evidence owners:
   `app/services/evidence_technical_report_export_provenance_locks.py` at `426`
   lines and claim-derivation contract mismatch checks into
   `app/services/evidence_technical_report_export_contracts.py` at `112` lines.
-- Milestone 2 is resolved locally in the current checkout.
+- Milestone 2 is resolved locally through closeout commit `115be15`.
   `app/services/evidence_technical_report_exports.py` now measures `45` lines
   after moving derivation package shaping and claim-derivation row payload
   shaping into
@@ -435,7 +435,7 @@ Acceptance:
 
 ### Milestone 2 - Technical Report Export Persistence Closeout
 
-Status: resolved locally in the current checkout
+Status: resolved locally through closeout commit `115be15`
 Outcome label: `resolved`
 
 - Extracted derivation package shaping and claim-derivation row payload shaping
@@ -449,7 +449,7 @@ Outcome label: `resolved`
 
 Acceptance:
 
-- satisfied locally in the current checkout:
+- satisfied locally through closeout commit `115be15`:
   `app/services/evidence_technical_report_exports.py` now measures `45` lines,
   derivation package shaping and claim-derivation row payload shaping now live
   in `app/services/evidence_technical_report_export_payloads.py` at `258`

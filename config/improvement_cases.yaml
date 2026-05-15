@@ -203,7 +203,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "1aa8378"
+    deployed_ref: "115be15"
     notes: Provenance-export boundary closeout commit 1aa8378 reduced
       app/services/evidence_provenance_exports.py to a compatibility facade
       and added app/services/evidence_provenance_export_graph_core.py,
@@ -223,13 +223,13 @@ cases:
       claim-derivation contract checks into
       app/services/evidence_technical_report_export_contracts.py while keeping
       the broader owner-family case open and routing Milestone 2 as the next
-      selected slice. Milestone 2 is resolved locally in the current checkout
-      where app/services/evidence_technical_report_exports.py is reduced to 45
-      lines, derivation package shaping plus claim-derivation row payload
-      shaping now live in app/services/evidence_technical_report_export_payloads.py
-      at 258 lines, export persistence plus attachment helpers now live in
+      selected slice. Milestone 2 closeout commit `115be15` reduced
+      app/services/evidence_technical_report_exports.py to 45 lines, moved
+      derivation package shaping plus claim-derivation row payload shaping into
+      app/services/evidence_technical_report_export_payloads.py at 258 lines,
+      moved export persistence plus attachment helpers into
       app/services/evidence_technical_report_export_lifecycle.py at 138 lines,
-      and Milestone 3 is now the next selected slice.
+      and routed Milestone 3 as the next selected slice.
   measurement:
     metric_name: evidence_owner_family_max_line_count
     current_value: 980.0
@@ -252,7 +252,7 @@ cases:
       app/services/evidence_manifests.py at 725, and
       app/services/evidence_claim_support_replay_alerts.py at 646.
   created_at: '2026-05-12T00:00:00+00:00'
-  updated_at: '2026-05-15T16:01:44Z'
+  updated_at: '2026-05-15T16:14:03Z'
 - case_id: IC-6C1B516A3F92
   title: 'Hygiene budget hotspot: app/hotspot_prevention_classifier.py'
   status: open
