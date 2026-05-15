@@ -1231,12 +1231,12 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: local-current-checkout
+    deployed_ref: "40024a3"
     notes: >-
       Claim-support policy impacts boundary closeout remains committed as
       3d7d090, and the earlier replay-alert split remains committed as
-      afc324a. The residual owner-family packet is now resolved locally in the
-      current checkout: app/services/claim_support_policy_impact_views.py is
+      afc324a. The residual owner-family packet is now resolved locally through
+      closeout commit 40024a3: app/services/claim_support_policy_impact_views.py is
       207 lines / 0 private helpers, claim_support_policy_impact_worklist.py
       is 361 / 7, claim_support_policy_impact_alerts.py is 469 / 9,
       claim_support_policy_impact_replay.py is 247 / 6,
@@ -2281,11 +2281,11 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: local-current-checkout
+    deployed_ref: "40024a3"
     notes: >-
       Created during the hygiene owner-case routing Milestone 1 bootstrap. The
-      residual claim-support support family is now resolved locally in the
-      current checkout: app/services/claim_support_evaluations.py is 164 lines
+      residual claim-support support family is now resolved locally through
+      closeout commit 40024a3: app/services/claim_support_evaluations.py is 164 lines
       / 0 private helpers, claim_support_evaluation_fixtures.py is 534 / 7,
       claim_support_calibration_policies.py is 319 / 4,
       claim_support_judge_evaluation_runs.py is 339 / 1,

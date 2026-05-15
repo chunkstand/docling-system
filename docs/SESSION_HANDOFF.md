@@ -175,7 +175,8 @@ the default `600`-line budget or below.
 The checkout is on `main`. Local `main` carries the un-pushed CI parity
 Milestone 4 closeout commit `0906e35`, the branch-pointer refresh commit
 `e0d7ee2`, and the search compatibility-facade implementation closeout commit
-`fd9dd2a`; the earlier CI parity implementation proof checkpoint remains
+`fd9dd2a`, plus the claim-support residual owner-family closeout commit
+`40024a3`; the earlier CI parity implementation proof checkpoint remains
 `ad18d74`, and the agent-task orchestration follow-on plan is resolved locally
 through Milestone 5,
 `docs/search_hydration_boundary_milestone_plan.md` is resolved locally through
@@ -237,7 +238,7 @@ subsystem-knot for `IC-E2270F89B397` is resolved:
 forward into the resolved owner-family closeout below.
 
 `docs/claim_support_residual_owner_family_milestone_plan.md` is now resolved
-locally in the current checkout. It retires both open claim-support owner
+locally through closeout commit `40024a3`. It retires both open claim-support owner
 cases together:
 
 - `app/services/claim_support_policy_impact_views.py`,
@@ -252,6 +253,12 @@ cases together:
   `164 / 0`, `257 / 6`, and `206 / 0`, while the extracted support-family
   owner modules close at `534 / 7`, `319 / 4`, `339 / 1`, `534 / 6`,
   `559 / 2`, `328 / 4`, and `569 / 8`.
+- No new claim-support service hotspots formed: the architecture-quality
+  summary top hotspot paths still exclude claim-support service modules and the
+  architecture probe top 20 no longer routes the split claim-support owner
+  files. The only directly related residual still carried forward from this
+  packet is `app/hotspot_prevention_classifier.py` under
+  `IC-6C1B516A3F92`.
 - The live claim-support cycle between
   `app.services.claim_support_policy_impacts` and
   `app.services.claim_support_replay_alert_promotions` is gone from the

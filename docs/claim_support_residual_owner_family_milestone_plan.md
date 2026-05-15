@@ -1,8 +1,8 @@
 # Claim Support Residual Owner Family Milestone Plan
 
 Date: 2026-05-14 local / 2026-05-14 UTC
-Status: resolved locally in the current checkout on 2026-05-15 local /
-2026-05-15 UTC after the freshness rebaseline, claim-support guardrail
+Status: resolved locally through closeout commit `40024a3` on 2026-05-15 local
+/ 2026-05-15 UTC after the freshness rebaseline, claim-support guardrail
 hardening, policy-impact residual owner split, support-family residual owner
 split, and verification closeout for `IC-E2270F89B397` and
 `IC-7C73737C689F`
@@ -45,7 +45,7 @@ brief remains downstream of this domain-specific closeout.
 
 ## Closeout
 
-Closeout outcome from the current local checkout:
+Closeout outcome from closeout commit `40024a3`:
 
 - `app/services/claim_support_policy_impacts.py` remains a `184` line /
   `0` private-helper compatibility facade, while the extracted policy-impact
@@ -61,6 +61,12 @@ Closeout outcome from the current local checkout:
   `app.services.claim_support_policy_impacts` and
   `app.services.claim_support_replay_alert_promotions` is gone from the
   architecture probe.
+- No new claim-support service hotspots formed during this split: the
+  architecture-quality summary top hotspot paths still exclude claim-support
+  service modules, the architecture probe top 20 no longer routes the split
+  claim-support owner files, and the only directly related residual still
+  carried by this packet is `app/hotspot_prevention_classifier.py` at `999`
+  lines under `IC-6C1B516A3F92`.
 - Strict hotspot prevention now guards the compact claim-support seams and
   allows only shrink-only residual refactors in those files; the closeout
   window passed with `blocked=0` and `allowed=7`.
@@ -78,6 +84,10 @@ Closeout verification from this local window:
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`: the claim-support cycle is gone and the remaining cycles are outside this family
 
 ## Current Evidence
+
+The section below preserves the Milestone 0 starting baseline from 2026-05-14
+for traceability. Use the Closeout section plus the aligned routing artifacts
+for the final post-closeout state recorded by commit `40024a3`.
 
 Live repo evidence refreshed from the current local checkout on 2026-05-14
 local / 2026-05-14 UTC:
@@ -363,10 +373,14 @@ case measurements have drifted, update this plan first.
 
 This is a stacked claim-support plan. Each milestone must commit atomically
 after verification and docs or handoff updates for that milestone are complete.
+Milestones 0 through 6 closed together in local closeout commit `40024a3`
+after the focused unit, integration, hygiene, improvement-case, capability,
+architecture, hotspot-prevention, and full DB-backed verification stack listed
+above.
 
 ### Milestone 0 - Freshness Rebaseline And Scope Confirmation
 
-Status: resolved locally in the current checkout
+Status: resolved locally through closeout commit `40024a3`
 Outcome label: `resolved`
 
 Implementation:
@@ -394,7 +408,7 @@ Acceptance for this milestone:
 
 ### Milestone 1 - Claim-Support Guardrails And Cycle Gate
 
-Status: resolved locally in the current checkout
+Status: resolved locally through closeout commit `40024a3`
 Outcome label: `resolved`
 
 Implementation:
@@ -418,7 +432,7 @@ Acceptance for this milestone:
 
 ### Milestone 2 - Resolve `IC-E2270F89B397` Policy-Impact Residuals
 
-Status: resolved locally in the current checkout
+Status: resolved locally through closeout commit `40024a3`
 Outcome label: `resolved`
 
 Implementation:
@@ -456,7 +470,7 @@ Acceptance for this milestone:
 
 ### Milestone 3 - Reduce The Evaluation And Calibration Residual
 
-Status: resolved locally in the current checkout
+Status: resolved locally through closeout commit `40024a3`
 Outcome label: `reduced`
 
 Implementation:
@@ -481,7 +495,7 @@ Acceptance for this milestone:
 
 ### Milestone 4 - Reduce The Claim-Support Governance Residual
 
-Status: resolved locally in the current checkout
+Status: resolved locally through closeout commit `40024a3`
 Outcome label: `reduced`
 
 Implementation:
@@ -509,7 +523,7 @@ Acceptance for this milestone:
 
 ### Milestone 5 - Resolve The Replay-Alert Fixture Corpus Residual And Retire `IC-7C73737C689F`
 
-Status: resolved locally in the current checkout
+Status: resolved locally through closeout commit `40024a3`
 Outcome label: `resolved`
 
 Implementation:
@@ -535,7 +549,7 @@ Acceptance for this milestone:
 
 ### Milestone 6 - Alignment And Full Claim-Support Closeout
 
-Status: resolved locally in the current checkout
+Status: resolved locally through closeout commit `40024a3`
 Outcome label: `resolved`
 
 Implementation:
