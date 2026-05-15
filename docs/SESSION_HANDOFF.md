@@ -60,6 +60,8 @@ CI Release Gate Parity Milestone 4 closeout checkpoint:
 `0906e35`
 Evidence Residual Owner Family Milestone 0 checkpoint:
 `44bec70`
+Evidence Residual Owner Family Milestone 1 closeout checkpoint:
+`d9d79ef`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -73,10 +75,10 @@ Latest resolved bounded implementation brief:
 The broader coordination brief remains
 `docs/boring_change_architecture_milestone_plan.md`. Milestone 0 of the
 active evidence-owner packet is now resolved locally through closeout commit
-`44bec70`, and Milestone 1 is resolved locally in the current checkout:
-`app/services/evidence_technical_report_exports.py` now measures `396` lines
-after moving release-binding and audit-bundle or receipt lookup plus
-provenance-lock assembly into
+`44bec70`, and Milestone 1 is resolved locally through closeout commit
+`d9d79ef`: `app/services/evidence_technical_report_exports.py` now measures
+`396` lines after moving release-binding and audit-bundle or receipt lookup
+plus provenance-lock assembly into
 `app/services/evidence_technical_report_export_provenance_locks.py` at `426`
 lines and claim-derivation contract mismatch helpers into
 `app/services/evidence_technical_report_export_contracts.py` at `112` lines.

@@ -4,8 +4,8 @@ Date: 2026-05-15 local / 2026-05-15 UTC
 Status: active standalone follow-on after
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`; Milestone 0 is
 resolved locally through closeout commit `44bec70` on 2026-05-15, Milestone 1
-is resolved locally in the current checkout, and Milestone 2 is now the next
-implementation slice
+is resolved locally through closeout commit `d9d79ef` on 2026-05-15, and
+Milestone 2 is now the next implementation slice
 Owner context: residual evidence owner-family debt after the closeout that
 reduced `app/services/evidence.py` to a 141-line compatibility facade and
 `app/services/evidence_provenance_exports.py` to a 14-line compatibility
@@ -23,8 +23,9 @@ four selected residual evidence owners:
   selected evidence owners still measure `884`, `837`, `834`, and `699` lines
   respectively, so the packet remains narrowed to those four files rather than
   widening into immediate retirement of `IC-65AF4A6D8B1E`.
-- Milestone 1 is resolved locally in the current checkout. `app/services/evidence_technical_report_exports.py`
-  now measures `396` lines after moving release-binding and
+- Milestone 1 is resolved locally through closeout commit `d9d79ef`.
+  `app/services/evidence_technical_report_exports.py` now measures `396` lines
+  after moving release-binding and
   audit-bundle or receipt lookup plus provenance-lock assembly into
   `app/services/evidence_technical_report_export_provenance_locks.py` at `426`
   lines and claim-derivation contract mismatch checks into
@@ -78,8 +79,8 @@ The scoped problem is not the public evidence facade anymore. The remaining
 debt is that the selected owner modules still combine several distinct concern
 families:
 
-- technical-report derivation lock assembly, package shaping, persistence, and
-  attachment helpers still coexist in
+- technical-report derivation package shaping, export persistence, attachment
+  helpers, and row-payload shaping still coexist in
   `app/services/evidence_technical_report_exports.py`
 - technical-report integrity recomputation, semantic trace materialization,
   source-record shaping, and provenance-edge graph assembly still coexist in
@@ -164,10 +165,10 @@ Repo-current structural evidence:
   `app/services/evidence_manifests.py`, and
   `app/services/evidence_claim_support_replay_alerts.py`.
 - `app/services/evidence_technical_report_exports.py` currently mixes:
-  release-binding lookup, audit-bundle and receipt lookup, provenance-lock and
-  support-judgment contract mismatch checks, provenance-lock application,
   derivation package shaping, export persistence, attachment helpers, and row
-  payload shaping.
+  payload shaping after Milestone 1 moved release-binding lookup, audit-bundle
+  and receipt lookup, provenance-lock application, and claim-derivation
+  contract checks into focused sibling owners.
 - `app/services/evidence_claim_feedback.py` currently mixes:
   verdict-to-feedback classification, retrieval-span and request/result
   materialization, source payload shaping, feedback payload shaping, row
@@ -391,7 +392,7 @@ Acceptance:
 
 ### Milestone 1 - Technical Report Derivation And Lock Boundary
 
-Status: resolved locally in the current checkout
+Status: resolved locally through closeout commit `d9d79ef`
 Outcome label: `reduced`
 
 - Extracted release-binding lookup, audit-bundle or receipt lookup, and
@@ -410,7 +411,7 @@ Outcome label: `reduced`
 
 Acceptance:
 
-- satisfied locally in the current checkout:
+- satisfied locally through closeout commit `d9d79ef`:
   `app/services/evidence_technical_report_exports.py` is reduced to `396`
   lines, no longer owns the contract mismatch helpers or provenance-lock
   assembly body, adjacent callers remain stable through existing imports, and
@@ -647,8 +648,8 @@ Acceptance:
   closure. That is acceptable only if the file remains a demonstrably narrow
   compatibility seam and the selected owner modules themselves are within
   budget.
-- The immediate next implementation slice is Milestone 1,
-  `Technical Report Derivation And Lock Boundary`.
+- The immediate next implementation slice is Milestone 2,
+  `Technical Report Export Persistence Closeout`.
 - If the broader case remains open after Milestone 7, the next packet should
   start from the largest live blocker at the fresh closeout baseline,
   currently `app/services/evidence_manifest_traces.py`, not from the already

@@ -214,13 +214,14 @@ cases:
       retirement as a routed follow-on. Milestone 0 closeout commit `44bec70`
       adds the selected-scope lock, handoff or index alignment, and skeletal
       owner-test seams without changing production evidence behavior. Milestone
-      1 is resolved locally in the current checkout where it reduced
+      1 closeout commit `d9d79ef` reduced
       app/services/evidence_technical_report_exports.py to 396 lines by moving
       provenance-lock lookup or assembly into
       app/services/evidence_technical_report_export_provenance_locks.py and
       claim-derivation contract checks into
       app/services/evidence_technical_report_export_contracts.py while keeping
-      the broader owner-family case open.
+      the broader owner-family case open and routing Milestone 2 as the next
+      selected slice.
   measurement:
     metric_name: evidence_owner_family_max_line_count
     current_value: 980.0
@@ -241,7 +242,7 @@ cases:
       app/services/evidence_manifests.py at 725, and
       app/services/evidence_claim_support_replay_alerts.py at 646.
   created_at: '2026-05-12T00:00:00+00:00'
-  updated_at: '2026-05-15T20:45:00+00:00'
+  updated_at: '2026-05-15T15:45:22Z'
 - case_id: IC-6C1B516A3F92
   title: 'Hygiene budget hotspot: app/hotspot_prevention_classifier.py'
   status: open
