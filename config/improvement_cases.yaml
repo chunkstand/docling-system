@@ -177,18 +177,20 @@ cases:
     budget at 980, 725, and 646 lines.
   source:
     source_type: hygiene_finding
-    source_ref: hygiene:file-budget:app/services/evidence_technical_report_exports.py
+    source_ref: hygiene:file-budget:app/services/evidence_claim_feedback.py
     notes: Refreshed during the 2026-05-15 Milestone 0 scope lock after the
       provenance-export boundary closeout proved app/services/evidence_provenance_exports.py
       could stay a thin compatibility facade and the remaining evidence
       owner-family budgets were remeasured against the selected four-file packet.
-      Milestone 1 then reduced the selected technical-report export owner below
-      budget without retiring the broader owner-family case.
+      Milestones 1 and 2 then reduced the selected technical-report export
+      owner below budget without retiring the broader owner-family case, so
+      claim-feedback is now the next selected owner in the active packet.
   artifact:
     artifact_type: contract
-    target_path: app/services/evidence_technical_report_exports.py
-    description: Selected technical-report export owner in the residual evidence
-      packet; broader owner-family max line count now remains elsewhere.
+    target_path: app/services/evidence_claim_feedback.py
+    description: Next selected owner in the residual evidence packet after the
+      technical-report export closeout; broader owner-family max line count now
+      remains elsewhere.
   verification:
     commands:
     - uv run docling-system-hygiene-check
@@ -221,19 +223,27 @@ cases:
       claim-derivation contract checks into
       app/services/evidence_technical_report_export_contracts.py while keeping
       the broader owner-family case open and routing Milestone 2 as the next
-      selected slice.
+      selected slice. Milestone 2 is resolved locally in the current checkout
+      where app/services/evidence_technical_report_exports.py is reduced to 45
+      lines, derivation package shaping plus claim-derivation row payload
+      shaping now live in app/services/evidence_technical_report_export_payloads.py
+      at 258 lines, export persistence plus attachment helpers now live in
+      app/services/evidence_technical_report_export_lifecycle.py at 138 lines,
+      and Milestone 3 is now the next selected slice.
   measurement:
     metric_name: evidence_owner_family_max_line_count
     current_value: 980.0
-    measurement_window: 2026-05-15 evidence residual Milestone 1 boundary split
+    measurement_window: 2026-05-15 evidence residual Milestone 2 persistence closeout
     notes: app/services/evidence_provenance_exports.py remains at 14 lines,
       app/services/evidence_provenance_export_graph_core.py remains at 549,
       app/services/evidence_provenance_export_graph_report.py remains at 218,
       and app/services/evidence_provenance_export_lifecycle.py remains at 278.
       The active selected packet reduced
-      app/services/evidence_technical_report_exports.py to 396 lines and added
-      app/services/evidence_technical_report_export_provenance_locks.py at 426
-      plus app/services/evidence_technical_report_export_contracts.py at 112.
+      app/services/evidence_technical_report_exports.py to 45 lines, added
+      app/services/evidence_technical_report_export_payloads.py at 258,
+      app/services/evidence_technical_report_export_lifecycle.py at 138,
+      app/services/evidence_technical_report_export_provenance_locks.py at 426,
+      and app/services/evidence_technical_report_export_contracts.py at 112.
       The remaining selected owners still measure
       app/services/evidence_semantic_trace.py at 837,
       app/services/evidence_claim_feedback.py at 834, and
@@ -242,7 +252,7 @@ cases:
       app/services/evidence_manifests.py at 725, and
       app/services/evidence_claim_support_replay_alerts.py at 646.
   created_at: '2026-05-12T00:00:00+00:00'
-  updated_at: '2026-05-15T15:45:22Z'
+  updated_at: '2026-05-15T16:01:44Z'
 - case_id: IC-6C1B516A3F92
   title: 'Hygiene budget hotspot: app/hotspot_prevention_classifier.py'
   status: open

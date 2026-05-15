@@ -5,6 +5,8 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import app.services.evidence_technical_report_export_contracts as technical_report_export_contracts
+import app.services.evidence_technical_report_export_lifecycle as technical_report_export_lifecycle
+import app.services.evidence_technical_report_export_payloads as technical_report_export_payloads
 import app.services.evidence_technical_report_exports as technical_report_exports
 from app.db.models import ClaimEvidenceDerivation, EvidencePackageExport
 from app.services import evidence
@@ -15,17 +17,41 @@ from app.services.evidence_common import payload_sha256
 
 TECHNICAL_REPORT_EXPORT_FACADE_ALIASES = {
     "_claim_derivation_provenance_lock_contract_mismatches": (
-        "_claim_derivation_provenance_lock_contract_mismatches"
+        technical_report_export_contracts,
+        "_claim_derivation_provenance_lock_contract_mismatches",
     ),
     "_claim_derivation_support_judgment_contract_mismatches": (
-        "_claim_derivation_support_judgment_contract_mismatches"
+        technical_report_export_contracts,
+        "_claim_derivation_support_judgment_contract_mismatches",
     ),
-    "_evidence_card_snapshot": "_evidence_card_snapshot",
-    "_latest_passed_release_bindings_by_request": "_latest_passed_release_bindings_by_request",
-    "attach_operator_run_to_evidence_export": "attach_operator_run_to_evidence_export",
-    "apply_technical_report_derivation_links": "apply_technical_report_derivation_links",
-    "build_technical_report_derivation_package": "build_technical_report_derivation_package",
-    "persist_technical_report_evidence_export": "persist_technical_report_evidence_export",
+    "_evidence_card_snapshot": (
+        technical_report_export_payloads,
+        "_evidence_card_snapshot",
+    ),
+    "_latest_passed_release_bindings_by_request": (
+        technical_report_export_provenance_locks,
+        "_latest_passed_release_bindings_by_request",
+    ),
+    "attach_artifact_to_evidence_export": (
+        technical_report_export_lifecycle,
+        "attach_artifact_to_evidence_export",
+    ),
+    "attach_operator_run_to_evidence_export": (
+        technical_report_export_lifecycle,
+        "attach_operator_run_to_evidence_export",
+    ),
+    "apply_technical_report_derivation_links": (
+        technical_report_export_payloads,
+        "apply_technical_report_derivation_links",
+    ),
+    "build_technical_report_derivation_package": (
+        technical_report_export_payloads,
+        "build_technical_report_derivation_package",
+    ),
+    "persist_technical_report_evidence_export": (
+        technical_report_export_lifecycle,
+        "persist_technical_report_evidence_export",
+    ),
 }
 
 
@@ -53,8 +79,10 @@ class _ScalarRoutingSession:
 
 
 def test_evidence_facade_reexports_technical_report_export_owner_functions() -> None:
-    for facade_name, owner_name in TECHNICAL_REPORT_EXPORT_FACADE_ALIASES.items():
-        assert getattr(evidence, facade_name) is getattr(technical_report_exports, owner_name)
+    for facade_name, (owner_module, owner_name) in TECHNICAL_REPORT_EXPORT_FACADE_ALIASES.items():
+        expected = getattr(owner_module, owner_name)
+        assert getattr(technical_report_exports, facade_name) is expected
+        assert getattr(evidence, facade_name) is expected
 
 
 def test_evidence_facade_wraps_blocked_owner_names() -> None:
@@ -101,6 +129,111 @@ def test_attach_helpers_update_evidence_export_rows() -> None:
     assert export.agent_task_artifact_id == artifact_id
     assert export.operator_run_ids_json == ["existing", str(operator_run_id)]
     assert session.flush_count == 2
+
+
+class _PersistRecordingSession:
+    def __init__(self) -> None:
+        self.added: list[object] = []
+        self.flush_count = 0
+
+    def add(self, row: object) -> None:
+        self.added.append(row)
+
+    def flush(self) -> None:
+        self.flush_count += 1
+
+
+def test_persist_evidence_export_routes_through_lifecycle_owner(monkeypatch) -> None:
+    now = datetime(2026, 5, 10, 12, 0, tzinfo=UTC)
+    session = _PersistRecordingSession()
+    draft_payload = {"claims": [{"claim_id": "claim:1"}]}
+    call_log: list[object] = []
+    package = {
+        "package_sha256": "package-sha",
+        "source_snapshot_sha256s": ["snapshot-sha"],
+        "document_ids": ["document-1"],
+        "run_ids": ["run-1"],
+        "claim_ids": ["claim:1"],
+        "claim_derivations": [
+            {
+                "claim_id": "claim:1",
+                "rendered_text": "Rendered claim",
+                "derivation_rule": "technical_report_claim_contract_v1",
+                "evidence_card_ids": ["card-1"],
+                "graph_edge_ids": ["edge-1"],
+                "fact_ids": ["fact-1"],
+                "assertion_ids": ["assertion-1"],
+                "source_document_ids": ["document-1"],
+                "source_snapshot_sha256s": ["snapshot-sha"],
+                "source_search_request_ids": ["request-1"],
+                "source_search_request_result_ids": ["result-1"],
+                "source_evidence_package_export_ids": ["export-1"],
+                "source_evidence_package_sha256s": ["package-upstream"],
+                "source_evidence_trace_sha256s": ["trace-upstream"],
+                "semantic_ontology_snapshot_ids": ["ontology-1"],
+                "semantic_graph_snapshot_ids": ["graph-1"],
+                "retrieval_reranker_artifact_ids": ["reranker-1"],
+                "search_harness_release_ids": ["release-1"],
+                "release_audit_bundle_ids": ["bundle-1"],
+                "release_validation_receipt_ids": ["receipt-1"],
+                "provenance_lock": {"schema_name": "technical_report_claim_provenance_lock"},
+                "provenance_lock_sha256": "prov-lock-sha",
+                "support_verdict": "supported",
+                "support_score": 0.91,
+                "support_judge_run_id": str(uuid4()),
+                "support_judgment": {
+                    "schema_name": "technical_report_claim_support_judgment"
+                },
+                "support_judgment_sha256": "judge-sha",
+                "evidence_package_sha256": "package-sha",
+                "derivation_sha256": "derivation-sha",
+            }
+        ],
+    }
+
+    monkeypatch.setattr(
+        technical_report_export_lifecycle,
+        "_apply_technical_report_claim_provenance_locks",
+        lambda _session, payload: call_log.append(("locks", payload)),
+    )
+    monkeypatch.setattr(
+        technical_report_export_lifecycle,
+        "_utcnow",
+        lambda: now,
+    )
+
+    def _fake_apply(payload: dict, *, evidence_package_export_id=None):
+        call_log.append(("apply", evidence_package_export_id))
+        if evidence_package_export_id is not None:
+            payload["evidence_package_export_id"] = str(evidence_package_export_id)
+        return package
+
+    monkeypatch.setattr(
+        technical_report_export_lifecycle,
+        "apply_technical_report_derivation_links",
+        _fake_apply,
+    )
+
+    export = technical_report_export_lifecycle.persist_technical_report_evidence_export(
+        session,
+        draft_payload=draft_payload,
+        agent_task_id=uuid4(),
+    )
+
+    assert isinstance(export, EvidencePackageExport)
+    assert export.package_sha256 == "package-sha"
+    assert export.created_at == now
+    assert draft_payload["evidence_package_export_id"] == str(export.id)
+    assert call_log[0] == ("locks", draft_payload)
+    assert call_log[1] == ("apply", None)
+    assert call_log[2] == ("apply", export.id)
+    assert session.flush_count == 2
+    assert len(session.added) == 2
+    derivation = next(
+        row for row in session.added if isinstance(row, ClaimEvidenceDerivation)
+    )
+    assert derivation.evidence_package_export_id == export.id
+    assert derivation.derivation_sha256 == "derivation-sha"
 
 
 def test_claim_derivation_payload_preserves_hash_and_lock_fields() -> None:

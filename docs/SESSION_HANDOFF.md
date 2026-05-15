@@ -82,6 +82,12 @@ plus provenance-lock assembly into
 `app/services/evidence_technical_report_export_provenance_locks.py` at `426`
 lines and claim-derivation contract mismatch helpers into
 `app/services/evidence_technical_report_export_contracts.py` at `112` lines.
+Milestone 2 is now resolved locally in the current checkout:
+`app/services/evidence_technical_report_exports.py` measures `45` lines after
+moving derivation package shaping and claim-derivation row payload shaping into
+`app/services/evidence_technical_report_export_payloads.py` at `258` lines and
+export persistence plus attachment helpers into
+`app/services/evidence_technical_report_export_lifecycle.py` at `138` lines.
 The selected packet remains intentionally narrower than the broader
 `IC-65AF4A6D8B1E` owner case because
 `app/services/evidence_semantic_trace.py`,
@@ -94,13 +100,16 @@ still measure `837`, `834`, `699`, `980`, `725`, and `646`, and skeletal
 owner-test seams now exist in
 `tests/unit/test_evidence_claim_feedback.py`,
 `tests/unit/test_evidence_semantic_trace.py`, and
-`tests/unit/test_evidence_audit_views.py`. Milestone 1 verification is green:
+`tests/unit/test_evidence_audit_views.py`. Milestone 2 verification is green:
 `git diff --check`, focused technical-report export `ruff`, the focused export
-and adjacent-caller unit slice at `36 passed`,
-`DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` at `2004 passed`,
-improvement-case validate or summary, hygiene, and architecture inspection all
-passed on the post-split checkout. Milestone 2, `Technical Report Export
-Persistence Closeout`, is now the next implementation slice.
+and adjacent-caller unit slice at `37 passed`, the technical-report harness
+roundtrip slice at `1 passed`,
+`DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` at `2005 passed`,
+hotspot-prevention strict, capability contracts, improvement-case validate or
+summary, hygiene, architecture inspection, architecture quality summary, and
+the architecture probe all passed on the post-split checkout. Milestone 3,
+`Claim Feedback Payload And Retrieval Context Boundary`, is now the next
+implementation slice for the evidence packet.
 The hygiene owner-case routing packet is now resolved locally through closeout
 commit `9876f67`. Its Milestone 0 refresh is committed locally as `08a1a75`,
 Milestone 1 owner-case bootstrap is committed locally as `d4f082c` through
