@@ -1,12 +1,12 @@
 # CI Release Gate Parity Milestone Plan
 
 Date: 2026-05-14 local / 2026-05-14 UTC
-Status: active through Milestone 1 closeout commit `abecfa1` on 2026-05-14
-local / 2026-05-15 UTC after
-`docs/runtime_health_orchestration_milestone_plan.md`; the runtime-health
-dependency is satisfied locally, the repo-owned
-`docling-system-release-gate-parity` runner now exists and passes end to end
-locally, and Milestone 2 is the next code-changing slice
+Status: active through Milestone 2 checked-in parity-workflow implementation
+in the current checkout on 2026-05-14 local / 2026-05-15 UTC after Milestone 1
+closeout commit `abecfa1`; the runtime-health dependency is satisfied locally,
+the repo-owned `docling-system-release-gate-parity` runner now exists and
+passes end to end locally, the checked-in parity workflow now exists locally,
+and Milestone 3 is the next routed closeout slice
 Owner context: active follow-on for the checked-in CI parity gap across
 `.github/workflows/architecture-governance.yml`,
 `.github/workflows/release-gate-parity.yml`,
@@ -23,7 +23,7 @@ handoff and architecture index both confirm that runtime-health Milestone 4 is
 now closed locally, the repo-owned runtime-health contract plus Compose smoke
 for `api`, `worker`, and `agent-worker` are both proven locally, and
 `IC-2D8D5BF5A8C4` still anchors the active CI parity packet. Milestone 1 is
-now resolved locally through closeout commit `abecfa1`:
+resolved locally through closeout commit `abecfa1`:
 `app/release_gate_cli.py` owns the canonical local release-parity command,
 `pyproject.toml` exposes `docling-system-release-gate-parity`, focused unit
 coverage proves the runner step list plus compose lifecycle and teardown
@@ -31,9 +31,16 @@ behavior, and `uv run docling-system-release-gate-parity` passed end to end
 locally before commit. That local runner proof covers Alembic upgrade/current
 smoke, the Postgres `Base.metadata.create_all(...)` verification path, bounded
 Compose health convergence for `db`, `api`, `worker`, and `agent-worker`, and
-the full DB-backed integration suite at `1980 passed`. The remaining scoped
-gap is the missing checked-in `.github/workflows/release-gate-parity.yml`
-workflow, so Milestone 2 is now the next code-changing slice.
+the full DB-backed integration suite at `1983 passed`. Milestone 2 is now
+implemented locally in the current checkout:
+`.github/workflows/release-gate-parity.yml` runs on pull requests and pushes
+to `main`, calls the repo-owned `docling-system-release-gate-parity` runner
+instead of duplicating the release gate inline, and uploads bounded failure
+diagnostics from `build/release-gate-parity/failure/`. The runner now writes
+that failure-artifact bundle before Compose teardown so the checked-in workflow
+can upload `docker compose ps`, health-state output, and targeted service logs
+on failure. The remaining scoped gap is the final Milestone 3 and Milestone 4
+proof/closeout alignment for the workflow-backed parity gate.
 Milestone 0 alignment verification is now green:
 `git diff --check` passed,
 `uv run docling-system-improvement-case-validate` returned `valid=true`, and
@@ -69,20 +76,26 @@ changes cannot silently narrow CI without failing durable checks.
 
 ## Current Evidence
 
-Live repo evidence refreshed from the Milestone 1 local runner-contract
-closeout before closeout commit `abecfa1` on 2026-05-14 local / 2026-05-15
-UTC:
+Live repo evidence refreshed from the Milestone 2 checked-in parity-workflow
+implementation checkout on 2026-05-14 local / 2026-05-15 UTC:
 
 ```text
 git status -sb
-  ## main...origin/main [ahead 64]
+  ## main...origin/main [ahead 66]
 
 find .github/workflows -maxdepth 1 -type f | sort
   .github/workflows/architecture-governance.yml
+  .github/workflows/release-gate-parity.yml
 
 rg -n "docling-system-release-gate-parity|docling-system-runtime-health" pyproject.toml
   36:docling-system-runtime-health = "app.runtime_health_cli:run"
   37:docling-system-release-gate-parity = "app.release_gate_cli:run"
+
+rg -n "docling-system-release-gate-parity|build/release-gate-parity/failure|upload-artifact|continue-on-error" .github/workflows/release-gate-parity.yml
+  36:        continue-on-error: true
+  37:        run: uv run docling-system-release-gate-parity
+  41:        uses: actions/upload-artifact@v4
+  44:          path: build/release-gate-parity/failure/
 
 uv run docling-system-improvement-case-summary
   case_count=38
@@ -92,21 +105,22 @@ uv run docling-system-improvement-case-summary
   oldest_open_case_id=IC-9812A0B138D9
 
 uv run --extra dev python -m pytest -q tests/unit/test_release_gate_cli.py tests/unit/test_runtime_health_cli.py -rs
-  8 passed in 0.54s
+  8 passed in 0.16s
 
 uv run docling-system-release-gate-parity
-  metadata verification: 335 passed in 2.39s
-  full DB-backed suite: 1980 passed in 117.71s
+  metadata verification: 335 passed in 2.48s
+  full DB-backed suite: 1983 passed in 112.09s
   compose smoke: healthy db/api/worker/agent-worker and automatic teardown
 
-wc -l .github/workflows/architecture-governance.yml README.md SYSTEM_PLAN.md docker-compose.yml pyproject.toml app/release_gate_cli.py tests/unit/test_release_gate_cli.py
+wc -l .github/workflows/architecture-governance.yml .github/workflows/release-gate-parity.yml README.md SYSTEM_PLAN.md docker-compose.yml pyproject.toml app/release_gate_cli.py tests/unit/test_release_gate_cli.py
       81 .github/workflows/architecture-governance.yml
-     818 README.md
-     930 SYSTEM_PLAN.md
+      51 .github/workflows/release-gate-parity.yml
+     827 README.md
+     935 SYSTEM_PLAN.md
      124 docker-compose.yml
      151 pyproject.toml
-     202 app/release_gate_cli.py
-     122 tests/unit/test_release_gate_cli.py
+     348 app/release_gate_cli.py
+     228 tests/unit/test_release_gate_cli.py
 ```
 
 Repo-current structural evidence:
@@ -118,19 +132,17 @@ Repo-current structural evidence:
   `docling-system-capability-contracts`, `docker compose config --quiet`, the
   focused runtime-health pytest slice, focused architecture tests, and
   `docling-system-hygiene-check`.
-- No checked-in workflow currently runs:
-  `uv run --extra dev alembic upgrade head`,
-  `uv run --extra dev alembic current`,
-  a repo-owned Postgres `Base.metadata.create_all(...)` verification path,
-  bounded Compose runtime smoke, or the full
-  `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run --extra dev python -m pytest -q -rs`
-  suite.
+- `.github/workflows/release-gate-parity.yml` now runs the repo-owned
+  `docling-system-release-gate-parity` command on pull requests and pushes to
+  `main`, and it uploads bounded failure diagnostics from
+  `build/release-gate-parity/failure/` when that runner fails.
 - `pyproject.toml` already exposes many repo-owned console scripts, including
   `docling-system-runtime-health`; Milestone 1 now adds
   `docling-system-release-gate-parity` as the canonical local release gate
-  runner, and that runner now passes end to end locally.
-- `README.md` and older milestone closeouts document the heavier local release
-  gate, but that gate is not enforced in GitHub Actions today.
+  runner, and Milestone 2 now extends that runner so it writes bounded failure
+  diagnostics before Compose teardown.
+- `README.md` and `SYSTEM_PLAN.md` now document that the checked-in workflow
+  uses the same repo-owned runner and uploads its failure bundle.
 - `docs/agentic_architecture_index.md` and `docs/SESSION_HANDOFF.md` now show
   runtime-health resolved locally through Milestone 4 and route this CI plan
   as the next active follow-on rather than a queued packet blocked on Compose
@@ -338,8 +350,8 @@ Current local state: resolved locally through closeout commit `abecfa1`.
 `pyproject.toml` exposes `docling-system-release-gate-parity`, focused runner
 coverage exists in `tests/unit/test_release_gate_cli.py`, and
 `uv run docling-system-release-gate-parity` now passes end to end locally.
-The next remaining scoped gap is the missing checked-in GitHub Actions
-workflow.
+The next remaining scoped gap is the checked-in parity workflow's final
+proof/closeout alignment.
 
 Implementation:
 
@@ -382,6 +394,12 @@ Outcome label: `reduced`
 
 Purpose: add the missing checked-in merge signal so the repo no longer depends
 on local-only release verification for runtime and DB readiness.
+
+Current local state: implemented locally in the current checkout.
+`.github/workflows/release-gate-parity.yml` now exists, runs on pull requests
+and pushes to `main`, calls `uv run docling-system-release-gate-parity`, and
+uploads runner-produced diagnostics from `build/release-gate-parity/failure/`
+when the parity gate fails.
 
 Implementation:
 

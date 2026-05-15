@@ -114,6 +114,11 @@ Current verification status:
   `Base.metadata.create_all(...)` verification path, Compose config plus
   bounded runtime smoke, and the full DB-backed integration suite as one
   repo-owned command.
+- The checked-in GitHub Actions release gate now lives in
+  `.github/workflows/release-gate-parity.yml`, which runs the same
+  `docling-system-release-gate-parity` command on pull requests and pushes to
+  `main`, and uploads bounded runner diagnostics from
+  `build/release-gate-parity/failure/` on failure.
 - Ruff, architecture inspection, capability contracts, architecture decisions,
   focused model metadata tests, Alembic drift checks, and the full DB-backed
   test suite pass locally.

@@ -1,0 +1,51 @@
+name: Release Gate Parity
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  release-gate-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev
+
+      - name: Run release gate parity
+        id: release_gate
+        continue-on-error: true
+        run: uv run docling-system-release-gate-parity
+
+      - name: Upload release gate diagnostics
+        if: steps.release_gate.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-gate-parity-diagnostics
+          path: build/release-gate-parity/failure/
+          if-no-files-found: warn
+
+      - name: Fail when release gate parity fails
+        if: steps.release_gate.outcome == 'failure'
+        run: |
+          echo "Release gate parity failed. See uploaded diagnostics." >&2
+          exit 1

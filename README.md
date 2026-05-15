@@ -773,6 +773,13 @@ improvement-case validation, Alembic upgrade/current smoke, the Postgres
 `Base.metadata.create_all(...)` verification path, Compose config plus bounded
 runtime smoke, and the full DB-backed integration suite.
 
+The checked-in GitHub Actions workflow
+`.github/workflows/release-gate-parity.yml` now runs the same repo-owned
+runner on pull requests and pushes to `main`. When the parity gate fails after
+Compose startup, the runner writes bounded diagnostics under
+`build/release-gate-parity/failure/`, and the workflow uploads that directory
+as a failure artifact.
+
 That integration harness:
 
 - uses the local Postgres instance from `docker compose up -d db`

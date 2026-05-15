@@ -57,7 +57,7 @@ remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
 Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
 Active local follow-up owner case:
-`IC-2D8D5BF5A8C4` / CI release-gate parity Milestone 2 checked-in parity workflow
+`IC-2D8D5BF5A8C4` / CI release-gate parity Milestone 3 parity-gate proof and closeout
 Latest planned bounded implementation brief:
 `docs/ci_release_gate_parity_milestone_plan.md`
 Latest resolved bounded implementation brief:
@@ -127,10 +127,16 @@ commit `abecfa1`: `app/release_gate_cli.py` owns the canonical release gate,
 `uv run docling-system-release-gate-parity` succeeded end to end with metadata
 verification at `335 passed`, healthy `db` / `api` / `worker` /
 `agent-worker` Compose smoke plus automatic teardown, and the full DB-backed
-integration suite at `1980 passed`. The remaining scoped gap is the missing
-checked-in `.github/workflows/release-gate-parity.yml` workflow, so Milestone 2
-is now the next code-changing slice. The Milestone 0 and Milestone 1
-alignment verification for that packet is green:
+integration suite at `1983 passed`. Milestone 2 is now implemented locally in
+the current checkout: `.github/workflows/release-gate-parity.yml` runs on pull
+requests and pushes to `main`, calls the same repo-owned
+`docling-system-release-gate-parity` command, and uploads bounded diagnostics
+from `build/release-gate-parity/failure/` on failure. The runner now writes
+that bundle before Compose teardown so the checked-in workflow can retain
+`docker compose ps`, health-state output, and targeted service logs for failed
+parity runs. The remaining scoped gap is the final Milestone 3 and Milestone 4
+proof/closeout alignment for the workflow-backed parity gate. The Milestone 0,
+Milestone 1, and Milestone 2 alignment verification for that packet is green:
 `git diff --check` passed,
 `uv run docling-system-improvement-case-validate` returned `valid=true`, and
 `uv run docling-system-improvement-case-summary` reported

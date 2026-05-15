@@ -2055,13 +2055,11 @@ cases:
   status: open
   cause_class: missing_constraint
   observed_failure: >-
-    The repo's checked-in CI still proves architecture governance only. The
-    only workflow is .github/workflows/architecture-governance.yml, and there
-    is still no checked-in .github/workflows/release-gate-parity.yml workflow
-    to execute the repo-owned docling-system-release-gate-parity runner for
-    Alembic upgrade/current smoke, the Postgres Base.metadata.create_all(...)
-    verification path, bounded Compose runtime smoke, and the full
-    DOCLING_SYSTEM_RUN_INTEGRATION=1 suite as checked-in release gates.
+    The repo now has a checked-in .github/workflows/release-gate-parity.yml
+    workflow, but the packet is not yet closed through the remaining
+    Milestone 3 and Milestone 4 proof that the workflow-backed parity gate,
+    runner-owned failure diagnostics, and final routed docs all align as the
+    checked-in release contract.
   source:
     source_type: architecture_governance
     source_ref: architecture-governance:ci-release-gate-parity
@@ -2070,9 +2068,10 @@ cases:
       so future CI parity reviews dedupe to the same owner case.
   artifact:
     artifact_type: contract
-    target_path: .github/workflows/architecture-governance.yml
-    description: Existing checked-in CI workflow surface that still lacks the
-      release-parity gate and repo-owned runner contract.
+    target_path: .github/workflows/release-gate-parity.yml
+    description: Checked-in release-parity workflow surface that now calls the
+      repo-owned runner and uploads bounded failure artifacts; the residual gap
+      is final parity-gate proof and closeout alignment.
   verification:
     commands:
     - git diff --check
@@ -2100,7 +2099,7 @@ cases:
   deployment:
     deployed_ref: null
     notes: >-
-      Milestone 1 is now resolved locally through closeout commit abecfa1:
+      Milestone 1 is resolved locally through closeout commit abecfa1:
       app/release_gate_cli.py owns the canonical
       docling-system-release-gate-parity runner, pyproject.toml exposes the
       script entrypoint, tests/unit/test_release_gate_cli.py plus
@@ -2108,21 +2107,25 @@ cases:
       uv run docling-system-release-gate-parity succeeded end to end with
       metadata verification at 335 passed, healthy db/api/worker/agent-worker
       Compose smoke plus automatic teardown, and the full DB-backed suite at
-      1980 passed. The runtime-health dependency is satisfied at the contract
-      and Compose smoke level, and this owner case remains open until a
-      checked-in release-parity workflow lands and passes locally.
+      1983 passed. Milestone 2 is now implemented locally in the current
+      checkout: .github/workflows/release-gate-parity.yml runs on pull
+      requests and pushes to main, calls the same repo-owned runner, and
+      uploads diagnostics from build/release-gate-parity/failure/ when the
+      parity gate fails. app/release_gate_cli.py now writes that bounded
+      failure bundle before Compose teardown. The runtime-health dependency is
+      satisfied at the contract and Compose smoke level, and this owner case
+      remains open until the remaining Milestone 3 and Milestone 4 parity-gate
+      proof/closeout work lands.
   measurement:
-    metric_name: ci_release_gate_missing_check_count
-    current_value: 5.0
-    measurement_window: 2026-05-14 CI release-gate parity Milestone 1 closeout commit
-    notes: The repo now has a dedicated release-parity runner and it passes
-      end to end locally, but the current checked-in workflow set still lacks
-      the checked-in release-parity workflow that would execute Alembic
-      upgrade/current smoke, the Postgres Base.metadata.create_all(...)
-      verification path, and docker compose runtime smoke as GitHub-enforced
-      release gates.
+    metric_name: ci_release_gate_remaining_milestone_count
+    current_value: 2.0
+    measurement_window: 2026-05-14 CI release-gate parity Milestone 2 checked-in workflow
+    notes: Workflow absence is now resolved. The remaining scoped work is the
+      Milestone 3 parity-gate proof that the checked-in workflow-backed gate
+      is deterministic and diagnostic-complete, plus the Milestone 4 docs,
+      handoff, and closeout alignment.
   created_at: '2026-05-14T23:16:30Z'
-  updated_at: '2026-05-15T00:21:44Z'
+  updated_at: '2026-05-15T00:44:47Z'
 - case_id: IC-7C73737C689F
   title: 'Architecture hotspot: app/services/claim_support_policy_governance.py'
   status: open

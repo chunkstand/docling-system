@@ -7,6 +7,7 @@ import pytest
 from app.release_gate_cli import (
     COMPOSE_PROJECT_POSTGRES_PORT,
     build_release_gate_steps,
+    capture_failure_artifacts,
     main,
 )
 
@@ -104,11 +105,70 @@ def test_release_gate_cli_waits_for_compose_health_and_tears_down(
     assert downs == [tmp_path]
 
 
-def test_release_gate_cli_tears_down_after_failure(
+def test_release_gate_cli_cleans_tmpdir_after_success(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    tmpdir = tmp_path / ".tmp" / "release-gate"
+    tmpdir.mkdir(parents=True)
+    tmpdir.joinpath("stale.txt").write_text("stale")
+
+    monkeypatch.setattr("app.release_gate_cli.repo_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        "app.release_gate_cli.run_step",
+        lambda step, *, project_root=None: None,
+    )
+    monkeypatch.setattr(
+        "app.release_gate_cli.wait_for_compose_health",
+        lambda *, project_root=None, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "app.release_gate_cli.compose_down",
+        lambda *, project_root=None: None,
+    )
+
+    exit_code = main([])
+
+    assert exit_code == 0
+    assert not tmpdir.exists()
+
+
+def test_release_gate_cli_preserves_active_inherited_tmpdir(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    tmpdir = tmp_path / ".tmp" / "release-gate"
+    active_tmpdir = tmpdir / "pytest-of-chunkstand" / "pytest-0"
+    active_tmpdir.mkdir(parents=True)
+    active_tmpdir.joinpath("active.txt").write_text("active")
+
+    monkeypatch.setattr("app.release_gate_cli.repo_root", lambda: tmp_path)
+    monkeypatch.setenv("TMPDIR", active_tmpdir.as_posix())
+    monkeypatch.setattr(
+        "app.release_gate_cli.run_step",
+        lambda step, *, project_root=None: None,
+    )
+    monkeypatch.setattr(
+        "app.release_gate_cli.wait_for_compose_health",
+        lambda *, project_root=None, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "app.release_gate_cli.compose_down",
+        lambda *, project_root=None: None,
+    )
+
+    exit_code = main([])
+
+    assert exit_code == 0
+    assert active_tmpdir.exists()
+
+
+def test_release_gate_cli_captures_failure_artifacts_and_tears_down_after_failure(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     executed: list[str] = []
+    captures: list[tuple[Path, str | None, int, str | None]] = []
     downs: list[Path] = []
 
     monkeypatch.setattr("app.release_gate_cli.repo_root", lambda: tmp_path)
@@ -123,16 +183,30 @@ def test_release_gate_cli_tears_down_after_failure(
         "app.release_gate_cli.wait_for_compose_health",
         lambda *, project_root=None, **_kwargs: None,
     )
+    def fake_capture_failure_artifacts(
+        *,
+        project_root=None,
+        failing_step,
+        exit_code,
+        failure_message,
+        **_kwargs,
+    ):
+        captures.append((project_root or tmp_path, failing_step, exit_code, failure_message))
+
+    monkeypatch.setattr(
+        "app.release_gate_cli.capture_failure_artifacts",
+        fake_capture_failure_artifacts,
+    )
     monkeypatch.setattr(
         "app.release_gate_cli.compose_down",
         lambda *, project_root=None: downs.append(project_root or tmp_path),
     )
 
-    with pytest.raises(SystemExit) as excinfo:
-        main([])
+    exit_code = main([])
 
-    assert excinfo.value.code == 1
+    assert exit_code == 1
     assert executed[-1] == "full-integration"
+    assert captures == [(tmp_path, "full-integration", 1, None)]
     assert downs == [tmp_path]
 
 
@@ -142,6 +216,7 @@ def test_release_gate_cli_returns_non_zero_when_compose_health_never_converges(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     executed: list[str] = []
+    captures: list[tuple[Path, str | None, int, str | None]] = []
     downs: list[Path] = []
 
     monkeypatch.setattr("app.release_gate_cli.repo_root", lambda: tmp_path)
@@ -155,6 +230,20 @@ def test_release_gate_cli_returns_non_zero_when_compose_health_never_converges(
             RuntimeError("compose health timed out")
         ),
     )
+    def fake_capture_failure_artifacts(
+        *,
+        project_root=None,
+        failing_step,
+        exit_code,
+        failure_message,
+        **_kwargs,
+    ):
+        captures.append((project_root or tmp_path, failing_step, exit_code, failure_message))
+
+    monkeypatch.setattr(
+        "app.release_gate_cli.capture_failure_artifacts",
+        fake_capture_failure_artifacts,
+    )
     monkeypatch.setattr(
         "app.release_gate_cli.compose_down",
         lambda *, project_root=None: downs.append(project_root or tmp_path),
@@ -164,5 +253,50 @@ def test_release_gate_cli_returns_non_zero_when_compose_health_never_converges(
 
     assert exit_code == 1
     assert executed[-1] == "compose-up"
+    assert captures == [(tmp_path, "compose-up", 1, "compose health timed out")]
     assert downs == [tmp_path]
     assert "compose health timed out" in capsys.readouterr().err
+
+
+def test_capture_failure_artifacts_writes_summary_and_compose_outputs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run(command, *, cwd, env, check, capture_output, text):
+        commands.append(command)
+        stdout = ""
+        if command[:4] == ["docker", "compose", "ps", "-q"]:
+            stdout = f"{command[-1]}-container-id\n"
+        elif command[:3] == ["docker", "compose", "ps"]:
+            stdout = "NAME IMAGE COMMAND SERVICE CREATED STATUS PORTS\n"
+        elif command[:2] == ["docker", "inspect"]:
+            stdout = '{"Status":"healthy"}\n'
+        elif command[:3] == ["docker", "compose", "logs"]:
+            stdout = f"{command[-1]} logs\n"
+        return type("CompletedProcess", (), {"returncode": 0, "stdout": stdout, "stderr": ""})()
+
+    monkeypatch.setattr("app.release_gate_cli.repo_root", lambda: tmp_path)
+    monkeypatch.setattr("app.release_gate_cli.subprocess.run", fake_run)
+
+    capture_failure_artifacts(
+        project_root=tmp_path,
+        failing_step="compose-up",
+        exit_code=1,
+        failure_message="compose health timed out",
+    )
+
+    artifact_dir = tmp_path / "build" / "release-gate-parity" / "failure"
+    assert artifact_dir.joinpath("summary.txt").read_text() == (
+        "release_gate_failure\n"
+        "exit_code=1\n"
+        "failing_step=compose-up\n"
+        "message=compose health timed out\n"
+    )
+    assert artifact_dir.joinpath("docker-compose-ps.txt").exists()
+    for service_name in ("db", "api", "worker", "agent-worker"):
+        assert artifact_dir.joinpath(f"{service_name}-container-id.txt").exists()
+        assert artifact_dir.joinpath(f"{service_name}-health.txt").exists()
+        assert artifact_dir.joinpath(f"{service_name}-logs.txt").exists()
+    assert ["docker", "compose", "ps"] in commands
