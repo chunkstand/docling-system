@@ -66,6 +66,8 @@ Evidence Residual Owner Family Milestone 2 closeout checkpoint:
 `115be15`
 Evidence Residual Owner Family Milestone 3 closeout checkpoint:
 `245dc9f`
+Evidence Residual Owner Family Milestone 4 closeout checkpoint:
+`3e033fc`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -92,7 +94,7 @@ moving derivation package shaping and claim-derivation row payload shaping into
 `app/services/evidence_technical_report_export_payloads.py` at `258` lines and
 export persistence plus attachment helpers into
 `app/services/evidence_technical_report_export_lifecycle.py` at `138` lines.
-Milestone 4 is now resolved locally in the current checkout:
+Milestone 4 is now resolved locally through closeout commit `3e033fc`:
 `app/services/evidence_claim_feedback.py` measures `47` lines after moving
 claim-retrieval row payload shaping plus row and integrity summary reporting
 into `app/services/evidence_claim_feedback_integrity.py` at `305` lines and row

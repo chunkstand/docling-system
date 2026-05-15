@@ -7,7 +7,7 @@ resolved locally through closeout commit `44bec70` on 2026-05-15, Milestone 1
 is resolved locally through closeout commit `d9d79ef` on 2026-05-15, Milestone
 2 is resolved locally through closeout commit `115be15` on 2026-05-15,
 Milestone 3 is resolved locally through closeout commit `245dc9f`, and
-Milestone 4 is resolved locally in the current checkout, and Milestone 5 is
+Milestone 4 is resolved locally through closeout commit `3e033fc`, and Milestone 5 is
 now the next implementation slice
 Owner context: residual evidence owner-family debt after the closeout that
 reduced `app/services/evidence.py` to a 141-line compatibility facade and
@@ -45,7 +45,7 @@ four selected residual evidence owners:
   moving verdict classification, retrieval-context materialization,
   evidence-ref shaping, and desired-row payload construction into
   `app/services/evidence_claim_feedback_payloads.py` at `376` lines.
-- Milestone 4 is resolved locally in the current checkout.
+- Milestone 4 is resolved locally through closeout commit `3e033fc`.
   `app/services/evidence_claim_feedback.py` now measures `47` lines after
   moving claim-retrieval row payload shaping plus row and integrity summary
   reporting into `app/services/evidence_claim_feedback_integrity.py` at `305`
@@ -504,7 +504,7 @@ Acceptance:
 
 ### Milestone 4 - Claim Feedback Integrity And Ledger Closeout
 
-Status: resolved locally in the current checkout
+Status: resolved locally through closeout commit `3e033fc`
 Outcome label: `resolved`
 
 - Extracted row payload shaping plus row-integrity and integrity-summary
@@ -517,7 +517,7 @@ Outcome label: `resolved`
 
 Acceptance:
 
-- satisfied locally in the current checkout:
+- satisfied locally through closeout commit `3e033fc`:
   `app/services/evidence_claim_feedback.py` now measures `47` lines,
   `app/services/evidence_claim_feedback_integrity.py` measures `305` lines,
   `app/services/evidence_claim_feedback_lifecycle.py` measures `215` lines,

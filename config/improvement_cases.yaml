@@ -206,7 +206,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "245dc9f"
+    deployed_ref: "3e033fc"
     notes: Provenance-export boundary closeout commit 1aa8378 reduced
       app/services/evidence_provenance_exports.py to a compatibility facade
       and added app/services/evidence_provenance_export_graph_core.py,
@@ -232,9 +232,9 @@ cases:
       app/services/evidence_technical_report_export_payloads.py at 258 lines,
       moved export persistence plus attachment helpers into
       app/services/evidence_technical_report_export_lifecycle.py at 138 lines,
-      and routed Milestone 3 as the next selected slice. Milestone 4 is
-      resolved locally in the current checkout where
-      app/services/evidence_claim_feedback.py is reduced to 47 lines,
+      and routed Milestone 3 as the next selected slice. Milestone 4 closeout
+      commit `3e033fc` reduced app/services/evidence_claim_feedback.py to 47
+      lines,
       app/services/evidence_claim_feedback_payloads.py remains at 376 lines,
       row payload shaping plus row and integrity summary reporting now live in
       app/services/evidence_claim_feedback_integrity.py at 305 lines, row
@@ -269,7 +269,7 @@ cases:
       app/services/evidence_manifests.py at 725, and
       app/services/evidence_claim_support_replay_alerts.py at 646.
   created_at: '2026-05-12T00:00:00+00:00'
-  updated_at: '2026-05-15T17:06:51Z'
+  updated_at: '2026-05-15T17:16:26Z'
 - case_id: IC-6C1B516A3F92
   title: 'Hygiene budget hotspot: app/hotspot_prevention_classifier.py'
   status: open
