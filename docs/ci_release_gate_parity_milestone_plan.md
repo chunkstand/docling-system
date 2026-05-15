@@ -1,12 +1,12 @@
 # CI Release Gate Parity Milestone Plan
 
 Date: 2026-05-14 local / 2026-05-14 UTC
-Status: active through Milestone 2 checked-in parity-workflow implementation
-in the current checkout on 2026-05-14 local / 2026-05-15 UTC after Milestone 1
-closeout commit `abecfa1`; the runtime-health dependency is satisfied locally,
-the repo-owned `docling-system-release-gate-parity` runner now exists and
-passes end to end locally, the checked-in parity workflow now exists locally,
-and Milestone 3 is the next routed closeout slice
+Status: active through Milestone 2 closeout commit `26dffcd` on 2026-05-14
+local / 2026-05-15 UTC after Milestone 1 closeout commit `abecfa1`; the
+runtime-health dependency is satisfied locally, the repo-owned
+`docling-system-release-gate-parity` runner now exists and passes end to end
+locally, the checked-in parity workflow now exists locally, and Milestone 3 is
+the next routed closeout slice
 Owner context: active follow-on for the checked-in CI parity gap across
 `.github/workflows/architecture-governance.yml`,
 `.github/workflows/release-gate-parity.yml`,
@@ -32,7 +32,7 @@ locally before commit. That local runner proof covers Alembic upgrade/current
 smoke, the Postgres `Base.metadata.create_all(...)` verification path, bounded
 Compose health convergence for `db`, `api`, `worker`, and `agent-worker`, and
 the full DB-backed integration suite at `1983 passed`. Milestone 2 is now
-implemented locally in the current checkout:
+resolved locally through closeout commit `26dffcd`:
 `.github/workflows/release-gate-parity.yml` runs on pull requests and pushes
 to `main`, calls the repo-owned `docling-system-release-gate-parity` runner
 instead of duplicating the release gate inline, and uploads bounded failure
@@ -77,7 +77,8 @@ changes cannot silently narrow CI without failing durable checks.
 ## Current Evidence
 
 Live repo evidence refreshed from the Milestone 2 checked-in parity-workflow
-implementation checkout on 2026-05-14 local / 2026-05-15 UTC:
+implementation checkout before closeout commit `26dffcd` on 2026-05-14 local /
+2026-05-15 UTC:
 
 ```text
 git status -sb
@@ -152,9 +153,9 @@ Repo-current structural evidence:
   `docker-compose.yml` already provide repo-owned health surfaces for `api`,
   `worker`, and `agent-worker`.
 - `config/improvement_cases.yaml` now binds `IC-2D8D5BF5A8C4` as the dedicated
-  CI-parity owner case. The scoped gap remains open because the checked-in
-  workflow set still lacks a release-parity workflow, but the packet no longer
-  depends on chat memory or ad hoc shell snippets to identify its local
+  CI-parity owner case. The scoped gap remains open only for the remaining
+  Milestone 3 and Milestone 4 parity-gate proof/closeout work; the packet no
+  longer depends on chat memory or ad hoc shell snippets to identify its local
   release gate owner.
 
 ## Goal
@@ -395,7 +396,7 @@ Outcome label: `reduced`
 Purpose: add the missing checked-in merge signal so the repo no longer depends
 on local-only release verification for runtime and DB readiness.
 
-Current local state: implemented locally in the current checkout.
+Current local state: resolved locally through closeout commit `26dffcd`.
 `.github/workflows/release-gate-parity.yml` now exists, runs on pull requests
 and pushes to `main`, calls `uv run docling-system-release-gate-parity`, and
 uploads runner-produced diagnostics from `build/release-gate-parity/failure/`

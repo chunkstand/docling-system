@@ -2107,14 +2107,14 @@ cases:
       uv run docling-system-release-gate-parity succeeded end to end with
       metadata verification at 335 passed, healthy db/api/worker/agent-worker
       Compose smoke plus automatic teardown, and the full DB-backed suite at
-      1983 passed. Milestone 2 is now implemented locally in the current
-      checkout: .github/workflows/release-gate-parity.yml runs on pull
-      requests and pushes to main, calls the same repo-owned runner, and
-      uploads diagnostics from build/release-gate-parity/failure/ when the
-      parity gate fails. app/release_gate_cli.py now writes that bounded
-      failure bundle before Compose teardown. The runtime-health dependency is
-      satisfied at the contract and Compose smoke level, and this owner case
-      remains open until the remaining Milestone 3 and Milestone 4 parity-gate
+      1983 passed. Milestone 2 is now resolved locally through closeout commit
+      26dffcd: .github/workflows/release-gate-parity.yml runs on pull requests
+      and pushes to main, calls the same repo-owned runner, and uploads
+      diagnostics from build/release-gate-parity/failure/ when the parity gate
+      fails. app/release_gate_cli.py now writes that bounded failure bundle
+      before Compose teardown. The runtime-health dependency is satisfied at
+      the contract and Compose smoke level, and this owner case remains open
+      until the remaining Milestone 3 and Milestone 4 parity-gate
       proof/closeout work lands.
   measurement:
     metric_name: ci_release_gate_remaining_milestone_count
@@ -2125,7 +2125,7 @@ cases:
       is deterministic and diagnostic-complete, plus the Milestone 4 docs,
       handoff, and closeout alignment.
   created_at: '2026-05-14T23:16:30Z'
-  updated_at: '2026-05-15T00:44:47Z'
+  updated_at: '2026-05-15T00:47:53Z'
 - case_id: IC-7C73737C689F
   title: 'Architecture hotspot: app/services/claim_support_policy_governance.py'
   status: open

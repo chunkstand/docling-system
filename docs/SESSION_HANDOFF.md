@@ -50,6 +50,8 @@ Runtime Health Orchestration closeout checkpoint:
 `a57f74f`
 CI Release Gate Parity Milestone 1 checkpoint:
 `abecfa1`
+CI Release Gate Parity Milestone 2 checkpoint:
+`26dffcd`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -127,9 +129,9 @@ commit `abecfa1`: `app/release_gate_cli.py` owns the canonical release gate,
 `uv run docling-system-release-gate-parity` succeeded end to end with metadata
 verification at `335 passed`, healthy `db` / `api` / `worker` /
 `agent-worker` Compose smoke plus automatic teardown, and the full DB-backed
-integration suite at `1983 passed`. Milestone 2 is now implemented locally in
-the current checkout: `.github/workflows/release-gate-parity.yml` runs on pull
-requests and pushes to `main`, calls the same repo-owned
+integration suite at `1983 passed`. Milestone 2 is now resolved locally
+through closeout commit `26dffcd`: `.github/workflows/release-gate-parity.yml`
+runs on pull requests and pushes to `main`, calls the same repo-owned
 `docling-system-release-gate-parity` command, and uploads bounded diagnostics
 from `build/release-gate-parity/failure/` on failure. The runner now writes
 that bundle before Compose teardown so the checked-in workflow can retain
