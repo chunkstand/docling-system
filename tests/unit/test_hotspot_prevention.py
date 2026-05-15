@@ -349,6 +349,40 @@ def test_search_hotspot_blocks_orchestration_candidate_loading_and_detail_growth
     assert detail_report["findings"][0]["category"] == "search_detail_payload_builder"
 
 
+def test_search_hotspot_blocks_harness_registry_retrieval_and_metadata_regrowth() -> None:
+    harness_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/search.py",
+            ["def build_search_harness_registry(overrides=None):", "    return {}"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+    retrieval_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/search.py",
+            ["def run_keyword_chunk_search(session, request):", "    return []"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+    metadata_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/search.py",
+            ["def run_prose_metadata_chunk_search(session, request):", "    return []"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert harness_report["summary"]["blocked_count"] == 1
+    assert harness_report["findings"][0]["category"] == "harness_registry_logic"
+    assert retrieval_report["summary"]["blocked_count"] == 1
+    assert retrieval_report["findings"][0]["category"] == "retrieval_primitive_logic"
+    assert metadata_report["summary"]["blocked_count"] == 1
+    assert metadata_report["findings"][0]["category"] == "metadata_supplement_logic"
+
+
 def test_semantics_hotspot_blocks_lifecycle_review_read_and_preview_growth() -> None:
     lifecycle_report = build_hotspot_prevention_report(
         _diff_for(

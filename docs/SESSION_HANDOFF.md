@@ -7,6 +7,8 @@ Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
 Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
 Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`
+Search Compatibility Facade Boundary closeout checkpoint:
+`local-worktree-2026-05-14`
 Claim Support Policy Impacts Boundary Milestone 4 checkpoint: `3d7d090`
 Evaluations Service Boundary Milestone 1 checkpoint: `9e3a8e4`
 Evaluations Service Boundary Milestone 2 checkpoint: `3817659`
@@ -66,7 +68,7 @@ No active local follow-up owner case is currently routed.
 Latest drafted bounded implementation brief:
 `docs/boring_change_architecture_milestone_plan.md`
 Latest resolved bounded implementation brief:
-`docs/ci_release_gate_parity_milestone_plan.md`
+`docs/search_compatibility_facade_boundary_milestone_plan.md`
 The hygiene owner-case routing packet is now resolved locally through closeout
 commit `9876f67`. Its Milestone 0 refresh is committed locally as `08a1a75`,
 Milestone 1 owner-case bootstrap is committed locally as `d4f082c` through
@@ -162,11 +164,12 @@ window through closeout commit `65c0c67`. Deployed follow-on cases are
 `IC-D9A84C20546B`, `IC-3B4C9F2A76E1`, `IC-25C1F7B9E4DA`, and
 `IC-D49E037D5657` because their focused successor files still exceed the
 default `600`-line hygiene budget. The broader search owner case
-`IC-1D03DBFE8492` remains reduced after the orchestration split even though
-`app/services/search.py` still appears in the architecture probe, and the
-broader claim-support owner case `IC-E2270F89B397` also remains reduced/open
-because the extracted owner modules still exceed the default `600`-line budget
-even though the compatibility facade is now narrow.
+`IC-1D03DBFE8492` is now deployed locally after the compatibility-facade
+closeout reduced `app/services/search.py` to a narrow facade and removed it
+from the live architecture-probe hotspot queue. The broader claim-support
+owner case `IC-E2270F89B397` remains reduced/open because the extracted owner
+modules still exceed the default `600`-line budget even though the
+compatibility facade is now narrow.
 
 ## Current Position
 
@@ -183,25 +186,42 @@ owner reduction, and
 resolved locally through Milestone 1 closeout commit `dae5e4f` for the next
 search boundary split.
 
-The next drafted follow-on after this closeout is
+`docs/search_compatibility_facade_boundary_milestone_plan.md` is now resolved
+locally in the current checkout for `IC-1D03DBFE8492`. The closeout extracts
+the remaining `app/services/search.py` ownership into three explicit families:
+`app/services/search_harnesses.py` at `627` lines / `0` private helpers,
+`app/services/search_retrieval_primitives.py` at `653` lines /
+`0` private helpers, and
+`app/services/search_metadata_supplement.py` at `262` lines /
+`0` private helpers.
+
+`app/services/search.py` is now a `231` line / `2` private-helper
+compatibility facade. It preserves the public import contract, alias
+forwarding, and the explicit `execute_search(...)` / `search_documents(...)`
+wrappers while delegating hydration to `app/services/search_hydration.py`,
+persistence to `app/services/search_execution_persistence.py`, execution
+orchestration to `app/services/search_execution_orchestration.py`, harness and
+reranker ownership to `app/services/search_harnesses.py`, low-level retrieval
+primitives to `app/services/search_retrieval_primitives.py`, and metadata
+supplement plus adjacent-context expansion to
+`app/services/search_metadata_supplement.py`.
+
+The broader search owner case `IC-1D03DBFE8492` is now deployed locally rather
+than reduced. The live architecture probe no longer lists
+`app/services/search.py` in the top 20 hotspots and now routes
+`app/services/agent_tasks.py` as the top hotspot instead, while the
+architecture-quality summary top-five still excludes the search facade.
+
+The broader coordination brief after this closeout is now
 `docs/boring_change_architecture_milestone_plan.md`, and its Milestone 0
 freshness step must rerun the live architecture-quality, hygiene,
 improvement-case, and architecture-probe baseline before new implementation
 starts.
 
-`app/services/search.py` is now a `1592` line / `32` private-helper
-compatibility facade. It delegates the hydration family into
-`app/services/search_hydration.py` at `392` lines / `11` private helpers, the
-persistence family into `app/services/search_execution_persistence.py` at
-`423` lines / `6` private helpers, and the execution-orchestration family into
-`app/services/search_execution_orchestration.py` at `532` lines /
-`6` private helpers. The public `execute_search(...)` surface now survives
-through a narrow explicit forwarding wrapper in `app/services/search.py`.
-
-The broader search owner case `IC-1D03DBFE8492` remains reduced rather than
-retired because the architecture probe still routes `app/services/search.py` at
-`32 revisions`, `1592` lines, and `score 50944`, even though the
-architecture-quality summary top-five still excludes that facade.
+This closeout also expands `app/hotspot_prevention_classifier.py` to `1002`
+lines so the search compatibility-facade gate directly blocks harness-registry,
+retrieval-primitive, and metadata-supplement regrowth in `app/services/search.py`.
+That hygiene residual remains open under `IC-6C1B516A3F92`.
 
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md` is now resolved
 locally through Milestone 4 closeout commit `3d7d090`. The scoped
@@ -212,6 +232,22 @@ subsystem-knot for `IC-E2270F89B397` is resolved:
 16 private helpers, and replay queueing plus closure lifecycle now live in
 `app/services/claim_support_policy_impact_replay.py` at 898 lines /
 11 private helpers.
+
+The newly drafted follow-on for the remaining claim-support residual layers is
+`docs/claim_support_residual_owner_family_milestone_plan.md`. It routes both
+open claim-support owner cases together: it closes the remaining
+`IC-E2270F89B397` residual owners
+`app/services/claim_support_policy_impact_views.py`,
+`app/services/claim_support_policy_impact_replay.py`, and
+`app/services/claim_support_replay_alert_promotions.py`, removes the live
+claim-support cycle between
+`app.services.claim_support_policy_impacts` and
+`app.services.claim_support_replay_alert_promotions`, and then decomposes the
+`IC-7C73737C689F` support-family residual
+`app/services/claim_support_evaluations.py`,
+`app/services/claim_support_policy_governance.py`, and
+`app/services/claim_support_replay_alert_fixture_corpus.py` until every owner
+surface closes at or below the default 600-line budget.
 
 `docs/evaluations_service_boundary_milestone_plan.md` is now resolved locally
 through Milestone 4 closeout commit `1159297`. The scoped subsystem-knot for

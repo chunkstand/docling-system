@@ -641,6 +641,48 @@ def classify_agent_task_context_addition(
 
 def classify_search_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
     lowered = stripped.lower()
+    if re.match(
+        r"(async def |def )(_?)(build_derived_search_harness|build_search_harness_registry|"
+        r"list_search_harnesses|get_search_harness|get_default_reranker)\b",
+        stripped,
+    ) or any(
+        token in stripped
+        for token in (
+            "SearchHarness(",
+            "LinearFeatureSearchReranker(",
+            "LinearRerankerConfig(",
+            "SearchRetrievalProfile(",
+        )
+    ):
+        return blocked(
+            line,
+            "harness_registry_logic",
+            "search harness registry and reranker logic belongs in search_harnesses.py",
+        )
+    if re.match(
+        r"(async def |def )(_?)(chunk_query|table_query|document_query|apply_.*filters|"
+        r"keyword_terms|build_relaxed_tsquery|run_keyword_[A-Za-z0-9_]+|"
+        r"run_semantic_[A-Za-z0-9_]+|query_multivector_windows|"
+        r"multivector_span_query|late_interaction_match_trace|"
+        r"run_late_interaction_search)\b",
+        stripped,
+    ):
+        return blocked(
+            line,
+            "retrieval_primitive_logic",
+            "search retrieval primitives belong in search_retrieval_primitives.py",
+        )
+    if re.match(
+        r"(async def |def )(_?)(ranked_metadata_overlap_score|metadata_tsquery|"
+        r"run_prose_metadata_chunk_search|should_run_metadata_supplement|"
+        r"expand_adjacent_chunk_context)\b",
+        stripped,
+    ):
+        return blocked(
+            line,
+            "metadata_supplement_logic",
+            "search metadata supplement logic belongs in search_metadata_supplement.py",
+        )
     if re.match(r"(async def |def )_load_.*candidate", stripped):
         return blocked(line, "candidate_loading", "candidate loading belongs in search_* modules")
     if re.match(r"(async def |def )_build_search_execution_details", stripped):

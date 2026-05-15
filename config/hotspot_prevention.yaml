@@ -119,6 +119,9 @@ known_hotspots:
     preferred_owner_modules:
       - app/services/search_*.py
     block_new:
+      - harness_registry_logic
+      - retrieval_primitive_logic
+      - metadata_supplement_logic
       - ranking_logic
       - query_feature_helper
       - execution_orchestration

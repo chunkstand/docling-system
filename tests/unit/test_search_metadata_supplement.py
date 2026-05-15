@@ -10,12 +10,11 @@ from app.db.models import (
     Document,
 )
 from app.schemas.search import SearchRequest
-from app.services.search import (
-    RankedResult,
+from app.services.search import RankedResult, execute_search
+from app.services.search_metadata_supplement import (
     _ranked_metadata_overlap_score,
     _run_prose_metadata_chunk_search,
     _should_run_metadata_supplement,
-    execute_search,
 )
 
 

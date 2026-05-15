@@ -221,14 +221,14 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/hotspot_prevention_classifier.py exceeds the default
-    file budget at 960 lines after the semantics, CLI, agent-task schema, and
-    oversized-test governance ratchets expanded the hotspot-prevention
+    file budget at 1002 lines after the semantics, CLI, agent-task schema,
+    oversized-test, and search-facade governance ratchets expanded the hotspot-prevention
     classifier rules again.
   source:
     source_type: hygiene_finding
     source_ref: hygiene:file-budget:app/hotspot_prevention_classifier.py
-    notes: Refreshed while re-running the CLI Milestone 1 alignment
-      verification after tightening the CLI compatibility-facade hotspot gate.
+    notes: Refreshed while re-running the search compatibility-facade closeout
+      verification after tightening the search compatibility-facade hotspot gate.
   artifact:
     artifact_type: contract
     target_path: app/hotspot_prevention_classifier.py
@@ -267,12 +267,14 @@ cases:
       blocking new schema definitions, broad re-export batches, and
       export-sink surfaces. The oversized-test closeout then moved shared
       rule-classification helpers into app/hotspot_prevention_classifier_support.py
-      and reduced the primary classifier back to 960 lines. The hygiene
-      follow-on remains open.
+      and reduced the primary classifier back to 960 lines. The search
+      compatibility-facade closeout then extended the classifier again to
+      block harness-registry, retrieval-primitive, and metadata-supplement
+      regrowth in app/services/search.py. The hygiene follow-on remains open.
   measurement:
     metric_name: hotspot_prevention_classifier_line_count
-    current_value: 960.0
-    measurement_window: 2026-05-14 oversized-test hotspot closeout
+    current_value: 1002.0
+    measurement_window: 2026-05-14 search compatibility-facade closeout
     notes: The classifier still carries the earlier registry-composition and
       search-boundary allowances and now also blocks provenance-graph,
       report-lineage, lifecycle, and governance-change-impact growth in
@@ -283,10 +285,12 @@ cases:
       compact agent-task schema compatibility-facade hooks for
       app/schemas/agent_tasks.py. The oversized-test closeout extracted common
       hunk and support logic into app/hotspot_prevention_classifier_support.py,
-      but the primary classifier still sits above the default budget at
-      960 lines.
+      and the search compatibility-facade closeout added direct blocking rules
+      for harness-registry, retrieval-primitive, and metadata-supplement
+      regrowth in app/services/search.py, leaving the primary classifier at
+      1002 lines.
   created_at: '2026-05-13T00:00:00+00:00'
-  updated_at: '2026-05-14T05:45:46Z'
+  updated_at: '2026-05-15T05:18:19Z'
 - case_id: IC-9812A0B138D9
   title: 'Architecture hotspot: app/cli.py'
   status: open
@@ -492,8 +496,8 @@ cases:
     - uv run docling-system-architecture-quality-report
     acceptance_conditions:
     - Hotspot risk decreases or the surface has a narrower owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: "0701121"
@@ -538,8 +542,8 @@ cases:
     - uv run docling-system-architecture-quality-report
     acceptance_conditions:
     - Hotspot risk decreases or the surface has a narrower owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: "efe6d4e"
@@ -717,11 +721,13 @@ cases:
   updated_at: '2026-05-10T23:10:27Z'
 - case_id: IC-1D03DBFE8492
   title: 'Architecture hotspot: app/services/search.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
-  observed_failure: app/services/search.py remains an architecture hotspot with
-    line_count=1592 and private_helper_count=32 after the Milestone 1 search
-    execution orchestration owner split.
+  observed_failure: app/services/search.py was an architecture hotspot at 1592
+    lines / 32 private helpers after the execution-orchestration split, because
+    harness and reranker ownership, low-level retrieval primitives, metadata
+    supplement helpers, and adjacent-context expansion still lived in the
+    compatibility facade.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/search.py
@@ -734,35 +740,73 @@ cases:
     description: Architecture quality owner surface for app/services/search.py.
   verification:
     commands:
-    - uv run docling-system-architecture-quality-report
+    - git diff --check
+    - uv run ruff check app/services/search.py app/services/search_harnesses.py
+      app/services/search_retrieval_primitives.py
+      app/services/search_metadata_supplement.py
+      app/hotspot_prevention_classifier.py tests/unit/test_search_service.py
+      tests/unit/test_search_harnesses.py
+      tests/unit/test_search_retrieval_primitives.py
+      tests/unit/test_search_harness_overrides.py
+      tests/unit/test_search_legibility.py
+      tests/unit/test_search_metadata_supplement.py
+      tests/unit/test_search_service_orchestration.py
+      tests/unit/test_search_service_persistence.py
+      tests/unit/test_hotspot_prevention.py
+    - uv run pytest -q tests/unit/test_search_service.py
+      tests/unit/test_search_harnesses.py
+      tests/unit/test_search_retrieval_primitives.py
+      tests/unit/test_search_harness_overrides.py
+      tests/unit/test_search_legibility.py
+      tests/unit/test_search_metadata_supplement.py
+      tests/unit/test_search_service_orchestration.py
+      tests/unit/test_search_service_persistence.py
+      tests/unit/test_hotspot_prevention.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_multivector_retrieval.py
+      tests/integration/test_postgres_roundtrip.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-inspect
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
     acceptance_conditions:
-    - Hotspot risk decreases or the surface has a narrower owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    - app/services/search.py closes as a narrow compatibility facade at or
+      below 450 lines with no residual retrieval-family implementation bodies.
+    - The search facade no longer appears in the top architecture-probe
+      hotspot queue.
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: dae5e4f
+    deployed_ref: local-worktree-2026-05-14
     notes: >-
-      Search execution orchestration Milestone 1 closed locally as dae5e4f.
-      The prior hydration split remains committed as 14390ad, the prior
-      persistence split remains committed as f55b474, and the broader search
-      owner case stays open because app/services/search.py still appears in
-      the architecture probe.
+      The compatibility-facade closeout extracted harness and reranker
+      ownership into app/services/search_harnesses.py, low-level retrieval
+      primitives into app/services/search_retrieval_primitives.py, and
+      metadata supplement plus adjacent-context ownership into
+      app/services/search_metadata_supplement.py while keeping
+      app.services.search import-stable for callers and monkeypatched tests.
+      The architecture probe no longer routes app/services/search.py in the
+      top hotspot queue, so the broader owner case is retired from active
+      search routing.
   measurement:
     metric_name: search_hotspot_line_count
-    current_value: 1592.0
-    measurement_window: 2026-05-13 post-closeout alignment refresh
+    current_value: 231.0
+    measurement_window: 2026-05-14 search compatibility-facade closeout
     notes: >-
-      Milestone 1 moved execute_search, candidate loading, metadata
-      supplement staging, served-mode resolution, and execution detail
-      assembly into app/services/search_execution_orchestration.py, reducing
-      app/services/search.py to 1592 lines / 32 private helpers while
-      governing the new owner module at 532 lines / 6 private helpers. The
-      architecture-quality top-five still excludes app/services/search.py, but
-      the architecture probe continues to route it at 32 revisions, 1592
-      lines, and score 50944.
+      app/services/search.py now measures 231 lines / 2 private helpers as a
+      narrow compatibility facade. The extracted owner modules close at
+      627 lines / 0 private helpers for app/services/search_harnesses.py,
+      653 lines / 0 private helpers for
+      app/services/search_retrieval_primitives.py, and 262 lines / 0 private
+      helpers for app/services/search_metadata_supplement.py. The
+      architecture-quality top-five still excludes app/services/search.py, and
+      the live architecture probe now routes app/services/agent_tasks.py as
+      the top hotspot instead of the search facade.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-13T15:18:00Z'
+  updated_at: '2026-05-15T05:18:19Z'
 - case_id: IC-9E6B8F5D62A1
   title: 'Architecture hotspot: app/services/semantics.py'
   status: open
