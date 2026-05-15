@@ -54,6 +54,8 @@ CI Release Gate Parity Milestone 2 checkpoint:
 `26dffcd`
 CI Release Gate Parity Milestone 3 checkpoint:
 `ad18d74`
+CI Release Gate Parity Milestone 4 closeout checkpoint:
+`0906e35`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -119,7 +121,8 @@ docker compose up -d db api worker agent-worker` now brings up healthy `api`,
 `TMPDIR=$PWD/.tmp DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run --extra dev python -m
 pytest -q -rs` now passes at `1975 passed`.
 The CI release-gate parity packet is now resolved locally under
-`IC-2D8D5BF5A8C4`. Implementation proof remains checkpoint `ad18d74`:
+`IC-2D8D5BF5A8C4`. Implementation proof remains checkpoint `ad18d74`, and the
+Milestone 4 docs or registry closeout is committed locally as `0906e35`:
 `app/release_gate_cli.py` owns the canonical `docling-system-release-gate-parity`
 command, `.github/workflows/release-gate-parity.yml` runs that same command on
 pull requests and pushes to `main`, every run uploads
@@ -167,9 +170,10 @@ even though the compatibility facade is now narrow.
 
 ## Current Position
 
-The checkout is on `main`. The CI parity implementation checkpoint remains
-`ad18d74`, the agent-task orchestration follow-on plan is resolved locally
-through Milestone 5,
+The checkout is on `main`. Local `main` is ahead of `origin/main` by the
+un-pushed CI parity Milestone 4 closeout commit `0906e35`; the earlier CI
+parity implementation proof checkpoint remains `ad18d74`, and the agent-task
+orchestration follow-on plan is resolved locally through Milestone 5,
 `docs/search_hydration_boundary_milestone_plan.md` is resolved locally through
 Milestone 1 closeout commit `14390ad` for `IC-1D03DBFE8492`, and
 `docs/search_execution_persistence_boundary_milestone_plan.md` is resolved
