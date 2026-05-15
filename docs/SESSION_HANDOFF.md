@@ -52,18 +52,19 @@ CI Release Gate Parity Milestone 1 checkpoint:
 `abecfa1`
 CI Release Gate Parity Milestone 2 checkpoint:
 `26dffcd`
+CI Release Gate Parity Milestone 3 checkpoint:
+`ad18d74`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
 remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
 Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
-Active local follow-up owner case:
-`IC-2D8D5BF5A8C4` / CI release-gate parity Milestone 4 docs, handoff, and closeout alignment
-Latest planned bounded implementation brief:
-`docs/ci_release_gate_parity_milestone_plan.md`
+No active local follow-up owner case is currently routed.
+Latest drafted bounded implementation brief:
+`docs/boring_change_architecture_milestone_plan.md`
 Latest resolved bounded implementation brief:
-`docs/runtime_health_orchestration_milestone_plan.md`
+`docs/ci_release_gate_parity_milestone_plan.md`
 The hygiene owner-case routing packet is now resolved locally through closeout
 commit `9876f67`. Its Milestone 0 refresh is committed locally as `08a1a75`,
 Milestone 1 owner-case bootstrap is committed locally as `d4f082c` through
@@ -117,42 +118,40 @@ docker compose up -d db api worker agent-worker` now brings up healthy `api`,
 `worker`, and `agent-worker` containers, and
 `TMPDIR=$PWD/.tmp DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run --extra dev python -m
 pytest -q -rs` now passes at `1975 passed`.
-The next active slice is
-`docs/ci_release_gate_parity_milestone_plan.md`. Its Milestone 0
-freshness/bootstrap is refreshed locally under `IC-2D8D5BF5A8C4`, the
-runtime-health dependency is now satisfied at the repo-owned contract and
-Compose-smoke level, and Milestone 1 is now resolved locally through closeout
-commit `abecfa1`: `app/release_gate_cli.py` owns the canonical release gate,
-`pyproject.toml` exposes `docling-system-release-gate-parity`,
-`tests/unit/test_release_gate_cli.py` plus
-`tests/unit/test_runtime_health_cli.py` passed at `8 passed`, and
-`uv run docling-system-release-gate-parity` succeeded end to end with metadata
-verification at `335 passed`, healthy `db` / `api` / `worker` /
-`agent-worker` Compose smoke plus automatic teardown, and the full DB-backed
-integration suite at `1983 passed`. Milestone 2 is now resolved locally
-through closeout commit `26dffcd`: `.github/workflows/release-gate-parity.yml`
-runs on pull requests and pushes to `main`, calls the same repo-owned
-`docling-system-release-gate-parity` command, and uploads bounded diagnostics
-from `build/release-gate-parity/failure/` on failure. The runner now writes
-that bundle before Compose teardown so the checked-in workflow can retain
-`docker compose ps`, health-state output, and targeted service logs for failed
-parity runs. Milestone 3 is now resolved locally in the current checkout:
-`app/release_gate_cli.py` writes a durable
-`build/release-gate-parity/release_gate_report.json` proof artifact on every
-run, `tests/unit/test_release_gate_cli.py` now passes at `12 passed`, the
-checked-in workflow uploads that report on every run, and
-`uv run docling-system-release-gate-parity` now succeeds end to end with
-metadata verification at `335 passed`, healthy `db` / `api` / `worker` /
-`agent-worker` Compose smoke plus automatic teardown, and the full DB-backed
-integration suite at `1987 passed`. The remaining scoped gap is the final
-Milestone 4 docs, handoff, registry, and closeout-hash alignment for the
-workflow-backed parity gate. The Milestone 0, Milestone 1, and Milestone 2
-alignment verification for that packet is green:
+The CI release-gate parity packet is now resolved locally under
+`IC-2D8D5BF5A8C4`. Implementation proof remains checkpoint `ad18d74`:
+`app/release_gate_cli.py` owns the canonical `docling-system-release-gate-parity`
+command, `.github/workflows/release-gate-parity.yml` runs that same command on
+pull requests and pushes to `main`, every run uploads
+`build/release-gate-parity/release_gate_report.json`, and failures upload
+`build/release-gate-parity/failure/`. Milestone 4 closes the remaining docs,
+handoff, README, SYSTEM_PLAN, architecture-index, and improvement-case
+alignment so "GitHub green" and the checked-in local release contract now point
+to the same repo-owned runner.
+
+Closeout verification is green:
 `git diff --check` passed,
-`uv run docling-system-improvement-case-validate` returned `valid=true`, and
+`uv run pytest -q tests/unit/test_release_gate_cli.py` passed at `12 passed`,
+`uv run docling-system-improvement-case-validate` returned `valid=true`,
 `uv run docling-system-improvement-case-summary` reported
-`case_count=38`, `status_counts.open=26`, `status_counts.deployed=11`, and
-`status_counts.measured=1`.
+`case_count=38`, `status_counts.open=25`, `status_counts.deployed=12`, and
+`status_counts.measured=1`,
+`uv run docling-system-architecture-quality-report --summary` reported
+`agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+`hotspot_count=10`, and `max_hotspot_risk_score=501.06`,
+`uv run docling-system-architecture-inspect` remained `valid=true` with
+`violation_count=0`,
+`uv run docling-system-capability-contracts` remained `valid=true` with
+`facade_count=6` and `function_count=111`,
+`uv run docling-system-hygiene-check` reported `new hygiene regressions: none`,
+and `uv run docling-system-release-gate-parity` again passed end to end with
+metadata verification at `335 passed` and the wrapped full DB-backed suite at
+`1987 passed`.
+
+The only residual manual action for this packet is out of repo: if GitHub
+required checks are managed in repository settings, require both
+`Architecture Governance` and `Release Gate Parity`. That policy choice is no
+longer represented as missing repo work.
 The oversized-test packet is now resolved locally in the 2026-05-14 closeout
 window through closeout commit `65c0c67`. Deployed follow-on cases are
 `IC-5F0E1C8B0D42`,
@@ -168,8 +167,9 @@ even though the compatibility facade is now narrow.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` remains ahead of `origin/main`, the
-agent-task orchestration follow-on plan is resolved locally through Milestone 5,
+The checkout is on `main`. The CI parity implementation checkpoint remains
+`ad18d74`, the agent-task orchestration follow-on plan is resolved locally
+through Milestone 5,
 `docs/search_hydration_boundary_milestone_plan.md` is resolved locally through
 Milestone 1 closeout commit `14390ad` for `IC-1D03DBFE8492`, and
 `docs/search_execution_persistence_boundary_milestone_plan.md` is resolved
@@ -178,6 +178,12 @@ owner reduction, and
 `docs/search_execution_orchestration_boundary_milestone_plan.md` is now
 resolved locally through Milestone 1 closeout commit `dae5e4f` for the next
 search boundary split.
+
+The next drafted follow-on after this closeout is
+`docs/boring_change_architecture_milestone_plan.md`, and its Milestone 0
+freshness step must rerun the live architecture-quality, hygiene,
+improvement-case, and architecture-probe baseline before new implementation
+starts.
 
 `app/services/search.py` is now a `1592` line / `32` private-helper
 compatibility facade. It delegates the hydration family into

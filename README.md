@@ -4,48 +4,43 @@ Docling-based PDF ingestion, retrieval, and auditable document-generation system
 
 ## Current State Snapshot
 
-As of the 2026-05-11 High Value Technical Paydown Milestone 10 closeout, the
-local `main` checkout is ahead of `origin/main`. The residual-weakness sequence
-is complete through its closeout milestone, and the follow-on high-value
-technical paydown plan is also complete locally through final closeout. Recent
-architecture work completed the platform, ingest, retrieval-interaction,
-replay/release governance, and retrieval-learning model-domain splits; the
-technical-report evidence export split; the report-action family split; the
-hotspot test decomposition slices; the UI bootstrap/module split; and the
-agent-task lookup seam that broke the prior large import-cycle component.
-Evaluation-data readiness remains green with both
-`regression_ready=true` and `court_grade_ready=true`. Remaining architecture
-debt is now routed through owner-scoped improvement cases and inherited
-ratcheted hotspot ceilings rather than another open repo-wide milestone. The
-next routed follow-up returns to `IC-F2A8110185EB` / `app/db/models.py` via the
-`evaluation feedback` model-domain candidate.
+As of the 2026-05-14 local / 2026-05-15 UTC CI release-gate parity Milestone 4
+closeout, local `main` contains the repo-owned release gate runner, the
+checked-in `Release Gate Parity` workflow, and the runtime-health contract they
+share. Recent architecture work closed runtime-health orchestration, CI release
+gate parity, the search execution boundary series, claim-support policy
+impacts, the evaluations service boundary, evidence provenance export,
+semantics service boundary, CLI dispatch, agent-task schema aggregation, the
+architecture-governance cycle, and the oversized-test packet. Remaining
+architecture debt is now routed through owner-scoped improvement cases and
+inherited ratcheted hotspot ceilings rather than another open repo-wide
+milestone. The next drafted follow-on is
+`docs/boring_change_architecture_milestone_plan.md`, which must begin with a
+fresh Milestone 0 rebaseline before new implementation starts.
 
 Current repo-level signals:
 
-- `uv run docling-system-architecture-inspect` is green with `violation_count=0`,
-  `api_route_count=130`, `agent_action_count=51`, `contract_count=10`, and
-  `inspection_rule_count=13`.
+- `uv run docling-system-architecture-inspect` is green with
+  `violation_count=0`.
 - `uv run docling-system-capability-contracts` is green with `facade_count=6`
-  and `function_count=110`.
+  and `function_count=111`.
 - `uv run docling-system-architecture-quality-report --summary` reports
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
-  `hotspot_count=10`, `max_hotspot_risk_score=663.21`, and top hotspot paths
-  headed by `app/db/models.py`,
-  `app/cli.py`, `app/services/agent_task_actions.py`,
-  `app/services/evidence.py`, and `app/schemas/agent_tasks.py`.
+  `hotspot_count=10`, and `max_hotspot_risk_score=501.06`.
 - `uv run docling-system-hygiene-check` is green when there are no new
-  regressions. It still reports inherited file/helper budget debt in large
-  hotspot modules, but those entries now have ratchet ceilings and owner links.
+  regressions. It still reports inherited file/helper budget debt in routed
+  owner families such as search, evidence, semantics, claim-support support,
+  architecture governance, and the hotspot-prevention classifier.
 - `uv run docling-system-hotspot-prevention-check --strict` passes on the
-  current diff and fails fixture diffs that add implementation to known hotspot
-  files instead of the configured owner modules.
-- The general architecture probe no longer reports the large agent-task
-  import-cycle component; `app/services/evidence.py` is now the top churn
-  hotspot, and `app/services/agent_task_actions.py` remains the
-  action-orchestration entrypoint with fan-out 36.
-- `uv run docling-system-improvement-case-summary` reports `case_count=26`,
-  `open=25`, and `measured=1`, which is now the explicit routing surface for
-  remaining architecture debt.
+  current diff with `changed_hotspots=0` and `blocked=0`.
+- `uv run docling-system-improvement-case-summary` is now the explicit routing
+  surface for the remaining owner-scoped backlog rather than an open repo-wide
+  milestone packet.
+- The canonical local release gate is `uv run docling-system-release-gate-parity`;
+  the checked-in `Release Gate Parity` workflow runs that same command on pull
+  requests and pushes to `main`, uploads
+  `build/release-gate-parity/release_gate_report.json` on every run, and uploads
+  `build/release-gate-parity/failure/` on failure.
 - The live readiness preflight now reports 26 active documents, 26 completed
   evaluations, 52 passed evaluation queries, empty regression blockers, and
   empty court-grade blockers.
@@ -781,6 +776,11 @@ workflow uploads that report as the proof artifact for what the parity gate
 executed. When the parity gate fails after Compose startup, the runner also
 writes bounded diagnostics under `build/release-gate-parity/failure/`, and the
 workflow uploads that directory as the failure bundle.
+
+If GitHub required checks are managed in repository settings rather than in the
+tree, the intended pair is `Architecture Governance` and `Release Gate Parity`.
+That branch-protection policy is an out-of-repo operator action, not a missing
+repo implementation surface.
 
 That integration harness:
 

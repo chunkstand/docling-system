@@ -1,12 +1,13 @@
 # CI Release Gate Parity Milestone Plan
 
 Date: 2026-05-14 local / 2026-05-14 UTC
-Status: active through the Milestone 3 local proof checkout on 2026-05-14
-local / 2026-05-15 UTC after Milestone 2 closeout commit `26dffcd`; the
+Status: resolved locally in the current checkout on 2026-05-14 local /
+2026-05-15 UTC after the implementation proof checkpoint `ad18d74`; the
 runtime-health dependency is satisfied locally, the repo-owned
-`docling-system-release-gate-parity` runner now writes a durable parity report
-artifact, the checked-in parity workflow now uploads that report on every run,
-and Milestone 4 is the next routed closeout slice
+`docling-system-release-gate-parity` runner writes a durable parity report
+artifact, the checked-in parity workflow uploads that report on every run, and
+Milestone 4 has closed the remaining docs, handoff, registry, and closeout
+alignment gap
 Owner context: active follow-on for the checked-in CI parity gap across
 `.github/workflows/architecture-governance.yml`,
 `.github/workflows/release-gate-parity.yml`,
@@ -48,13 +49,35 @@ artifact plus deterministic compose-health timeout semantics at `12 passed`,
 and `uv run docling-system-release-gate-parity` now passes end to end with
 metadata verification at `335 passed`, healthy `db` / `api` / `worker` /
 `agent-worker` Compose smoke plus automatic teardown, and the full DB-backed
-integration suite at `1987 passed`. The remaining scoped gap is the final
-Milestone 4 closeout alignment for the workflow-backed parity gate.
+integration suite at `1987 passed`. Milestone 4 is now resolved locally in the
+current checkout: `README.md`, `SYSTEM_PLAN.md`,
+`docs/agentic_architecture_index.md`, `docs/SESSION_HANDOFF.md`, and
+`config/improvement_cases.yaml` now record the same repo-owned release-gate
+contract, the same proof and failure artifact behavior, and the same out-of-repo
+branch-protection note. `IC-2D8D5BF5A8C4` is no longer an active follow-up case.
+Closeout verification is green:
+`git diff --check` passed,
+`uv run pytest -q tests/unit/test_release_gate_cli.py` passed at `12 passed`,
+`uv run docling-system-improvement-case-validate` returned `valid=true`,
+`uv run docling-system-improvement-case-summary` reported
+`case_count=38`, `status_counts.open=25`, `status_counts.deployed=12`, and
+`status_counts.measured=1`,
+`uv run docling-system-architecture-quality-report --summary` reported
+`agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+`hotspot_count=10`, and `max_hotspot_risk_score=501.06`,
+`uv run docling-system-architecture-inspect` remained `valid=true` with
+`violation_count=0`,
+`uv run docling-system-capability-contracts` remained `valid=true` with
+`facade_count=6` and `function_count=111`,
+`uv run docling-system-hygiene-check` reported `new hygiene regressions: none`,
+and `uv run docling-system-release-gate-parity` again passed end to end with
+metadata verification at `335 passed` and the wrapped full DB-backed suite at
+`1987 passed`.
 Milestone 0 alignment verification is now green:
 `git diff --check` passed,
 `uv run docling-system-improvement-case-validate` returned `valid=true`, and
 `uv run docling-system-improvement-case-summary` reported
-`case_count=38`, `status_counts.open=26`, `status_counts.deployed=11`, and
+`case_count=38`, `status_counts.open=25`, `status_counts.deployed=12`, and
 `status_counts.measured=1`.
 
 ## Purpose
@@ -111,8 +134,8 @@ rg -n "docling-system-release-gate-parity|release_gate_report.json|build/release
 uv run docling-system-improvement-case-summary
   case_count=38
   status_counts.measured=1
-  status_counts.deployed=11
-  status_counts.open=26
+  status_counts.deployed=12
+  status_counts.open=25
   oldest_open_case_id=IC-9812A0B138D9
 
 uv run --extra dev python -m pytest -q tests/unit/test_release_gate_cli.py -rs
@@ -579,6 +602,11 @@ Stop conditions:
 - `uv run docling-system-architecture-inspect`
 - `uv run docling-system-capability-contracts`
 - `uv run docling-system-hygiene-check`
+
+At Milestone 4 closeout, the remaining non-repo operator action is explicit:
+if repository settings enforce required checks, require both
+`Architecture Governance` and `Release Gate Parity`. The repo itself now
+contains the release-parity implementation and proof surfaces.
 
 If the runner already wraps some of the listed commands, still record the exact
 wrapped substeps in `docs/SESSION_HANDOFF.md` at closeout so future sessions can

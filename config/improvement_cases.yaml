@@ -2052,7 +2052,7 @@ cases:
   updated_at: '2026-05-14T23:54:23Z'
 - case_id: IC-2D8D5BF5A8C4
   title: 'Release gate parity gap: checked-in CI vs local release gate'
-  status: open
+  status: deployed
   cause_class: missing_constraint
   observed_failure: >-
     The repo now has a checked-in .github/workflows/release-gate-parity.yml
@@ -2098,7 +2098,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "ad18d74"
     notes: >-
       Milestone 1 is resolved locally through closeout commit abecfa1:
       app/release_gate_cli.py owns the canonical
@@ -2120,18 +2120,21 @@ cases:
       checked-in workflow uploads that report on every run, and
       uv run docling-system-release-gate-parity now succeeds end to end with
       metadata verification at 335 passed and the full DB-backed suite at
-      1987 passed. The runtime-health dependency is satisfied at the contract
-      and Compose smoke level, and this owner case remains open only for the
-      remaining Milestone 4 closeout alignment.
+      1987 passed. Milestone 4 now closes the remaining README, SYSTEM_PLAN,
+      handoff, architecture-index, and improvement-case alignment against that
+      implementation checkpoint. The runtime-health dependency is satisfied at
+      the contract and Compose smoke level, and the only residual manual action
+      is out-of-repo branch-protection policy if required checks are managed in
+      repository settings.
   measurement:
     metric_name: ci_release_gate_remaining_milestone_count
-    current_value: 1.0
-    measurement_window: 2026-05-14 CI release-gate parity Milestone 3 local proof checkout
-    notes: Workflow absence and parity-gate proof are now resolved locally.
-      The remaining scoped work is Milestone 4 docs, handoff, registry, and
-      closeout-hash alignment.
+    current_value: 0.0
+    measurement_window: 2026-05-14 local / 2026-05-15 UTC closeout alignment
+    notes: Workflow absence, proof-artifact generation, failure-bundle capture,
+      and durable docs or registry alignment are now all resolved locally. Any
+      remaining required-check enforcement is handled outside the repo.
   created_at: '2026-05-14T23:16:30Z'
-  updated_at: '2026-05-15T01:00:00Z'
+  updated_at: '2026-05-15T02:30:00Z'
 - case_id: IC-7C73737C689F
   title: 'Architecture hotspot: app/services/claim_support_policy_governance.py'
   status: open

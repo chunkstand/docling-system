@@ -30,81 +30,50 @@ The system is intentionally conservative:
 
 ## Current Implementation Snapshot
 
-As of the 2026-05-11 High Value Technical Paydown Milestone 10 closeout, the
-local `main` checkout has completed the agentic architecture governance
-milestones plus the platform, ingest, retrieval-interaction, replay/release
-governance, and retrieval-learning data-model domain splits; the first
-evidence-service split; the first agent-action registry/helper split; the first
-two CLI command-group splits; the first search-core split; the second evidence
-provenance split; the improvement-case intake ratchet; the hotspot-prevention
-gate; the hygiene budget ratchet; the evidence operator-run recorder and
-task-payload summary split; the UI bootstrap/module split; and the agent-task
-action lookup seam. The implemented
-architecture posture is:
+As of the 2026-05-14 local / 2026-05-15 UTC CI release-gate parity Milestone 4
+closeout, the local `main` checkout has the runtime-health contract and the
+checked-in release gate fully aligned. The implemented architecture posture is:
 
 - the modular-monolith boundary model is mechanically checked and currently
   valid with `violation_count=0`
 - API route, agent action, capability surface, architecture decision,
-  improvement-case, and architecture contract-map checks are first-class
+  improvement-case, and architecture contract-map checks remain first-class
   contracts
-- the public capability surface has 6 facades and 110 protocol functions
-- retrieval and agent-orchestration keep stable compatibility facades while
-  exposing focused contract companions for narrower review surfaces
-- `app.services.agent_task_actions` remains the action-orchestration executor
-  registry, while `app.services.agent_task_action_lookup` is the lookup seam
-  used by context and task services to avoid a registry/context import cycle
-- architecture quality reporting now ranks hotspots by size, churn, hygiene
-  findings, open improvement cases, and agent legibility
-- hotspot prevention now runs as a diff-time gate that blocks new
-  implementation growth in known hotspot facades unless the policy has an
-  owned, time-bounded or follow-up-bound exception
-- strict hygiene budget debt is now ratcheted: current inherited overages are
-  listed with owner cases or the hygiene-ratchet milestone, and any file/helper
-  growth beyond the ratchet ceiling is a blocking hygiene regression
-- trace-first review and architecture-quality report imports can feed
-  generated observations into the improvement-case loop
-- `ApiIdempotencyKey` now lives in `app/db/model_domains/platform.py`, and
-  `IngestBatch`, `IngestBatchItem`, `Document`, and `DocumentRun` now live in
-  `app/db/model_domains/ingest.py`, while `app.db.models` remains the public
-  compatibility facade
-- `DocumentRunEvaluation`, `DocumentRunEvaluationQuery`, `DocumentChunk`,
-  `DocumentTable`, `DocumentTableSegment`, and `DocumentFigure` now live in
-  `app/db/model_domains/document_artifacts.py`; retrieval-interaction rows now
-  live in `app/db/model_domains/retrieval_interactions.py`; replay/release
-  governance rows now live in
-  `app/db/model_domains/retrieval_replay_governance.py`; and retrieval-learning
-  rows now live in
-  `app/db/model_domains/retrieval_learning_examples.py` and
-  `app/db/model_domains/retrieval_learning_artifacts.py`, while
-  `app.db.models` remains the public compatibility facade at 3,782 lines
-- search evidence package assembly, export persistence, trace graph
-  persistence, trace integrity, and response assembly now live in focused
-  `app/services/evidence_search_*.py` modules while `app.services.evidence`
-  remains the public compatibility facade
-- knowledge-operator run recording now lives in
-  `app/services/evidence_operator_runs.py`, while `app.services.evidence`
-  remains import-compatible for existing callers
-- task, artifact, verification, immutability-event, and operator summary
-  payload helpers now live in `app/services/evidence_task_payloads.py`, while
-  `app.services.evidence` remains the compatibility facade for audit bundle
-  assembly
-- improvement-case CLI command implementations now live in
-  `app/cli_commands/improvement_cases.py` while `app.cli` remains the console
-  entrypoint compatibility facade
-- ingest CLI command implementations now live in `app/cli_commands/ingest.py`
-  while the console scripts still resolve through `app.cli`
-- query-intent classification, tabular-query detection, identifier lookup
-  detection, normalized query feature sets, token/phrase coverage helpers, and
-  metadata-query token extraction now live in
-  `app/services/search_query_features.py` while `app.services.search` remains
-  the search compatibility facade
-- the shipped browser UI now uses a narrow `app/ui/app.js` bootstrap with
+- the public capability surface remains 6 facades and 111 protocol functions
+- architecture quality reporting still ranks hotspots by size, churn, hygiene
+  findings, open improvement cases, and agent legibility, while hotspot
+  prevention blocks new implementation growth in known hotspot facades
+- strict hygiene budget debt remains ratcheted: inherited overages stay routed
+  through explicit owner cases, and any growth past the ratchet ceiling is a
+  blocking regression
+- `app.db.models` is now a 159-line public compatibility facade, with domain
+  ownership routed through `app/db/model_domains/*` and enum ownership routed
+  through `app/db/_model_enums.py`
+- `app.services.evidence` is now a 141-line compatibility facade; evidence
+  search packages, operator-run recording, task payload helpers, technical
+  report export ownership, and provenance-export graph/report/lifecycle seams
+  live in focused service modules
+- `app.services.agent_task_actions` and `app/services/agent_task_context.py`
+  are now narrow orchestration/composition facades at 163 and 121 lines, while
+  `app/services/agent_task_action_lookup.py` carries the lookup seam that broke
+  the prior registry/context cycle
+- `app.services.search` remains a 1592-line compatibility facade, with
+  hydration, execution persistence, and execution orchestration routed through
+  `app/services/search_hydration.py`,
+  `app/services/search_execution_persistence.py`, and
+  `app/services/search_execution_orchestration.py`
+- `app.services.semantics` is now a 54-line compatibility facade backed by
+  `app/services/semantic_pass_lifecycle.py`,
+  `app/services/semantic_pass_reads.py`, and
+  `app/services/semantic_registry_preview.py`
+- the targeted architecture-governance import cycle is closed locally, and the
+  remaining cycle backlog is now the smaller non-governance set tracked in the
+  session handoff rather than a live governance packet
+- the shipped browser UI still uses a narrow `app/ui/app.js` bootstrap with
   shared runtime and page-family logic routed through `app/ui/modules/*.js`
-- the general architecture probe no longer reports the large agent-task
-  import-cycle component; the residual-weakness plan and the follow-on
-  high-value technical paydown plan are now complete locally, and the remaining
-  follow-up is owner-scoped hotspot reduction plus continued guarded debt
-  retirement, not a platform rewrite or service extraction
+- the next follow-on is owner-scoped hotspot reduction, hygiene ratchet paydown,
+  and the drafted `docs/boring_change_architecture_milestone_plan.md`
+  rebaseline rather than a platform rewrite or service extraction
 
 Current verification status:
 
@@ -121,15 +90,17 @@ Current verification status:
   `build/release-gate-parity/release_gate_report.json` on every run, and
   uploads bounded runner diagnostics from `build/release-gate-parity/failure/`
   on failure.
+- If GitHub required checks are enforced through repository settings, the
+  intended required pair is `Architecture Governance` and `Release Gate Parity`.
+  That policy remains an out-of-repo operator action rather than missing repo
+  implementation work.
 - Ruff, architecture inspection, capability contracts, architecture decisions,
   focused model metadata tests, Alembic drift checks, and the full DB-backed
   test suite pass locally.
 - Hygiene now passes when file/helper debt is inherited and unchanged, while
-  still reporting ratcheted debt in large modules such as
-  `app/db/models.py`, `app/services/evidence.py`,
-  `app/services/audit_bundles.py`,
-  `app/services/claim_support_policy_impacts.py`,
-  `app/services/retrieval_learning.py`, and `app/services/search.py`.
+  still reporting ratcheted debt in large owner families such as search,
+  evidence, claim-support support, semantic governance, architecture
+  governance, and the hotspot-prevention classifier.
 - Hotspot prevention passes on the current diff and owns the first residual
   weakness gate before further hotspot split work.
 - Evaluation-data readiness now passes both the regression and court-grade
@@ -144,10 +115,9 @@ Current verification status:
   inherited debt ratcheted, the improvement-case registry holds the remaining
   architecture work as owner-scoped cases, and no additional repo-wide
   residual-weakness milestone is currently open.
-- The High Value Technical Paydown plan is also closed locally through
-  Milestone 10, and the next routed implementation slice returns to
-  `IC-F2A8110185EB` / `app/db/models.py` with the `evaluation feedback`
-  model-domain candidate.
+- The remaining follow-on is now the drafted
+  `docs/boring_change_architecture_milestone_plan.md`, which must rerun a
+  fresh Milestone 0 system-state refresh before new architecture work begins.
 
 ## Current Goals
 
