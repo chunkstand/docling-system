@@ -290,7 +290,7 @@ cases:
       regrowth in app/services/search.py, leaving the primary classifier at
       1002 lines.
   created_at: '2026-05-13T00:00:00+00:00'
-  updated_at: '2026-05-15T05:18:19Z'
+  updated_at: '2026-05-15T05:27:55Z'
 - case_id: IC-9812A0B138D9
   title: 'Architecture hotspot: app/cli.py'
   status: open
@@ -780,7 +780,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: local-worktree-2026-05-14
+    deployed_ref: "fd9dd2a"
     notes: >-
       The compatibility-facade closeout extracted harness and reranker
       ownership into app/services/search_harnesses.py, low-level retrieval

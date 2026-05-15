@@ -1,17 +1,17 @@
 # Search Compatibility Facade Boundary Milestone Plan
 
 Date: 2026-05-14 local / 2026-05-14 UTC
-Status: resolved locally in the current checkout on 2026-05-14 after the
-freshness rebaseline, harness/reranker extraction, retrieval-primitive
-extraction, metadata-supplement extraction, and verification closeout for
-`IC-1D03DBFE8492`
-Owner context: the scoped hydration, persistence, and execution-orchestration
-families no longer live in `app/services/search.py`, but the broader owner
-case remains open because the facade still owns harness and reranker setup,
-harness registry composition, low-level retrieval primitives, metadata
-supplement helpers, adjacent-context expansion, and import forwarding in one
-1592-line surface. This plan is the bounded follow-on that aims to retire the
-broader search owner case itself rather than only reducing it again.
+Status: resolved locally through implementation closeout commit `fd9dd2a` on
+2026-05-14 after the freshness rebaseline, harness/reranker extraction,
+retrieval-primitive extraction, metadata-supplement extraction, and
+verification closeout for `IC-1D03DBFE8492`
+Owner context: the scoped hydration, persistence, execution-orchestration,
+harness/reranker, retrieval-primitive, and metadata-supplement families no
+longer live in `app/services/search.py`. The broader search owner case
+`IC-1D03DBFE8492` is now deployed locally, and the remaining downstream work
+has moved to follow-on residuals such as
+`app/hotspot_prevention_classifier.py` under `IC-6C1B516A3F92` plus the
+broader coordination brief in `docs/boring_change_architecture_milestone_plan.md`.
 
 ## Purpose
 

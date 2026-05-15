@@ -8,7 +8,7 @@ Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
 Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
 Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`
 Search Compatibility Facade Boundary closeout checkpoint:
-`local-worktree-2026-05-14`
+`fd9dd2a`
 Claim Support Policy Impacts Boundary Milestone 4 checkpoint: `3d7d090`
 Evaluations Service Boundary Milestone 1 checkpoint: `9e3a8e4`
 Evaluations Service Boundary Milestone 2 checkpoint: `3817659`
@@ -173,10 +173,12 @@ compatibility facade is now narrow.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by the
-un-pushed CI parity Milestone 4 closeout commit `0906e35`; the earlier CI
-parity implementation proof checkpoint remains `ad18d74`, and the agent-task
-orchestration follow-on plan is resolved locally through Milestone 5,
+The checkout is on `main`. Local `main` carries the un-pushed CI parity
+Milestone 4 closeout commit `0906e35`, the branch-pointer refresh commit
+`e0d7ee2`, and the search compatibility-facade implementation closeout commit
+`fd9dd2a`; the earlier CI parity implementation proof checkpoint remains
+`ad18d74`, and the agent-task orchestration follow-on plan is resolved locally
+through Milestone 5,
 `docs/search_hydration_boundary_milestone_plan.md` is resolved locally through
 Milestone 1 closeout commit `14390ad` for `IC-1D03DBFE8492`, and
 `docs/search_execution_persistence_boundary_milestone_plan.md` is resolved
@@ -187,8 +189,9 @@ resolved locally through Milestone 1 closeout commit `dae5e4f` for the next
 search boundary split.
 
 `docs/search_compatibility_facade_boundary_milestone_plan.md` is now resolved
-locally in the current checkout for `IC-1D03DBFE8492`. The closeout extracts
-the remaining `app/services/search.py` ownership into three explicit families:
+locally through closeout commit `fd9dd2a` for `IC-1D03DBFE8492`. The closeout
+extracts the remaining `app/services/search.py` ownership into three explicit
+families:
 `app/services/search_harnesses.py` at `627` lines / `0` private helpers,
 `app/services/search_retrieval_primitives.py` at `653` lines /
 `0` private helpers, and
