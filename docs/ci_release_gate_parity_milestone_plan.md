@@ -1,12 +1,12 @@
 # CI Release Gate Parity Milestone Plan
 
 Date: 2026-05-14 local / 2026-05-14 UTC
-Status: active through Milestone 2 closeout commit `26dffcd` on 2026-05-14
-local / 2026-05-15 UTC after Milestone 1 closeout commit `abecfa1`; the
+Status: active through the Milestone 3 local proof checkout on 2026-05-14
+local / 2026-05-15 UTC after Milestone 2 closeout commit `26dffcd`; the
 runtime-health dependency is satisfied locally, the repo-owned
-`docling-system-release-gate-parity` runner now exists and passes end to end
-locally, the checked-in parity workflow now exists locally, and Milestone 3 is
-the next routed closeout slice
+`docling-system-release-gate-parity` runner now writes a durable parity report
+artifact, the checked-in parity workflow now uploads that report on every run,
+and Milestone 4 is the next routed closeout slice
 Owner context: active follow-on for the checked-in CI parity gap across
 `.github/workflows/architecture-governance.yml`,
 `.github/workflows/release-gate-parity.yml`,
@@ -39,8 +39,17 @@ instead of duplicating the release gate inline, and uploads bounded failure
 diagnostics from `build/release-gate-parity/failure/`. The runner now writes
 that failure-artifact bundle before Compose teardown so the checked-in workflow
 can upload `docker compose ps`, health-state output, and targeted service logs
-on failure. The remaining scoped gap is the final Milestone 3 and Milestone 4
-proof/closeout alignment for the workflow-backed parity gate.
+on failure. Milestone 3 is now resolved locally in the current checkout:
+`app/release_gate_cli.py` writes
+`build/release-gate-parity/release_gate_report.json` on every run, focused
+runner coverage in `tests/unit/test_release_gate_cli.py` now proves the report
+artifact plus deterministic compose-health timeout semantics at `12 passed`,
+`.github/workflows/release-gate-parity.yml` uploads that report on every run,
+and `uv run docling-system-release-gate-parity` now passes end to end with
+metadata verification at `335 passed`, healthy `db` / `api` / `worker` /
+`agent-worker` Compose smoke plus automatic teardown, and the full DB-backed
+integration suite at `1987 passed`. The remaining scoped gap is the final
+Milestone 4 closeout alignment for the workflow-backed parity gate.
 Milestone 0 alignment verification is now green:
 `git diff --check` passed,
 `uv run docling-system-improvement-case-validate` returned `valid=true`, and
@@ -76,9 +85,8 @@ changes cannot silently narrow CI without failing durable checks.
 
 ## Current Evidence
 
-Live repo evidence refreshed from the Milestone 2 checked-in parity-workflow
-implementation checkout before closeout commit `26dffcd` on 2026-05-14 local /
-2026-05-15 UTC:
+Live repo evidence refreshed from the Milestone 3 local proof checkout before a
+Milestone 3 closeout commit on 2026-05-14 local / 2026-05-15 UTC:
 
 ```text
 git status -sb
@@ -92,11 +100,13 @@ rg -n "docling-system-release-gate-parity|docling-system-runtime-health" pyproje
   36:docling-system-runtime-health = "app.runtime_health_cli:run"
   37:docling-system-release-gate-parity = "app.release_gate_cli:run"
 
-rg -n "docling-system-release-gate-parity|build/release-gate-parity/failure|upload-artifact|continue-on-error" .github/workflows/release-gate-parity.yml
+rg -n "docling-system-release-gate-parity|release_gate_report.json|build/release-gate-parity/failure|upload-artifact|continue-on-error" .github/workflows/release-gate-parity.yml
   36:        continue-on-error: true
   37:        run: uv run docling-system-release-gate-parity
   41:        uses: actions/upload-artifact@v4
-  44:          path: build/release-gate-parity/failure/
+  44:          path: build/release-gate-parity/release_gate_report.json
+  48:        uses: actions/upload-artifact@v4
+  51:          path: build/release-gate-parity/failure/
 
 uv run docling-system-improvement-case-summary
   case_count=38
@@ -105,23 +115,29 @@ uv run docling-system-improvement-case-summary
   status_counts.open=26
   oldest_open_case_id=IC-9812A0B138D9
 
-uv run --extra dev python -m pytest -q tests/unit/test_release_gate_cli.py tests/unit/test_runtime_health_cli.py -rs
-  8 passed in 0.16s
+uv run --extra dev python -m pytest -q tests/unit/test_release_gate_cli.py -rs
+  12 passed in 0.09s
 
 uv run docling-system-release-gate-parity
-  metadata verification: 335 passed in 2.48s
-  full DB-backed suite: 1983 passed in 112.09s
+  metadata verification: 335 passed in 2.53s
+  full DB-backed suite: 1987 passed in 121.32s
   compose smoke: healthy db/api/worker/agent-worker and automatic teardown
+
+cat build/release-gate-parity/release_gate_report.json
+  schema_name=release_gate_parity_report
+  status=passed
+  artifacts.report_path=build/release-gate-parity/release_gate_report.json
+  compose.health_statuses=db/api/worker/agent-worker healthy
 
 wc -l .github/workflows/architecture-governance.yml .github/workflows/release-gate-parity.yml README.md SYSTEM_PLAN.md docker-compose.yml pyproject.toml app/release_gate_cli.py tests/unit/test_release_gate_cli.py
       81 .github/workflows/architecture-governance.yml
-      51 .github/workflows/release-gate-parity.yml
+      59 .github/workflows/release-gate-parity.yml
      827 README.md
      935 SYSTEM_PLAN.md
      124 docker-compose.yml
      151 pyproject.toml
-     348 app/release_gate_cli.py
-     228 tests/unit/test_release_gate_cli.py
+     458 app/release_gate_cli.py
+     459 tests/unit/test_release_gate_cli.py
 ```
 
 Repo-current structural evidence:
@@ -135,15 +151,19 @@ Repo-current structural evidence:
   `docling-system-hygiene-check`.
 - `.github/workflows/release-gate-parity.yml` now runs the repo-owned
   `docling-system-release-gate-parity` command on pull requests and pushes to
-  `main`, and it uploads bounded failure diagnostics from
+  `main`, uploads the durable
+  `build/release-gate-parity/release_gate_report.json` proof artifact on every
+  run, and uploads bounded failure diagnostics from
   `build/release-gate-parity/failure/` when that runner fails.
 - `pyproject.toml` already exposes many repo-owned console scripts, including
   `docling-system-runtime-health`; Milestone 1 now adds
   `docling-system-release-gate-parity` as the canonical local release gate
-  runner, and Milestone 2 now extends that runner so it writes bounded failure
-  diagnostics before Compose teardown.
+  runner, Milestone 2 extends that runner so it writes bounded failure
+  diagnostics before Compose teardown, and Milestone 3 now adds the durable
+  `release_gate_parity_report` artifact for workflow-proof readback.
 - `README.md` and `SYSTEM_PLAN.md` now document that the checked-in workflow
-  uses the same repo-owned runner and uploads its failure bundle.
+  uses the same repo-owned runner, uploads its proof report on every run, and
+  uploads its failure bundle on parity-gate failure.
 - `docs/agentic_architecture_index.md` and `docs/SESSION_HANDOFF.md` now show
   runtime-health resolved locally through Milestone 4 and route this CI plan
   as the next active follow-on rather than a queued packet blocked on Compose
@@ -153,10 +173,9 @@ Repo-current structural evidence:
   `docker-compose.yml` already provide repo-owned health surfaces for `api`,
   `worker`, and `agent-worker`.
 - `config/improvement_cases.yaml` now binds `IC-2D8D5BF5A8C4` as the dedicated
-  CI-parity owner case. The scoped gap remains open only for the remaining
-  Milestone 3 and Milestone 4 parity-gate proof/closeout work; the packet no
-  longer depends on chat memory or ad hoc shell snippets to identify its local
-  release gate owner.
+  CI-parity owner case. The scoped gap now remains open only for the remaining
+  Milestone 4 closeout alignment; the packet no longer depends on chat memory
+  or ad hoc shell snippets to identify its local release gate owner.
 
 ## Goal
 
@@ -289,8 +308,9 @@ Current local state: refreshed locally. `IC-2D8D5BF5A8C4` now anchors the
 queued CI parity gap, the runtime-health dependency is confirmed against the
 repo-owned health contract surfaces, and the scoped CI gap still exists. The
 runtime-health dependency is now satisfied at the repo-owned contract and
-Compose-smoke level, and Milestone 1 is now implemented locally through the
-repo-owned release-parity runner. Milestone 2 is the next active slice.
+Compose-smoke level, Milestones 1 through 3 are now implemented locally
+through the repo-owned release-parity runner and workflow proof artifact, and
+Milestone 4 is the next active slice.
 
 Purpose: refresh this plan to the current post-stack checkout, confirm that
 runtime-health is now the only remaining dependency, and bind the CI parity gap
@@ -439,6 +459,15 @@ Outcome label: `reduced`
 Purpose: ensure the new workflow proves actual release readiness rather than
 only static config validity.
 
+Current local state: resolved locally in the current checkout.
+`app/release_gate_cli.py` now writes a durable
+`build/release-gate-parity/release_gate_report.json` artifact on every run,
+`.github/workflows/release-gate-parity.yml` uploads that report on every run,
+focused runner coverage in `tests/unit/test_release_gate_cli.py` passes at
+`12 passed`, and `uv run docling-system-release-gate-parity` now proves the
+full parity gate end to end at `1987 passed`. The next remaining scoped gap is
+Milestone 4 closeout alignment.
+
 Implementation:
 
 - Wire the release-parity runner so it performs bounded Compose startup and
@@ -447,6 +476,9 @@ Implementation:
   worker, and agent-worker checks instead of inventing a second smoke path.
 - Reuse the repo's existing Postgres metadata verification surface so the
   `Base.metadata.create_all(...)` path is executed in CI, not just documented.
+- Write one durable release-gate report artifact per run so the workflow can
+  retain proof of the exact step contract and final health state without
+  scraping terminal logs.
 - Fail fast when health does not converge inside a bounded timeout, then emit
   the targeted failure artifacts captured by the workflow.
 - Keep smoke behavior deterministic: no unbounded retries, no silent fallback to

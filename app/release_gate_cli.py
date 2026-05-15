@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
 import sys
 import time
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 from app.core.files import repo_root
@@ -15,6 +17,9 @@ COMPOSE_PROJECT_POSTGRES_PORT = "5434"
 COMPOSE_SMOKE_TIMEOUT_SECONDS = 180
 COMPOSE_SMOKE_POLL_INTERVAL_SECONDS = 2
 FAILURE_ARTIFACTS_RELATIVE_PATH = Path("build/release-gate-parity/failure")
+RELEASE_GATE_REPORT_RELATIVE_PATH = Path(
+    "build/release-gate-parity/release_gate_report.json"
+)
 COMPOSE_SERVICE_NAMES = ("db", "api", "worker", "agent-worker")
 
 
@@ -23,6 +28,12 @@ class ReleaseGateStep:
     name: str
     command: tuple[str, ...]
     env: tuple[tuple[str, str], ...] = ()
+
+
+class ComposeHealthTimeoutError(RuntimeError):
+    def __init__(self, message: str, *, statuses: dict[str, str]) -> None:
+        super().__init__(message)
+        self.statuses = statuses
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -43,6 +54,10 @@ def _tmpdir(project_root: Path) -> Path:
 
 def _failure_artifact_dir(project_root: Path) -> Path:
     return project_root / FAILURE_ARTIFACTS_RELATIVE_PATH
+
+
+def _report_path(project_root: Path) -> Path:
+    return project_root / RELEASE_GATE_REPORT_RELATIVE_PATH
 
 
 def build_release_gate_steps(*, project_root: Path | None = None) -> tuple[ReleaseGateStep, ...]:
@@ -244,6 +259,42 @@ def capture_failure_artifacts(
         )
 
 
+def write_release_gate_report(
+    *,
+    project_root: Path | None = None,
+    status: str,
+    steps: list[dict[str, object]],
+    failing_step: str | None,
+    exit_code: int,
+    failure_message: str | None,
+    compose_health_statuses: dict[str, str] | None,
+    diagnostics_captured: bool,
+) -> None:
+    root = project_root or repo_root()
+    report_path = _report_path(root)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_name": "release_gate_parity_report",
+        "generated_at": datetime.now(UTC).isoformat(),
+        "status": status,
+        "exit_code": exit_code,
+        "failing_step": failing_step,
+        "failure_message": failure_message,
+        "compose": {
+            "postgres_port": COMPOSE_PROJECT_POSTGRES_PORT,
+            "services": list(COMPOSE_SERVICE_NAMES),
+            "health_statuses": compose_health_statuses or {},
+        },
+        "artifacts": {
+            "report_path": RELEASE_GATE_REPORT_RELATIVE_PATH.as_posix(),
+            "failure_artifact_dir": FAILURE_ARTIFACTS_RELATIVE_PATH.as_posix(),
+            "diagnostics_captured": diagnostics_captured,
+        },
+        "steps": steps,
+    }
+    report_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
 def _compose_container_id(service_name: str, *, project_root: Path, env: dict[str, str]) -> str:
     completed = subprocess.run(
         ["docker", "compose", "ps", "-q", service_name],
@@ -287,20 +338,24 @@ def wait_for_compose_health(
     timeout_seconds: int = COMPOSE_SMOKE_TIMEOUT_SECONDS,
     poll_interval_seconds: int = COMPOSE_SMOKE_POLL_INTERVAL_SECONDS,
     postgres_port: str = COMPOSE_PROJECT_POSTGRES_PORT,
-) -> None:
+) -> dict[str, str]:
     root = project_root or repo_root()
     env = _compose_env(postgres_port=postgres_port)
     deadline = time.monotonic() + timeout_seconds
+    statuses = {service_name: "unknown" for service_name in COMPOSE_SERVICE_NAMES}
     while time.monotonic() < deadline:
         statuses = {
             service_name: _container_health_status(service_name, project_root=root, env=env)
             for service_name in COMPOSE_SERVICE_NAMES
         }
         if all(status == "healthy" for status in statuses.values()):
-            return
+            return statuses
         time.sleep(poll_interval_seconds)
     rendered = ", ".join(f"{name}={status}" for name, status in statuses.items())
-    raise RuntimeError(f"Compose health did not converge within {timeout_seconds}s: {rendered}")
+    raise ComposeHealthTimeoutError(
+        f"Compose health did not converge within {timeout_seconds}s: {rendered}",
+        statuses=statuses,
+    )
 
 
 def compose_down(*, project_root: Path | None = None) -> None:
@@ -326,19 +381,45 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     compose_started = False
+    diagnostics_captured = False
+    compose_health_statuses: dict[str, str] | None = None
     exit_code = 0
     failure_message: str | None = None
     failing_step: str | None = None
+    step_results: list[dict[str, object]] = []
     try:
         for step in steps:
             failing_step = step.name
             if step.name == "compose-up":
                 compose_started = True
-            run_step(step, project_root=root)
-            if step.name == "compose-up":
-                wait_for_compose_health(project_root=root)
-    except SystemExit as exc:
-        exit_code = exc.code if isinstance(exc.code, int) else 1
+            step_result = {
+                "name": step.name,
+                "command": list(step.command),
+                "env": dict(step.env),
+                "status": "passed",
+                "exit_code": 0,
+            }
+            try:
+                run_step(step, project_root=root)
+                if step.name == "compose-up":
+                    compose_health_statuses = wait_for_compose_health(project_root=root)
+            except SystemExit as exc:
+                exit_code = exc.code if isinstance(exc.code, int) else 1
+                step_result["status"] = "failed"
+                step_result["exit_code"] = exit_code
+                step_results.append(step_result)
+                break
+            except RuntimeError as exc:
+                exit_code = 1
+                failure_message = str(exc)
+                step_result["status"] = "failed"
+                step_result["exit_code"] = exit_code
+                step_result["failure_message"] = failure_message
+                if isinstance(exc, ComposeHealthTimeoutError):
+                    compose_health_statuses = exc.statuses
+                step_results.append(step_result)
+                break
+            step_results.append(step_result)
     except RuntimeError as exc:
         exit_code = 1
         failure_message = str(exc)
@@ -350,6 +431,17 @@ def main(argv: list[str] | None = None) -> int:
                 exit_code=exit_code,
                 failure_message=failure_message,
             )
+            diagnostics_captured = True
+        write_release_gate_report(
+            project_root=root,
+            status="passed" if exit_code == 0 else "failed",
+            steps=step_results,
+            failing_step=failing_step if exit_code != 0 else None,
+            exit_code=exit_code,
+            failure_message=failure_message,
+            compose_health_statuses=compose_health_statuses,
+            diagnostics_captured=diagnostics_captured,
+        )
         if compose_started:
             compose_down(project_root=root)
         cleanup_tmpdir(project_root=root)

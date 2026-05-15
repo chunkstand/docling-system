@@ -36,6 +36,14 @@ jobs:
         continue-on-error: true
         run: uv run docling-system-release-gate-parity
 
+      - name: Upload release gate report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-gate-parity-report
+          path: build/release-gate-parity/release_gate_report.json
+          if-no-files-found: error
+
       - name: Upload release gate diagnostics
         if: steps.release_gate.outcome == 'failure'
         uses: actions/upload-artifact@v4

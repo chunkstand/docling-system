@@ -117,8 +117,10 @@ Current verification status:
 - The checked-in GitHub Actions release gate now lives in
   `.github/workflows/release-gate-parity.yml`, which runs the same
   `docling-system-release-gate-parity` command on pull requests and pushes to
-  `main`, and uploads bounded runner diagnostics from
-  `build/release-gate-parity/failure/` on failure.
+  `main`, uploads the runner-produced proof report from
+  `build/release-gate-parity/release_gate_report.json` on every run, and
+  uploads bounded runner diagnostics from `build/release-gate-parity/failure/`
+  on failure.
 - Ruff, architecture inspection, capability contracts, architecture decisions,
   focused model metadata tests, Alembic drift checks, and the full DB-backed
   test suite pass locally.

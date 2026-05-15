@@ -775,10 +775,12 @@ runtime smoke, and the full DB-backed integration suite.
 
 The checked-in GitHub Actions workflow
 `.github/workflows/release-gate-parity.yml` now runs the same repo-owned
-runner on pull requests and pushes to `main`. When the parity gate fails after
-Compose startup, the runner writes bounded diagnostics under
-`build/release-gate-parity/failure/`, and the workflow uploads that directory
-as a failure artifact.
+runner on pull requests and pushes to `main`. Every run now writes a durable
+report to `build/release-gate-parity/release_gate_report.json`, and the
+workflow uploads that report as the proof artifact for what the parity gate
+executed. When the parity gate fails after Compose startup, the runner also
+writes bounded diagnostics under `build/release-gate-parity/failure/`, and the
+workflow uploads that directory as the failure bundle.
 
 That integration harness:
 

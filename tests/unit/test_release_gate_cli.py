@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
 from app.release_gate_cli import (
     COMPOSE_PROJECT_POSTGRES_PORT,
+    RELEASE_GATE_REPORT_RELATIVE_PATH,
     build_release_gate_steps,
     capture_failure_artifacts,
     main,
+    wait_for_compose_health,
 )
 
 
@@ -74,6 +77,15 @@ def test_release_gate_cli_waits_for_compose_health_and_tears_down(
     waits: list[Path] = []
     downs: list[Path] = []
 
+    def fake_wait_for_compose_health(*, project_root=None, **_kwargs):
+        waits.append(project_root or tmp_path)
+        return {
+            "db": "healthy",
+            "api": "healthy",
+            "worker": "healthy",
+            "agent-worker": "healthy",
+        }
+
     monkeypatch.setattr("app.release_gate_cli.repo_root", lambda: tmp_path)
     monkeypatch.setattr(
         "app.release_gate_cli.run_step",
@@ -81,7 +93,7 @@ def test_release_gate_cli_waits_for_compose_health_and_tears_down(
     )
     monkeypatch.setattr(
         "app.release_gate_cli.wait_for_compose_health",
-        lambda *, project_root=None, **_kwargs: waits.append(project_root or tmp_path),
+        fake_wait_for_compose_health,
     )
     monkeypatch.setattr(
         "app.release_gate_cli.compose_down",
@@ -120,7 +132,9 @@ def test_release_gate_cli_cleans_tmpdir_after_success(
     )
     monkeypatch.setattr(
         "app.release_gate_cli.wait_for_compose_health",
-        lambda *, project_root=None, **_kwargs: None,
+        lambda *, project_root=None, **_kwargs: {
+            name: "healthy" for name in ("db", "api", "worker", "agent-worker")
+        },
     )
     monkeypatch.setattr(
         "app.release_gate_cli.compose_down",
@@ -150,7 +164,9 @@ def test_release_gate_cli_preserves_active_inherited_tmpdir(
     )
     monkeypatch.setattr(
         "app.release_gate_cli.wait_for_compose_health",
-        lambda *, project_root=None, **_kwargs: None,
+        lambda *, project_root=None, **_kwargs: {
+            name: "healthy" for name in ("db", "api", "worker", "agent-worker")
+        },
     )
     monkeypatch.setattr(
         "app.release_gate_cli.compose_down",
@@ -256,6 +272,147 @@ def test_release_gate_cli_returns_non_zero_when_compose_health_never_converges(
     assert captures == [(tmp_path, "compose-up", 1, "compose health timed out")]
     assert downs == [tmp_path]
     assert "compose health timed out" in capsys.readouterr().err
+
+
+def test_wait_for_compose_health_returns_last_healthy_statuses(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr("app.release_gate_cli.repo_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        "app.release_gate_cli._container_health_status",
+        lambda service_name, *, project_root, env: "healthy",
+    )
+
+    statuses = wait_for_compose_health(
+        project_root=tmp_path,
+        timeout_seconds=1,
+        poll_interval_seconds=0,
+    )
+
+    assert statuses == {
+        "db": "healthy",
+        "api": "healthy",
+        "worker": "healthy",
+        "agent-worker": "healthy",
+    }
+
+
+def test_wait_for_compose_health_times_out_with_last_statuses(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    health_statuses = {
+        "db": "healthy",
+        "api": "starting",
+        "worker": "healthy",
+        "agent-worker": "starting",
+    }
+    monotonic_values = iter((0.0, 0.0, 1.0))
+
+    monkeypatch.setattr("app.release_gate_cli.repo_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        "app.release_gate_cli._container_health_status",
+        lambda service_name, *, project_root, env: health_statuses[service_name],
+    )
+    monkeypatch.setattr("app.release_gate_cli.time.monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr("app.release_gate_cli.time.sleep", lambda _seconds: None)
+
+    with pytest.raises(RuntimeError, match="api=starting, worker=healthy, agent-worker=starting"):
+        wait_for_compose_health(
+            project_root=tmp_path,
+            timeout_seconds=1,
+            poll_interval_seconds=0,
+        )
+
+
+def test_release_gate_cli_writes_report_artifact_on_success(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr("app.release_gate_cli.repo_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        "app.release_gate_cli.run_step",
+        lambda step, *, project_root=None: None,
+    )
+    monkeypatch.setattr(
+        "app.release_gate_cli.wait_for_compose_health",
+        lambda *, project_root=None, **_kwargs: {
+            "db": "healthy",
+            "api": "healthy",
+            "worker": "healthy",
+            "agent-worker": "healthy",
+        },
+    )
+    monkeypatch.setattr(
+        "app.release_gate_cli.compose_down",
+        lambda *, project_root=None: None,
+    )
+
+    exit_code = main([])
+
+    assert exit_code == 0
+    payload = json.loads(tmp_path.joinpath(RELEASE_GATE_REPORT_RELATIVE_PATH).read_text())
+    assert payload["status"] == "passed"
+    assert payload["exit_code"] == 0
+    assert payload["artifacts"]["diagnostics_captured"] is False
+    assert payload["compose"]["health_statuses"] == {
+        "db": "healthy",
+        "api": "healthy",
+        "worker": "healthy",
+        "agent-worker": "healthy",
+    }
+    assert [step["name"] for step in payload["steps"]] == [
+        "ruff",
+        "improvement-case-validate",
+        "alembic-upgrade-head",
+        "alembic-current",
+        "db-model-metadata",
+        "compose-config",
+        "compose-up",
+        "full-integration",
+    ]
+
+
+def test_release_gate_cli_writes_report_artifact_on_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr("app.release_gate_cli.repo_root", lambda: tmp_path)
+
+    def fake_run_step(step, *, project_root=None):
+        if step.name == "full-integration":
+            raise SystemExit(1)
+
+    monkeypatch.setattr("app.release_gate_cli.run_step", fake_run_step)
+    monkeypatch.setattr(
+        "app.release_gate_cli.wait_for_compose_health",
+        lambda *, project_root=None, **_kwargs: {
+            "db": "healthy",
+            "api": "healthy",
+            "worker": "healthy",
+            "agent-worker": "healthy",
+        },
+    )
+    monkeypatch.setattr(
+        "app.release_gate_cli.capture_failure_artifacts",
+        lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "app.release_gate_cli.compose_down",
+        lambda *, project_root=None: None,
+    )
+
+    exit_code = main([])
+
+    assert exit_code == 1
+    payload = json.loads(tmp_path.joinpath(RELEASE_GATE_REPORT_RELATIVE_PATH).read_text())
+    assert payload["status"] == "failed"
+    assert payload["exit_code"] == 1
+    assert payload["failing_step"] == "full-integration"
+    assert payload["artifacts"]["diagnostics_captured"] is True
+    assert payload["steps"][-1]["name"] == "full-integration"
+    assert payload["steps"][-1]["status"] == "failed"
 
 
 def test_capture_failure_artifacts_writes_summary_and_compose_outputs(
