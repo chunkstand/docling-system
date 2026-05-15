@@ -5,8 +5,9 @@ Status: active standalone follow-on after
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`; Milestone 0 is
 resolved locally through closeout commit `44bec70` on 2026-05-15, Milestone 1
 is resolved locally through closeout commit `d9d79ef` on 2026-05-15, Milestone
-2 is resolved locally through closeout commit `115be15` on 2026-05-15, and
-Milestone 3 is now the next implementation slice
+2 is resolved locally through closeout commit `115be15` on 2026-05-15,
+Milestone 3 is resolved locally in the current checkout, and Milestone 4 is
+now the next implementation slice
 Owner context: residual evidence owner-family debt after the closeout that
 reduced `app/services/evidence.py` to a 141-line compatibility facade and
 `app/services/evidence_provenance_exports.py` to a 14-line compatibility
@@ -38,43 +39,53 @@ four selected residual evidence owners:
   `app/services/evidence_technical_report_export_payloads.py` at `258` lines
   and export persistence plus attachment helpers into
   `app/services/evidence_technical_report_export_lifecycle.py` at `138` lines.
+- Milestone 3 is resolved locally in the current checkout.
+  `app/services/evidence_claim_feedback.py` now measures `498` lines after
+  moving verdict classification, retrieval-context materialization,
+  evidence-ref shaping, and desired-row payload construction into
+  `app/services/evidence_claim_feedback_payloads.py` at `376` lines.
 - The technical-report export public surface remains stable for
   `app/services/evidence.py`, `app/services/technical_reports.py`,
   `app/services/evidence_semantic_trace.py`,
   `app/services/evidence_audit_views.py`, and
   `app/services/agent_actions/report_drafting.py` because the existing imports
   still route through `app/services/evidence_technical_report_exports.py`.
+- The claim-feedback public surface remains stable for `app/services/evidence.py`,
+  `app/services/evidence_audit_views.py`, and
+  `app/services/evidence_provenance_export_lifecycle.py` because the existing
+  imports still route through `app/services/evidence_claim_feedback.py`.
 - `IC-65AF4A6D8B1E` remains broader than the selected packet because
   `app/services/evidence_semantic_trace.py` still measures `837` lines,
-  `app/services/evidence_claim_feedback.py` still measures `834`,
   `app/services/evidence_audit_views.py` still measures `699`,
   `app/services/evidence_manifest_traces.py` still measures `980`,
   `app/services/evidence_manifests.py` still measures `725`, and
   `app/services/evidence_claim_support_replay_alerts.py` still measures `646`.
-  Broader case retirement remains an explicit follow-on, not a Milestone 2
-  claim.
+  `app/services/evidence_claim_feedback.py` is now below the default budget,
+  but Milestone 4 remains active because integrity verification, append-only
+  live-link enforcement, and ledger persistence still cohabit in the root
+  owner.
 - Skeletal owner-test seams now exist in
   `tests/unit/test_evidence_claim_feedback.py`,
   `tests/unit/test_evidence_semantic_trace.py`, and
   `tests/unit/test_evidence_audit_views.py`, so the next production split does
   not start from zero direct owner coverage.
-- Milestone 2 verification is green: focused `ruff`, focused unit and adjacent
-  caller tests at `37 passed`, the technical-report harness roundtrip
-  integration slice at `1 passed`, `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q`
-  at `2005 passed`, hotspot-prevention strict, capability contracts,
-  improvement-case validate or summary, hygiene, architecture inspection,
-  architecture quality summary, and the architecture probe all passed on the
-  post-split checkout.
-- Milestone 3, `Claim Feedback Payload And Retrieval Context Boundary`, is now
-  the next active implementation slice for this packet.
+- Milestone 3 verification is green: focused `ruff`, the focused claim-feedback
+  and adjacent-caller unit slice at `36 passed`, the technical-report harness
+  roundtrip integration slice at `1 passed`,
+  `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` at `2008 passed`,
+  hotspot-prevention strict, capability contracts, improvement-case validate
+  or summary, hygiene, architecture inspection, architecture quality summary,
+  and the architecture probe all passed on the post-split checkout.
+- Milestone 4, `Claim Feedback Integrity And Ledger Closeout`, is now the next
+  active implementation slice for this packet.
 
 ## Local Verification
 
 - `git diff --check` passed
-- `uv run ruff check app/services/evidence_technical_report_exports.py app/services/evidence_technical_report_export_payloads.py app/services/evidence_technical_report_export_lifecycle.py app/services/evidence_technical_report_export_contracts.py app/services/evidence_technical_report_export_provenance_locks.py tests/unit/test_evidence_technical_report_exports.py` passed
-- `uv run pytest -q tests/unit/test_evidence_technical_report_exports.py tests/unit/test_evidence_provenance.py tests/unit/test_technical_reports.py tests/unit/test_evidence_semantic_trace.py tests/unit/test_evidence_facade_contract.py` passed at `37 passed`
+- `uv run ruff check app/services/evidence_claim_feedback.py app/services/evidence_claim_feedback_payloads.py tests/unit/test_evidence_claim_feedback.py tests/unit/test_evidence_facade_contract.py tests/unit/test_evidence_audit_views.py tests/unit/test_evidence_semantic_trace.py tests/unit/test_evidence_provenance.py tests/unit/test_technical_reports.py` passed
+- `uv run pytest -q tests/unit/test_evidence_claim_feedback.py tests/unit/test_evidence_facade_contract.py tests/unit/test_evidence_audit_views.py tests/unit/test_evidence_semantic_trace.py tests/unit/test_evidence_provenance.py tests/unit/test_technical_reports.py` passed at `36 passed`
 - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_technical_report_harness_roundtrip.py` passed at `1 passed`
-- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` passed at `2005 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` passed at `2008 passed`
 - `uv run docling-system-improvement-case-validate` returned `valid=true`
 - `uv run docling-system-improvement-case-summary` reported `case_count=46`, `status_counts.open=30`, and `measured_case_count=41`
 - `uv run docling-system-hotspot-prevention-check --strict` reported `changed_hotspots=0` and `blocked=0`
@@ -82,7 +93,7 @@ four selected residual evidence owners:
 - `uv run docling-system-capability-contracts` remained `valid=true` across `6` facades / `111` functions
 - `uv run docling-system-architecture-inspect` remained `valid=true` with `violation_count=0`
 - `uv run docling-system-architecture-quality-report --summary` reported `agent_legibility_average_score=90.0`, `broad_facade_count=2`, `hotspot_count=10`, and `max_hotspot_risk_score=501.06`
-- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20` reported `3` Python cycle components and `33` code files above `800` lines
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20` reported `3` Python cycle components and `32` code files above `800` lines
 
 ## Purpose
 
@@ -137,26 +148,24 @@ git status -sb
 
 wc -l app/services/evidence.py app/services/evidence_technical_report_exports.py app/services/evidence_semantic_trace.py app/services/evidence_claim_feedback.py app/services/evidence_audit_views.py
    141 app/services/evidence.py
-   884 app/services/evidence_technical_report_exports.py
+    45 app/services/evidence_technical_report_exports.py
    837 app/services/evidence_semantic_trace.py
-   834 app/services/evidence_claim_feedback.py
+   498 app/services/evidence_claim_feedback.py
    699 app/services/evidence_audit_views.py
 
 uv run docling-system-hygiene-check
   new hygiene regressions: none
   inherited budget debt includes:
     app/services/evidence_audit_views.py = 699 lines under IC-65AF4A6D8B1E
-    app/services/evidence_claim_feedback.py = 834 lines under IC-65AF4A6D8B1E
     app/services/evidence_semantic_trace.py = 837 lines under IC-65AF4A6D8B1E
-    app/services/evidence_technical_report_exports.py = 884 lines under IC-65AF4A6D8B1E
     app/services/evidence_claim_support_replay_alerts.py = 646 lines under IC-65AF4A6D8B1E
     app/services/evidence_manifests.py = 725 lines under IC-65AF4A6D8B1E
     app/services/evidence_manifest_traces.py = 980 lines under IC-65AF4A6D8B1E
 
 uv run docling-system-improvement-case-summary
-  case_count=38
-  status_counts.open=22
-  measured_case_count=33
+  case_count=46
+  status_counts.open=30
+  measured_case_count=41
 
 uv run docling-system-architecture-quality-report --summary
   hotspot_count=10
@@ -184,11 +193,13 @@ Repo-current structural evidence:
   `app/services/evidence_technical_report_export_payloads.py` at `258` lines,
   and export persistence plus attachment helpers now live in
   `app/services/evidence_technical_report_export_lifecycle.py` at `138` lines.
-- `app/services/evidence_claim_feedback.py` currently mixes:
-  verdict-to-feedback classification, retrieval-span and request/result
-  materialization, source payload shaping, feedback payload shaping, row
-  integrity verification, integrity summary reporting, row lookup, append-only
-  live-link enforcement, and ledger persistence.
+- `app/services/evidence_claim_feedback.py` is now a `498`-line claim-feedback
+  root owner. Verdict-to-feedback classification, retrieval-span and
+  request/result materialization, source payload shaping, and feedback payload
+  shaping now live in
+  `app/services/evidence_claim_feedback_payloads.py` at `376` lines, while the
+  root still owns row integrity verification, integrity summary reporting, row
+  lookup, append-only live-link enforcement, and ledger persistence.
 - `app/services/evidence_semantic_trace.py` currently mixes:
   semantic assertion and fact payload shaping, technical-report derivation
   integrity recomputation, semantic trace DB materialization, source-record
@@ -460,7 +471,7 @@ Acceptance:
 
 ### Milestone 3 - Claim Feedback Payload And Retrieval Context Boundary
 
-Status: drafted
+Status: resolved locally in the current checkout
 Outcome label: `reduced`
 
 - Extract verdict classification, span or retrieval-context materialization,
@@ -471,10 +482,13 @@ Outcome label: `reduced`
 
 Acceptance:
 
-- `app/services/evidence_claim_feedback.py` no longer owns both retrieval
-  context assembly and live ledger mutation setup
-- the new owner test file covers payload-shaping and status-edge cases
-- no spill occurs into `evidence_audit_views.py` or `semantic_governance.py`
+- satisfied locally in the current checkout:
+  `app/services/evidence_claim_feedback.py` now measures `498` lines, retrieval
+  context assembly and desired-row payload shaping now live in
+  `app/services/evidence_claim_feedback_payloads.py` at `376` lines, the new
+  owner test file covers payload-shaping and status-edge plus append-only
+  cases, and no spill occurred into `evidence_audit_views.py` or
+  `semantic_governance.py`
 
 ### Milestone 4 - Claim Feedback Integrity And Ledger Closeout
 
@@ -483,8 +497,7 @@ Outcome label: `resolved`
 
 - Extract row-integrity reporting, integrity-summary aggregation, append-only
   live-link enforcement, and ledger persistence into focused claim-feedback
-  integrity and lifecycle owners.
-- Reduce `app/services/evidence_claim_feedback.py` to `<= 600` lines.
+  integrity and lifecycle owners while keeping the root `<= 600` lines.
 - Prove that existing ledger rows still reject payload drift and preserve
   append-only link semantics.
 
@@ -668,8 +681,8 @@ Acceptance:
   closure. That is acceptable only if the file remains a demonstrably narrow
   compatibility seam and the selected owner modules themselves are within
   budget.
-- The immediate next implementation slice is Milestone 3,
-  `Claim Feedback Payload And Retrieval Context Boundary`.
+- The immediate next implementation slice is Milestone 4,
+  `Claim Feedback Integrity And Ledger Closeout`.
 - If the broader case remains open after Milestone 7, the next packet should
   start from the largest live blocker at the fresh closeout baseline,
   currently `app/services/evidence_manifest_traces.py`, not from the already
