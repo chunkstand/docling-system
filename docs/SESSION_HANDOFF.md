@@ -92,11 +92,12 @@ moving derivation package shaping and claim-derivation row payload shaping into
 `app/services/evidence_technical_report_export_payloads.py` at `258` lines and
 export persistence plus attachment helpers into
 `app/services/evidence_technical_report_export_lifecycle.py` at `138` lines.
-Milestone 3 is now resolved locally through closeout commit `245dc9f`:
-`app/services/evidence_claim_feedback.py` measures `498` lines after moving
-verdict classification, retrieval-context materialization, evidence-ref
-shaping, and desired-row payload construction into
-`app/services/evidence_claim_feedback_payloads.py` at `376` lines.
+Milestone 4 is now resolved locally in the current checkout:
+`app/services/evidence_claim_feedback.py` measures `47` lines after moving
+claim-retrieval row payload shaping plus row and integrity summary reporting
+into `app/services/evidence_claim_feedback_integrity.py` at `305` lines and row
+lookup plus append-only live-link enforcement and ledger persistence into
+`app/services/evidence_claim_feedback_lifecycle.py` at `215` lines.
 The selected packet remains intentionally narrower than the broader
 `IC-65AF4A6D8B1E` owner case because
 `app/services/evidence_semantic_trace.py`,
@@ -104,22 +105,23 @@ The selected packet remains intentionally narrower than the broader
 `app/services/evidence_manifest_traces.py`,
 `app/services/evidence_manifests.py`, and
 `app/services/evidence_claim_support_replay_alerts.py`
-still measure `837`, `699`, `980`, `725`, and `646`, and skeletal
-owner-test seams now exist in
-`tests/unit/test_evidence_claim_feedback.py`,
-`tests/unit/test_evidence_semantic_trace.py`, and
-`tests/unit/test_evidence_audit_views.py`. Milestone 3 verification is green:
-`git diff --check`, focused claim-feedback `ruff`, the focused claim-feedback
-and adjacent-caller unit slice at `36 passed`, the technical-report harness
-roundtrip slice at `1 passed`,
-`DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` at `2008 passed`,
+still measure `837`, `699`, `980`, `725`, and `646`, while the claim-feedback
+public surface remains stable for `app/services/evidence.py`,
+`app/services/evidence_audit_views.py`,
+`app/services/evidence_manifests.py`, and
+`app/services/evidence_provenance_export_lifecycle.py`. Milestone 4
+verification is green: `git diff --check`, focused claim-feedback `ruff`, the
+focused claim-feedback and adjacent-caller unit slice at `37 passed`, the
+focused audit and retrieval-learning integration slice at `6 passed`,
+`DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` at `2009 passed`,
 hotspot-prevention strict, capability contracts, improvement-case validate or
 summary, hygiene, architecture inspection, architecture quality summary, and
-the architecture probe all passed on the post-split checkout. Milestone 4,
-`Claim Feedback Integrity And Ledger Closeout`, is now the next
-implementation slice for the evidence packet because integrity verification,
-append-only live-link enforcement, and ledger persistence still cohabit in the
-claim-feedback root owner even after the line-budget drop.
+the architecture probe all passed on the post-split checkout. Milestone 5,
+`Semantic Trace Integrity And Provenance Edge Boundary`, is now the next
+implementation slice for the evidence packet because technical-report
+derivation integrity recomputation, semantic trace materialization,
+source-record shaping, evidence-card source record shaping, and provenance-edge
+expansion still cohabit in `app/services/evidence_semantic_trace.py`.
 The hygiene owner-case routing packet is now resolved locally through closeout
 commit `9876f67`. Its Milestone 0 refresh is committed locally as `08a1a75`,
 Milestone 1 owner-case bootstrap is committed locally as `d4f082c` through

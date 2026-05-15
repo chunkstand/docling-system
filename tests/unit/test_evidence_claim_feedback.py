@@ -7,37 +7,107 @@ from uuid import uuid4
 import pytest
 
 import app.services.evidence_claim_feedback as evidence_claim_feedback
+import app.services.evidence_claim_feedback_integrity as evidence_claim_feedback_integrity
+import app.services.evidence_claim_feedback_lifecycle as evidence_claim_feedback_lifecycle
 import app.services.evidence_claim_feedback_payloads as evidence_claim_feedback_payloads
 from app.db.models import SearchRequestRecord, SearchRequestResult
 from app.services import evidence
 
 CLAIM_FEEDBACK_ROOT_ALIASES = {
+    "_claim_retrieval_feedback_payload": (
+        evidence_claim_feedback_integrity,
+        "claim_retrieval_feedback_payload",
+    ),
+    "_claim_retrieval_feedback_rows_for_verification_task": (
+        evidence_claim_feedback_lifecycle,
+        "claim_retrieval_feedback_rows_for_verification_task",
+    ),
     "_claim_feedback_retrieval_context": (
         evidence_claim_feedback_payloads,
-        "_claim_feedback_retrieval_context",
+        "claim_feedback_retrieval_context",
+    ),
+    "_set_claim_feedback_append_only_link": (
+        evidence_claim_feedback_lifecycle,
+        "set_claim_feedback_append_only_link",
+    ),
+    "_technical_report_claim_feedback_integrity_payload": (
+        evidence_claim_feedback_integrity,
+        "technical_report_claim_feedback_integrity_payload",
     ),
     "_technical_report_claim_feedback_payloads": (
         evidence_claim_feedback_payloads,
-        "_technical_report_claim_feedback_payloads",
+        "technical_report_claim_feedback_payloads",
+    ),
+    "_technical_report_claim_feedback_row_integrity": (
+        evidence_claim_feedback_integrity,
+        "technical_report_claim_feedback_row_integrity",
     ),
     "_technical_report_claim_feedback_status": (
         evidence_claim_feedback_payloads,
-        "_technical_report_claim_feedback_status",
+        "technical_report_claim_feedback_status",
+    ),
+    "persist_technical_report_claim_retrieval_feedback_ledger": (
+        evidence_claim_feedback_lifecycle,
+        "persist_technical_report_claim_retrieval_feedback_ledger",
     ),
 }
 
 CLAIM_FEEDBACK_EVIDENCE_ALIASES = {
+    "_claim_retrieval_feedback_payload": (
+        evidence_claim_feedback_integrity,
+        "claim_retrieval_feedback_payload",
+    ),
+    "_claim_retrieval_feedback_rows_for_verification_task": (
+        evidence_claim_feedback_lifecycle,
+        "claim_retrieval_feedback_rows_for_verification_task",
+    ),
+    "_set_claim_feedback_append_only_link": (
+        evidence_claim_feedback_lifecycle,
+        "set_claim_feedback_append_only_link",
+    ),
+    "_technical_report_claim_feedback_integrity_payload": (
+        evidence_claim_feedback_integrity,
+        "technical_report_claim_feedback_integrity_payload",
+    ),
     "_technical_report_claim_feedback_payloads": (
         evidence_claim_feedback_payloads,
-        "_technical_report_claim_feedback_payloads",
+        "technical_report_claim_feedback_payloads",
+    ),
+    "_technical_report_claim_feedback_row_integrity": (
+        evidence_claim_feedback_integrity,
+        "technical_report_claim_feedback_row_integrity",
     ),
     "_technical_report_claim_feedback_status": (
         evidence_claim_feedback_payloads,
-        "_technical_report_claim_feedback_status",
+        "technical_report_claim_feedback_status",
+    ),
+    "claim_retrieval_feedback_payload": (
+        evidence_claim_feedback_integrity,
+        "claim_retrieval_feedback_payload",
+    ),
+    "claim_retrieval_feedback_rows_for_verification_task": (
+        evidence_claim_feedback_lifecycle,
+        "claim_retrieval_feedback_rows_for_verification_task",
+    ),
+    "persist_technical_report_claim_retrieval_feedback_ledger": (
+        evidence_claim_feedback_lifecycle,
+        "persist_technical_report_claim_retrieval_feedback_ledger",
+    ),
+    "set_claim_feedback_append_only_link": (
+        evidence_claim_feedback_lifecycle,
+        "set_claim_feedback_append_only_link",
+    ),
+    "technical_report_claim_feedback_integrity_payload": (
+        evidence_claim_feedback_integrity,
+        "technical_report_claim_feedback_integrity_payload",
     ),
     "technical_report_claim_feedback_payloads": (
         evidence_claim_feedback_payloads,
         "technical_report_claim_feedback_payloads",
+    ),
+    "technical_report_claim_feedback_row_integrity": (
+        evidence_claim_feedback_integrity,
+        "technical_report_claim_feedback_row_integrity",
     ),
     "technical_report_claim_feedback_status": (
         evidence_claim_feedback_payloads,
@@ -354,6 +424,67 @@ def test_claim_feedback_payloads_capture_status_edges_and_context(monkeypatch) -
         == "explicit_irrelevant"
     )
     assert len(rows_by_claim_id["claim:contradicted"]["evidence_refs_json"]) == 1
+
+
+def test_claim_feedback_integrity_payload_reports_missing_and_mismatch_counts(
+    monkeypatch,
+) -> None:
+    rows = [
+        SimpleNamespace(
+            claim_id="claim:1",
+            feedback_status="supported",
+            learning_label="positive",
+        ),
+        SimpleNamespace(
+            claim_id="claim:unexpected",
+            feedback_status="missing",
+            learning_label="missing",
+        ),
+    ]
+    integrities = iter(
+        [
+            {
+                "core_hash_integrity_verified": True,
+                "source_payload_columns_match": True,
+                "live_link_integrity_verified": True,
+                "feedback_payload_hash_matches": True,
+                "source_payload_hash_matches": True,
+                "feedback_source_hash_matches": True,
+            },
+            {
+                "core_hash_integrity_verified": False,
+                "source_payload_columns_match": False,
+                "live_link_integrity_verified": False,
+                "feedback_payload_hash_matches": False,
+                "source_payload_hash_matches": False,
+                "feedback_source_hash_matches": False,
+            },
+        ]
+    )
+    monkeypatch.setattr(
+        evidence_claim_feedback_integrity,
+        "_technical_report_claim_feedback_row_integrity",
+        lambda *_args, **_kwargs: next(integrities),
+    )
+
+    payload = evidence_claim_feedback_integrity._technical_report_claim_feedback_integrity_payload(
+        {"claims": [{"claim_id": "claim:1"}, {"claim_id": "claim:2"}]},
+        rows,
+        require_live_links=True,
+    )
+
+    assert payload["coverage_complete"] is False
+    assert payload["integrity_verified"] is False
+    assert payload["complete"] is False
+    assert payload["missing_claim_ids"] == ["claim:2"]
+    assert payload["unexpected_claim_ids"] == ["claim:unexpected"]
+    assert payload["feedback_payload_hash_mismatch_count"] == 1
+    assert payload["source_payload_hash_mismatch_count"] == 1
+    assert payload["feedback_source_hash_mismatch_count"] == 1
+    assert payload["source_payload_column_mismatch_count"] == 1
+    assert payload["live_link_mismatch_count"] == 1
+    assert payload["status_counts"] == {"missing": 1, "supported": 1}
+    assert payload["learning_label_counts"] == {"missing": 1, "positive": 1}
 
 
 def test_set_claim_feedback_append_only_link_is_idempotent_and_rejects_drift() -> None:
