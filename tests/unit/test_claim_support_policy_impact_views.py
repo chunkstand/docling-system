@@ -13,7 +13,7 @@ from app.schemas.agent_tasks import (
     ClaimSupportPolicyChangeImpactWorklistResponse,
     ClaimSupportPolicyChangeImpactWorklistTaskRef,
 )
-from app.services import claim_support_policy_impact_views as _impact_views
+from app.services import claim_support_policy_impact_alerts as _impact_alerts
 
 _NOW = datetime(2026, 5, 13, 12, 0, tzinfo=UTC)
 
@@ -153,12 +153,12 @@ def test_claim_support_policy_change_impact_alerts_enriches_event_metadata(
     )
 
     monkeypatch.setattr(
-        _impact_views,
+        _impact_alerts,
         "_alert_row_ids",
         lambda *_args, **_kwargs: [item.change_impact.change_impact_id],
     )
     monkeypatch.setattr(
-        _impact_views,
+        _impact_alerts,
         "claim_support_policy_change_impact_worklist",
         lambda *_args, **_kwargs: ClaimSupportPolicyChangeImpactWorklistResponse(
             summary=_summary(),
@@ -170,17 +170,17 @@ def test_claim_support_policy_change_impact_alerts_enriches_event_metadata(
         ),
     )
     monkeypatch.setattr(
-        _impact_views,
+        _impact_alerts,
         "_alert_events_by_row",
         lambda *_args, **_kwargs: {item.change_impact.change_impact_id: [event]},
     )
     monkeypatch.setattr(
-        _impact_views,
+        _impact_alerts,
         "_artifact_rows_by_id",
         lambda *_args, **_kwargs: {artifact_id: artifact},
     )
 
-    response = _impact_views.claim_support_policy_change_impact_alerts(
+    response = _impact_alerts.claim_support_policy_change_impact_alerts(
         object(),
         stale_after_hours=24,
         limit=5,
@@ -221,32 +221,32 @@ def test_record_alert_escalations_reports_created_count(monkeypatch) -> None:
     feeds = iter([initial_feed, recorded_feed])
 
     monkeypatch.setattr(
-        _impact_views,
+        _impact_alerts,
         "claim_support_policy_change_impact_alerts",
         lambda *_args, **_kwargs: next(feeds),
     )
     monkeypatch.setattr(
-        _impact_views,
+        _impact_alerts,
         "get_impact_row",
         lambda *_args, **_kwargs: SimpleNamespace(id=change_impact_id),
     )
     monkeypatch.setattr(
-        _impact_views,
+        _impact_alerts,
         "_fresh_alert_worklist_item",
         lambda *_args, **_kwargs: (worklist_item, "blocked"),
     )
     monkeypatch.setattr(
-        _impact_views,
+        _impact_alerts,
         "_record_alert_escalation_event",
         lambda *_args, **_kwargs: (SimpleNamespace(id=uuid4()), True),
     )
     monkeypatch.setattr(
-        _impact_views,
+        _impact_alerts,
         "_refresh_existing_evidence_manifests_for_alert_item",
         lambda *_args, **_kwargs: None,
     )
 
-    response = _impact_views.record_claim_support_policy_change_impact_alert_escalations(
+    response = _impact_alerts.record_claim_support_policy_change_impact_alert_escalations(
         session,
         requested_by="unit-test",
     )

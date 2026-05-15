@@ -77,7 +77,13 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "app/schemas/agent_tasks.py",
         "app/services/agent_task_actions.py",
         "app/services/agent_task_context.py",
+        "app/services/claim_support_evaluations.py",
+        "app/services/claim_support_policy_governance.py",
+        "app/services/claim_support_policy_impact_replay.py",
+        "app/services/claim_support_policy_impact_views.py",
         "app/services/claim_support_policy_impacts.py",
+        "app/services/claim_support_replay_alert_fixture_corpus.py",
+        "app/services/claim_support_replay_alert_promotions.py",
         "app/services/evaluations.py",
         "app/services/evidence.py",
         "app/services/evidence_provenance_exports.py",
@@ -181,6 +187,52 @@ def test_analyzer_flags_obvious_implementation_growth_for_each_hotspot() -> None
             "app/services/claim_support_policy_impacts.py",
             ["def _build_replay_alert_worklist():", "    return []"],
             "alert_projection_or_escalation_logic",
+        ),
+        (
+            "app/services/claim_support_policy_impact_views.py",
+            ["def claim_support_policy_change_impact_worklist(session):", "    return {}"],
+            "worklist_assembly_logic",
+        ),
+        (
+            "app/services/claim_support_policy_impact_replay.py",
+            [
+                (
+                    "def queue_claim_support_policy_change_impact_replay_tasks("
+                    "session, change_impact_id):"
+                ),
+                "    return {}",
+            ],
+            "replay_queueing_logic",
+        ),
+        (
+            "app/services/claim_support_replay_alert_promotions.py",
+            ["def _candidate_from_derivation(item, derivation, draft_task):", "    return {}"],
+            "fixture_candidate_derivation_logic",
+        ),
+        (
+            "app/services/claim_support_evaluations.py",
+            [
+                "def ensure_claim_support_fixture_set("
+                "session, *, fixture_set_name):",
+                "    return None",
+            ],
+            "fixture_authoring_logic",
+        ),
+        (
+            "app/services/claim_support_policy_governance.py",
+            [
+                (
+                    "def build_claim_support_policy_change_impact_payload("
+                    "session, *, task, activated_policy):"
+                ),
+                "    return {}",
+            ],
+            "change_impact_governance_logic",
+        ),
+        (
+            "app/services/claim_support_replay_alert_fixture_corpus.py",
+            ["def build_replay_alert_fixture_corpus(session):", "    return None"],
+            "corpus_build_logic",
         ),
         (
             "app/services/evaluations.py",
@@ -864,6 +916,57 @@ def test_claim_support_forwarding_wrapper_is_allowed() -> None:
 
     assert report["summary"]["blocked_count"] == 0
     assert report["findings"][0]["category"] == "explicit_forwarding_function"
+
+
+def test_claim_support_compact_surface_reduction_is_allowed() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/claim_support_evaluations.py",
+            [
+                "def ensure_claim_support_fixture_set(session, *, fixture_set_name):",
+                "    return import_module(",
+                '        "app.services.claim_support_evaluation_fixtures"',
+                "    ).ensure_claim_support_fixture_set(",
+                "        session,",
+                "        fixture_set_name=fixture_set_name,",
+                "    )",
+            ],
+            deleted_lines=[
+                "def _source_card(*, case_id, excerpt, concept_keys):",
+                "    return {}",
+                "def _draft_fixture(*, case_id, rendered_text, concept_keys):",
+                "    return {}",
+                "def _graph_fixture_case(case_id):",
+                "    return {}",
+                "def default_claim_support_evaluation_fixtures():",
+                "    return []",
+                "def _thresholds_payload(**kwargs):",
+                "    return {}",
+                "def _fixture_set_payload(**kwargs):",
+                "    return {}",
+                "def build_claim_support_calibration_policy_payload(**kwargs):",
+                "    return {}",
+                "def ensure_claim_support_calibration_policy(session, **kwargs):",
+                "    return None",
+                "def evaluate_claim_support_judge_fixture_set(**kwargs):",
+                "    return {}",
+                "def persist_claim_support_judge_evaluation(session, payload):",
+                "    return None",
+                "def mine_claim_support_failure_fixtures(session, *, limit=20):",
+                "    return []",
+                "def resolve_claim_support_calibration_policy(session):",
+                "    return None",
+                "def activate_claim_support_calibration_policy(session, *, policy_id):",
+                "    return None",
+            ]
+            * 3,
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 0
+    assert report["findings"][0]["category"] == "net_reduction_refactor"
 
 
 def test_evaluations_forwarding_wrapper_is_allowed() -> None:

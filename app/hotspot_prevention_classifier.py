@@ -1,13 +1,22 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
+from app.hotspot_prevention_claim_support_rules import (
+    classify_claim_support_evaluations_addition,
+    classify_claim_support_policy_governance_addition,
+    classify_claim_support_policy_impact_replay_addition,
+    classify_claim_support_policy_impact_views_addition,
+    classify_claim_support_replay_alert_fixture_corpus_addition,
+    classify_claim_support_replay_alert_promotions_addition,
+)
 from app.hotspot_prevention_classifier_support import (
     LOCAL_TEST_SUPPORT_PATHS,
     RESIDUAL_TEST_COMPATIBILITY_PATHS,
     ClassifiedLine,
+    alias_only_hunk_ids,
     allowed_category_for_forwarder,
     allowed_category_for_import,
     blocked,
@@ -15,29 +24,39 @@ from app.hotspot_prevention_classifier_support import (
     classify_cli_test_surface_addition,
     classify_local_test_support_surface_addition,
     classify_residual_test_surface_addition,
+    compatibility_test_only_hunk_ids,
+    deletion_finding,
     exception_for_additions,
     fallback_block_category,
     finding_payload,
+    forwarding_only_body_hunk_ids,
     is_agent_task_schema_alias_line,
     is_agent_task_schema_broad_reexport_hunk,
     is_agent_task_schema_export_sink_line,
     is_agent_task_schema_registry_hunk,
     is_agent_task_schema_registry_line,
-    is_alias_only_hunk,
     is_comment_or_blank,
-    is_compatibility_test_hunk,
     is_forwarding_call_line,
     is_forwarding_hunk,
     is_import_or_alias,
     is_multiline_import_continuation,
-    is_registry_composition_hunk,
-    is_test_signature_continuation_hunk,
+    registry_composition_hunk_ids,
     significant_unclassified_lines,
+    test_signature_continuation_hunk_ids,
 )
 from app.hotspot_prevention_diff import ChangedFile, ChangedLine, DiffStat
 from app.hotspot_prevention_policy import HotspotRule
 
 _CLASS_RE = re.compile(r"class\s+([A-Za-z_][A-Za-z0-9_]*)\b")
+_CLAIM_SUPPORT_COMPACT_SURFACE_PATHS = {
+    "app/services/claim_support_evaluations.py",
+    "app/services/claim_support_policy_governance.py",
+    "app/services/claim_support_policy_impact_views.py",
+    "app/services/claim_support_policy_impact_replay.py",
+    "app/services/claim_support_replay_alert_fixture_corpus.py",
+    "app/services/claim_support_replay_alert_promotions.py",
+}
+_COMPACT_SURFACE_MAX_LINES = 600
 
 
 def classify_changed_file(
@@ -48,6 +67,22 @@ def classify_changed_file(
 ) -> list[dict[str, Any]]:
     if not changed_file.added_lines and changed_file.deleted_line_count:
         return [deletion_finding(rule=rule, diff_stat=diff_stat)]
+    if _allow_claim_support_compact_surface_reduction(changed_file, diff_stat):
+        classified = ClassifiedLine(
+            line=changed_file.added_lines[0],
+            status="allowed",
+            category="net_reduction_refactor",
+            message="substantial reduction to a compact claim-support surface is allowed",
+            policy_rule="allow.net_reduction_refactor",
+        )
+        return [
+            finding_payload(
+                classified=classified,
+                rule=rule,
+                diff_stat=diff_stat,
+                exception=None,
+            )
+        ]
     exception = exception_for_additions(rule, changed_file.added_lines)
     alias_hunk_ids = alias_only_hunk_ids(rule, changed_file)
     registry_hunk_ids = registry_composition_hunk_ids(rule, changed_file)
@@ -210,74 +245,18 @@ def classify_changed_file(
     return findings
 
 
-def forwarding_only_body_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
-    return (
-        set()
-        if allowed_category_for_forwarder(rule) is None
-        else hunk_ids_matching(changed_file, is_forwarding_hunk)
-    )
-
-
-def alias_only_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
-    return (
-        set()
-        if allowed_category_for_import(rule) is None
-        else hunk_ids_matching(changed_file, is_alias_only_hunk)
-    )
-
-
-def registry_composition_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
-    return (
-        set()
-        if "registry_composition" not in rule.allow
-        else hunk_ids_matching(changed_file, is_registry_composition_hunk)
-    )
-
-
-def compatibility_test_only_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
-    return (
-        set()
-        if "compatibility_assertion" not in rule.allow
-        else hunk_ids_matching(changed_file, is_compatibility_test_hunk)
-    )
-
-
-def test_signature_continuation_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
-    return (
-        set()
-        if "compatibility_assertion" not in rule.allow
-        else hunk_ids_matching(changed_file, is_test_signature_continuation_hunk)
-    )
-
-
-def hunk_ids_matching(
+def _allow_claim_support_compact_surface_reduction(
     changed_file: ChangedFile,
-    predicate: Callable[[tuple[str, ...]], bool],
-) -> set[int]:
-    lines_by_hunk: dict[int, list[str]] = {}
-    for line in changed_file.added_lines:
-        lines_by_hunk.setdefault(line.hunk_id, []).append(line.text)
-    return {
-        hunk_id for hunk_id, hunk_lines in lines_by_hunk.items() if predicate(tuple(hunk_lines))
-    }
-
-
-def deletion_finding(*, rule: HotspotRule, diff_stat: DiffStat) -> dict[str, Any]:
-    return {
-        "status": "allowed",
-        "category": "deletion",
-        "relative_path": rule.relative_path,
-        "line": None,
-        "policy_rule": "allow.deletion",
-        "target_role": rule.target_role,
-        "preferred_owner_modules": list(rule.preferred_owner_modules),
-        "added_line_count": diff_stat.added_line_count,
-        "deleted_line_count": diff_stat.deleted_line_count,
-        "message": "deletion-only hotspot reduction is allowed",
-        "added_line": None,
-        "exception_id": None,
-        "remediation": None,
-    }
+    diff_stat: DiffStat,
+) -> bool:
+    if changed_file.relative_path not in _CLAIM_SUPPORT_COMPACT_SURFACE_PATHS:
+        return False
+    if diff_stat.deleted_line_count < max(25, diff_stat.added_line_count):
+        return False
+    path = Path(changed_file.relative_path)
+    if not path.exists():
+        return False
+    return sum(1 for _ in path.open()) <= _COMPACT_SURFACE_MAX_LINES
 
 
 def classify_python_addition(
@@ -348,6 +327,24 @@ def classify_hotspot_implementation(
         "app/services/semantics.py": classify_semantics_addition,
         "app/services/claim_support_policy_impacts.py": (
             classify_claim_support_policy_impact_addition
+        ),
+        "app/services/claim_support_policy_impact_views.py": (
+            classify_claim_support_policy_impact_views_addition
+        ),
+        "app/services/claim_support_policy_impact_replay.py": (
+            classify_claim_support_policy_impact_replay_addition
+        ),
+        "app/services/claim_support_replay_alert_promotions.py": (
+            classify_claim_support_replay_alert_promotions_addition
+        ),
+        "app/services/claim_support_evaluations.py": (
+            classify_claim_support_evaluations_addition
+        ),
+        "app/services/claim_support_policy_governance.py": (
+            classify_claim_support_policy_governance_addition
+        ),
+        "app/services/claim_support_replay_alert_fixture_corpus.py": (
+            classify_claim_support_replay_alert_fixture_corpus_addition
         ),
         "app/services/evaluations.py": classify_evaluations_addition,
         "tests/unit/test_cli.py": classify_cli_test_addition,

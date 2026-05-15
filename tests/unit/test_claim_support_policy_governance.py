@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.claim_support_policy_governance import (
+from app.services.claim_support_policy_change_impact_governance import (
     claim_support_policy_change_impact_payload_sha256,
 )
 

@@ -222,7 +222,7 @@ file_budgets:
       owner_case_id: IC-F2A8110185EB
     app/hotspot_prevention_classifier.py:
       max_lines: 600
-      ratchet_max_lines: 1002
+      ratchet_max_lines: 999
       max_private_helpers: 20
       owner_case_id: IC-6C1B516A3F92
     app/schemas/agent_tasks.py:
@@ -337,35 +337,124 @@ file_budgets:
       max_private_helpers: 2
       owner_case_id: IC-2112B1ADC5E8
     app/services/claim_support_evaluations.py:
-      max_lines: 600
-      ratchet_max_lines: 1142
-      max_private_helpers: 20
+      max_lines: 164
+      ratchet_max_lines: 164
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-7C73737C689F
+    app/services/claim_support_evaluation_fixtures.py:
+      max_lines: 534
+      ratchet_max_lines: 534
+      max_private_helpers: 7
+      ratchet_max_private_helpers: 7
+      owner_case_id: IC-7C73737C689F
+    app/services/claim_support_calibration_policies.py:
+      max_lines: 319
+      ratchet_max_lines: 319
+      max_private_helpers: 4
+      ratchet_max_private_helpers: 4
+      owner_case_id: IC-7C73737C689F
+    app/services/claim_support_judge_evaluation_runs.py:
+      max_lines: 339
+      ratchet_max_lines: 339
+      max_private_helpers: 1
+      ratchet_max_private_helpers: 1
       owner_case_id: IC-7C73737C689F
     app/services/claim_support_policy_governance.py:
-      max_lines: 600
-      ratchet_max_lines: 1259
-      max_private_helpers: 20
+      max_lines: 257
+      ratchet_max_lines: 257
+      max_private_helpers: 6
+      ratchet_max_private_helpers: 6
+      owner_case_id: IC-7C73737C689F
+    app/services/claim_support_policy_change_impact_governance.py:
+      max_lines: 534
+      ratchet_max_lines: 534
+      max_private_helpers: 6
+      ratchet_max_private_helpers: 6
+      owner_case_id: IC-7C73737C689F
+    app/services/claim_support_policy_activation_governance.py:
+      max_lines: 559
+      ratchet_max_lines: 559
+      max_private_helpers: 2
+      ratchet_max_private_helpers: 2
       owner_case_id: IC-7C73737C689F
     app/services/claim_support_policy_impacts.py:
       max_lines: 184
+      ratchet_max_lines: 184
       max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-E2270F89B397
+    app/services/claim_support_policy_impact_worklist.py:
+      max_lines: 361
+      ratchet_max_lines: 361
+      max_private_helpers: 7
+      ratchet_max_private_helpers: 7
+      owner_case_id: IC-E2270F89B397
+    app/services/claim_support_policy_impact_alerts.py:
+      max_lines: 469
+      ratchet_max_lines: 469
+      max_private_helpers: 9
+      ratchet_max_private_helpers: 9
       owner_case_id: IC-E2270F89B397
     app/services/claim_support_policy_impact_replay.py:
-      max_lines: 898
-      max_private_helpers: 11
+      max_lines: 247
+      ratchet_max_lines: 247
+      max_private_helpers: 6
+      ratchet_max_private_helpers: 6
+      owner_case_id: IC-E2270F89B397
+    app/services/claim_support_policy_impact_replay_queue.py:
+      max_lines: 344
+      ratchet_max_lines: 344
+      max_private_helpers: 4
+      ratchet_max_private_helpers: 4
+      owner_case_id: IC-E2270F89B397
+    app/services/claim_support_policy_impact_replay_closure.py:
+      max_lines: 424
+      ratchet_max_lines: 424
+      max_private_helpers: 1
+      ratchet_max_private_helpers: 1
       owner_case_id: IC-E2270F89B397
     app/services/claim_support_policy_impact_views.py:
-      max_lines: 899
-      max_private_helpers: 16
+      max_lines: 207
+      ratchet_max_lines: 207
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
       owner_case_id: IC-E2270F89B397
     app/services/claim_support_replay_alert_promotions.py:
-      max_lines: 1536
-      max_private_helpers: 24
+      max_lines: 600
+      ratchet_max_lines: 600
+      max_private_helpers: 9
+      ratchet_max_private_helpers: 9
+      owner_case_id: IC-E2270F89B397
+    app/services/claim_support_replay_alert_fixture_candidates.py:
+      max_lines: 428
+      ratchet_max_lines: 428
+      max_private_helpers: 9
+      ratchet_max_private_helpers: 9
+      owner_case_id: IC-E2270F89B397
+    app/services/claim_support_replay_alert_promotion_governance.py:
+      max_lines: 535
+      ratchet_max_lines: 535
+      max_private_helpers: 6
+      ratchet_max_private_helpers: 6
       owner_case_id: IC-E2270F89B397
     app/services/claim_support_replay_alert_fixture_corpus.py:
-      max_lines: 600
-      ratchet_max_lines: 972
-      max_private_helpers: 20
+      max_lines: 206
+      ratchet_max_lines: 206
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-7C73737C689F
+    app/services/claim_support_replay_alert_fixture_corpus_build.py:
+      max_lines: 328
+      ratchet_max_lines: 328
+      max_private_helpers: 4
+      ratchet_max_private_helpers: 4
+      owner_case_id: IC-7C73737C689F
+    app/services/claim_support_replay_alert_fixture_corpus_governance.py:
+      max_lines: 569
+      ratchet_max_lines: 569
+      max_private_helpers: 8
+      ratchet_max_private_helpers: 8
       owner_case_id: IC-7C73737C689F
     app/services/docling_parser.py:
       max_lines: 1555

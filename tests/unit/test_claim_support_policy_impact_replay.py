@@ -5,6 +5,8 @@ from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 from app.services import claim_support_policy_impact_replay as _impact_replay
+from app.services import claim_support_policy_impact_replay_closure as _impact_replay_closure
+from app.services import claim_support_policy_impact_replay_queue as _impact_replay_queue
 
 _NOW = datetime(2026, 5, 13, 12, 0, tzinfo=UTC)
 
@@ -125,22 +127,22 @@ def test_queue_claim_support_policy_change_impact_replay_tasks_builds_plan(
     )
 
     monkeypatch.setattr(
-        _impact_replay,
+        _impact_replay_queue,
         "get_impact_row",
         lambda *_args, **_kwargs: row,
     )
     monkeypatch.setattr(
-        _impact_replay,
-        "_verify_replay_plan_integrity",
+        _impact_replay_queue,
+        "verify_replay_plan_integrity",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
-        _impact_replay,
-        "_verify_replay_closure_integrity",
+        _impact_replay_queue,
+        "verify_replay_closure_integrity",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
-        _impact_replay,
+        _impact_replay_queue,
         "_validated_replay_work_items",
         lambda *_args, **_kwargs: [
             {
@@ -162,12 +164,12 @@ def test_queue_claim_support_policy_change_impact_replay_tasks_builds_plan(
         ],
     )
     monkeypatch.setattr(
-        _impact_replay,
+        _impact_replay_queue,
         "_queue_agent_task",
         lambda *_args, **_kwargs: next(queued_tasks),
     )
 
-    response = _impact_replay.queue_claim_support_policy_change_impact_replay_tasks(
+    response = _impact_replay_queue.queue_claim_support_policy_change_impact_replay_tasks(
         session,
         change_impact_id,
         requested_by="unit-test",
@@ -191,27 +193,27 @@ def test_refresh_claim_support_policy_change_impact_replay_status_closes_no_acti
     recorded_rows: list[UUID] = []
 
     monkeypatch.setattr(
-        _impact_replay,
+        _impact_replay_closure,
         "get_impact_row",
         lambda *_args, **_kwargs: row,
     )
     monkeypatch.setattr(
-        _impact_replay,
-        "_verify_replay_plan_integrity",
+        _impact_replay_closure,
+        "verify_replay_plan_integrity",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
-        _impact_replay,
-        "_verify_replay_closure_integrity",
+        _impact_replay_closure,
+        "verify_replay_closure_integrity",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
-        _impact_replay,
+        _impact_replay_closure,
         "_record_replay_closure_governance_event",
         lambda *_args, **_kwargs: recorded_rows.append(row.id),
     )
 
-    response = _impact_replay.refresh_claim_support_policy_change_impact_replay_status(
+    response = _impact_replay_closure.refresh_claim_support_policy_change_impact_replay_status(
         session,
         row.id,
         commit=False,

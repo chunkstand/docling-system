@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from app.hotspot_prevention_diff import ChangedLine, DiffStat
+from app.hotspot_prevention_diff import ChangedFile, ChangedLine, DiffStat
 from app.hotspot_prevention_policy import HotspotException, HotspotRule
 
 RESIDUAL_TEST_COMPATIBILITY_PATHS = {
@@ -90,6 +91,88 @@ def classify_residual_test_surface_addition(*, stripped: str) -> SurfaceClassifi
         status="blocked",
         category="broad_new_test_group",
         message="new scenario groups belong in focused owner-family test files",
+    )
+
+
+def deletion_finding(*, rule: HotspotRule, diff_stat: DiffStat) -> dict[str, Any]:
+    return {
+        "status": "allowed",
+        "category": "deletion",
+        "relative_path": rule.relative_path,
+        "line": None,
+        "policy_rule": "allow.deletion",
+        "target_role": rule.target_role,
+        "added_line_count": diff_stat.added_line_count,
+        "deleted_line_count": diff_stat.deleted_line_count,
+        "message": "deletion-only hotspot reduction is allowed",
+        "preferred_owner_modules": list(rule.preferred_owner_modules),
+        "added_line": None,
+        "exception_id": None,
+        "remediation": None,
+    }
+
+
+def hunk_ids_matching(
+    changed_file: ChangedFile,
+    predicate: Callable[[tuple[str, ...]], bool],
+) -> set[int]:
+    lines_by_hunk: dict[int, list[str]] = {}
+    for line in changed_file.added_lines:
+        lines_by_hunk.setdefault(line.hunk_id, []).append(line.text)
+    return {
+        hunk_id for hunk_id, hunk_lines in lines_by_hunk.items() if predicate(tuple(hunk_lines))
+    }
+
+
+def _conditional_hunk_ids(
+    *,
+    enabled: bool,
+    changed_file: ChangedFile,
+    predicate: Callable[[tuple[str, ...]], bool],
+) -> set[int]:
+    return set() if not enabled else hunk_ids_matching(changed_file, predicate)
+
+
+def forwarding_only_body_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
+    return _conditional_hunk_ids(
+        enabled=allowed_category_for_forwarder(rule) is not None,
+        changed_file=changed_file,
+        predicate=is_forwarding_hunk,
+    )
+
+
+def alias_only_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
+    return _conditional_hunk_ids(
+        enabled=allowed_category_for_import(rule) is not None,
+        changed_file=changed_file,
+        predicate=is_alias_only_hunk,
+    )
+
+
+def registry_composition_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
+    return _conditional_hunk_ids(
+        enabled="registry_composition" in rule.allow,
+        changed_file=changed_file,
+        predicate=is_registry_composition_hunk,
+    )
+
+
+def compatibility_test_only_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
+    return _conditional_hunk_ids(
+        enabled="compatibility_assertion" in rule.allow,
+        changed_file=changed_file,
+        predicate=is_compatibility_test_hunk,
+    )
+
+
+def test_signature_continuation_hunk_ids(
+    rule: HotspotRule,
+    changed_file: ChangedFile,
+) -> set[int]:
+    return _conditional_hunk_ids(
+        enabled="compatibility_assertion" in rule.allow,
+        changed_file=changed_file,
+        predicate=is_test_signature_continuation_hunk,
     )
 
 

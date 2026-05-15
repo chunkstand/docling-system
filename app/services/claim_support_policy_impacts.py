@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import app.services.claim_support_policy_impact_replay as _impact_replay
 import app.services.claim_support_policy_impact_views as _impact_views
+import app.services.claim_support_replay_alert_fixture_candidates as _fc
 import app.services.claim_support_replay_alert_promotions as _replay_alert_promotions
 
-_candidate_from_derivation = _replay_alert_promotions._candidate_from_derivation
+candidate_from_derivation = _candidate_from_derivation = _fc.candidate_from_derivation
 list_claim_support_policy_change_impacts = _impact_views.list_claim_support_policy_change_impacts
 claim_support_policy_change_impact_alerts = _impact_views.claim_support_policy_change_impact_alerts
 get_claim_support_policy_change_impact = _impact_views.get_claim_support_policy_change_impact
-
 
 def claim_support_replay_alert_fixture_coverage_summary(
     session,

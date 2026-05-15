@@ -68,7 +68,7 @@ No active local follow-up owner case is currently routed.
 Latest drafted bounded implementation brief:
 `docs/boring_change_architecture_milestone_plan.md`
 Latest resolved bounded implementation brief:
-`docs/search_compatibility_facade_boundary_milestone_plan.md`
+`docs/claim_support_residual_owner_family_milestone_plan.md`
 The hygiene owner-case routing packet is now resolved locally through closeout
 commit `9876f67`. Its Milestone 0 refresh is committed locally as `08a1a75`,
 Milestone 1 owner-case bootstrap is committed locally as `d4f082c` through
@@ -93,10 +93,9 @@ revalidated `docling-system-architecture-inspect`,
 hygiene, architecture quality, hotspot prevention, and the architecture
 probe. The targeted architecture-governance cycle remains gone,
 `IC-08C078FD4F45` remains open only as the residual oversized-owner anchor,
-and the remaining global cycle backlog is now four non-governance components:
-the search/documents/evaluations/runs/semantics family, claim-support policy
-impacts/promotions, evidence-provenance export graph, and evidence-search
-packages/trace-store.
+and the remaining global cycle backlog is now three non-governance components:
+the search/documents/evaluations/runs/semantics family,
+evidence-provenance export graph, and evidence-search packages/trace-store.
 The runtime-health packet is now resolved locally through Milestone 4 closeout
 commit `a57f74f`.
 Runtime-health Milestone 0 refresh / owner-case bootstrap remains committed
@@ -166,10 +165,10 @@ window through closeout commit `65c0c67`. Deployed follow-on cases are
 default `600`-line hygiene budget. The broader search owner case
 `IC-1D03DBFE8492` is now deployed locally after the compatibility-facade
 closeout reduced `app/services/search.py` to a narrow facade and removed it
-from the live architecture-probe hotspot queue. The broader claim-support
-owner case `IC-E2270F89B397` remains reduced/open because the extracted owner
-modules still exceed the default `600`-line budget even though the
-compatibility facade is now narrow.
+from the live architecture-probe hotspot queue. Both claim-support owner cases
+`IC-E2270F89B397` and `IC-7C73737C689F` are now deployed locally after the
+residual owner-family closeout reduced every governed claim-support owner to
+the default `600`-line budget or below.
 
 ## Current Position
 
@@ -221,7 +220,7 @@ freshness step must rerun the live architecture-quality, hygiene,
 improvement-case, and architecture-probe baseline before new implementation
 starts.
 
-This closeout also expands `app/hotspot_prevention_classifier.py` to `1002`
+This closeout still leaves `app/hotspot_prevention_classifier.py` at `999`
 lines so the search compatibility-facade gate directly blocks harness-registry,
 retrieval-primitive, and metadata-supplement regrowth in `app/services/search.py`.
 That hygiene residual remains open under `IC-6C1B516A3F92`.
@@ -234,23 +233,45 @@ subsystem-knot for `IC-E2270F89B397` is resolved:
 `app/services/claim_support_policy_impact_views.py` at 899 lines /
 16 private helpers, and replay queueing plus closure lifecycle now live in
 `app/services/claim_support_policy_impact_replay.py` at 898 lines /
-11 private helpers.
+11 private helpers. That earlier boundary implementation proof now rolls
+forward into the resolved owner-family closeout below.
 
-The newly drafted follow-on for the remaining claim-support residual layers is
-`docs/claim_support_residual_owner_family_milestone_plan.md`. It routes both
-open claim-support owner cases together: it closes the remaining
-`IC-E2270F89B397` residual owners
-`app/services/claim_support_policy_impact_views.py`,
-`app/services/claim_support_policy_impact_replay.py`, and
-`app/services/claim_support_replay_alert_promotions.py`, removes the live
-claim-support cycle between
-`app.services.claim_support_policy_impacts` and
-`app.services.claim_support_replay_alert_promotions`, and then decomposes the
-`IC-7C73737C689F` support-family residual
-`app/services/claim_support_evaluations.py`,
-`app/services/claim_support_policy_governance.py`, and
-`app/services/claim_support_replay_alert_fixture_corpus.py` until every owner
-surface closes at or below the default 600-line budget.
+`docs/claim_support_residual_owner_family_milestone_plan.md` is now resolved
+locally in the current checkout. It retires both open claim-support owner
+cases together:
+
+- `app/services/claim_support_policy_impact_views.py`,
+  `app/services/claim_support_policy_impact_replay.py`, and
+  `app/services/claim_support_replay_alert_promotions.py` now close at
+  `207 / 0`, `247 / 6`, and `600 / 9`, while the extracted policy-impact owner
+  modules close at `361 / 7`, `469 / 9`, `344 / 4`, `424 / 1`, `428 / 9`, and
+  `535 / 6`.
+- `app/services/claim_support_evaluations.py`,
+  `app/services/claim_support_policy_governance.py`, and
+  `app/services/claim_support_replay_alert_fixture_corpus.py` now close at
+  `164 / 0`, `257 / 6`, and `206 / 0`, while the extracted support-family
+  owner modules close at `534 / 7`, `319 / 4`, `339 / 1`, `534 / 6`,
+  `559 / 2`, `328 / 4`, and `569 / 8`.
+- The live claim-support cycle between
+  `app.services.claim_support_policy_impacts` and
+  `app.services.claim_support_replay_alert_promotions` is gone from the
+  architecture probe.
+- Focused verification is green:
+  `uv run pytest -q ...claim_support... test slice` passed at `51 passed`,
+  the focused DB-backed claim-support integration slice passed at `17 passed`,
+  `uv run docling-system-hotspot-prevention-check --strict` passed with
+  `blocked=0` and `allowed=7`,
+  `uv run docling-system-hygiene-check`,
+  `uv run docling-system-architecture-inspect`,
+  `uv run docling-system-capability-contracts`, and
+  `uv run docling-system-improvement-case-validate` all passed, and the
+  wrapped full DB-backed suite passed at `1995 passed`.
+
+`IC-E2270F89B397` and `IC-7C73737C689F` are now deployed locally rather than
+reduced/open residuals. The next broader coordination brief remains
+`docs/boring_change_architecture_milestone_plan.md`, and the only directly
+related residual is the still-large hotspot-prevention classifier under
+`IC-6C1B516A3F92`.
 
 `docs/evaluations_service_boundary_milestone_plan.md` is now resolved locally
 through Milestone 4 closeout commit `1159297`. The scoped subsystem-knot for
@@ -3765,35 +3786,34 @@ uv run docling-system-architecture-inspect
   agent_action_count=51, contract_count=10, inspection_rule_count=13
 
 uv run docling-system-capability-contracts
-  valid=true, facade_count=6, function_count=110, issues=[]
-
-uv run docling-system-architecture-decisions
-  valid=true, decision_count=9, issues=[]
+  valid=true, facade_count=6, function_count=111, issues=[]
 
 uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
   hotspot_count=10
-  max_hotspot_risk_score=658.21
+  max_hotspot_risk_score=501.06
   top_hotspot_paths=[
     app/db/models.py,
-    app/cli.py,
     app/services/agent_task_actions.py,
-    app/services/evidence.py,
-    app/schemas/agent_tasks.py
+    app/cli.py,
+    app/schemas/agent_tasks.py,
+    app/services/evidence.py
   ]
 
-python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
+python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20
   Python cycle components=3
-  app/services/agent_task_actions.py fan-out=39 local modules
+  claim-support policy_impacts/promotions cycle removed
+  remaining cycles: search/documents/evaluations/runs/semantics,
+  evidence-provenance export graph, evidence-search packages/trace-store
 
 uv run docling-system-improvement-case-summary
-  case_count=26, measured=1, open=25,
-  source_type_counts={hygiene_finding: 1, architecture_governance: 25}
+  case_count=38, measured=1, deployed=15, open=22,
+  source_type_counts={hygiene_finding: 6, architecture_governance: 32}
 
 uv run docling-system-hotspot-prevention-check --strict
-  known_hotspots=6, changed_hotspots=0, added_lines=0, deleted_lines=0,
-  blocked=0, allowed=0, exceptions=0
+  known_hotspots=27, changed_hotspots=7, added_lines=521, deleted_lines=5546,
+  blocked=0, allowed=7, exceptions=0
 
 uv run docling-system-hygiene-check
   ruff regressions=none
@@ -3801,23 +3821,21 @@ uv run docling-system-hygiene-check
   new hygiene regressions=none
   improvement-case findings=none
   architecture findings=none
-
-uv run docling-system-improvement-case-import --source hygiene --dry-run
-  candidate_count=0, imported_count=0, skipped_count=0
 ```
 
 The architecture boundary model is clean, but hotspot debt remains real. The
-current top governed split targets are `app/db/models.py`, `app/cli.py`,
-`app/services/agent_task_actions.py`, `app/services/evidence.py`, and
-`app/schemas/agent_tasks.py`. The latest architecture probe records
-`app/services/evidence.py` at 6,307 lines and 309,043 hotspot score,
-`app/db/models.py` at 3,782 lines and 283,650 score,
-`app/services/agent_task_actions.py` at 2,746 lines and 164,760 score, and
-`app/cli.py` at 1,231 lines and 67,705 score.
+current top governed split targets are `app/db/models.py`,
+`app/services/agent_task_actions.py`, `app/cli.py`,
+`app/schemas/agent_tasks.py`, and `app/services/evidence.py`. The
+claim-support residual owner family is no longer part of the live cycle backlog
+or inherited hygiene debt set.
 
 Strict hygiene debt also remains real, but it is now ratcheted: the current
 file/helper overages are non-blocking inherited entries while unchanged, and any
 growth beyond their `ratchet_max_*` ceilings is a blocking hygiene regression.
+The remaining inherited list still includes the hotspot-prevention classifier
+at `999` lines under `IC-6C1B516A3F92`, while both claim-support owner cases
+are now deployed locally.
 
 `app/services/agent_task_actions.py` remains a high fan-out action-orchestration
 entrypoint, not a context/task dependency. `app/services/agent_task_context.py`,

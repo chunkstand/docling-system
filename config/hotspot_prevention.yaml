@@ -166,6 +166,92 @@ known_hotspots:
       - alias_forwarder
       - explicit_forwarding_function
       - deletion
+  app/services/claim_support_policy_impact_views.py:
+    target_role: claim-support policy impact detail compatibility surface
+    preferred_owner_modules:
+      - app/services/claim_support_policy_impact_worklist.py
+      - app/services/claim_support_policy_impact_alerts.py
+    block_new:
+      - worklist_assembly_logic
+      - alert_escalation_logic
+      - residual_owner_helper
+    allow:
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
+      - deletion
+  app/services/claim_support_policy_impact_replay.py:
+    target_role: claim-support replay integrity compatibility surface
+    preferred_owner_modules:
+      - app/services/claim_support_policy_impact_replay_queue.py
+      - app/services/claim_support_policy_impact_replay_closure.py
+    block_new:
+      - replay_queueing_logic
+      - replay_closure_logic
+      - residual_owner_helper
+    allow:
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
+      - deletion
+  app/services/claim_support_replay_alert_promotions.py:
+    target_role: claim-support replay-alert promotion compatibility surface
+    preferred_owner_modules:
+      - app/services/claim_support_replay_alert_fixture_candidates.py
+      - app/services/claim_support_replay_alert_promotion_governance.py
+    block_new:
+      - fixture_candidate_derivation_logic
+      - promotion_governance_logic
+      - residual_owner_helper
+    allow:
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
+      - deletion
+  app/services/claim_support_evaluations.py:
+    target_role: claim-support evaluation compatibility facade
+    preferred_owner_modules:
+      - app/services/claim_support_evaluation_fixtures.py
+      - app/services/claim_support_calibration_policies.py
+      - app/services/claim_support_judge_evaluation_runs.py
+    block_new:
+      - fixture_authoring_logic
+      - calibration_policy_logic
+      - judge_evaluation_runtime_logic
+      - residual_owner_helper
+    allow:
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
+      - deletion
+  app/services/claim_support_policy_governance.py:
+    target_role: claim-support governance compatibility surface
+    preferred_owner_modules:
+      - app/services/claim_support_policy_change_impact_governance.py
+      - app/services/claim_support_policy_activation_governance.py
+    block_new:
+      - change_impact_governance_logic
+      - activation_governance_logic
+      - residual_owner_helper
+    allow:
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
+      - deletion
+  app/services/claim_support_replay_alert_fixture_corpus.py:
+    target_role: claim-support replay-alert corpus compatibility surface
+    preferred_owner_modules:
+      - app/services/claim_support_replay_alert_fixture_corpus_build.py
+      - app/services/claim_support_replay_alert_fixture_corpus_governance.py
+    block_new:
+      - corpus_build_logic
+      - corpus_governance_logic
+      - residual_owner_helper
+    allow:
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
+      - deletion
   app/services/evaluations.py:
     target_role: evaluation service compatibility facade
     preferred_owner_modules:

@@ -5,7 +5,9 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 from app.db.models import ClaimEvidenceDerivation
-from app.services.claim_support_policy_impacts import _candidate_from_derivation
+from app.services.claim_support_replay_alert_fixture_candidates import (
+    _candidate_from_derivation,
+)
 
 
 def _derivation() -> ClaimEvidenceDerivation:

@@ -1148,15 +1148,16 @@ cases:
   updated_at: '2026-05-10T21:36:56+00:00'
 - case_id: IC-E2270F89B397
   title: 'Architecture hotspot: app/services/claim_support_policy_impacts.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
-  observed_failure: app/services/claim_support_policy_impacts.py is now a
-    184-line compatibility facade, but the broader claim-support policy-impact
-    owner case remains reduced rather than retired because
+  observed_failure: The prior claim-support policy-impact boundary reduced
+    app/services/claim_support_policy_impacts.py to a 184-line compatibility
+    facade, but the broader owner case remained open because
     app/services/claim_support_replay_alert_promotions.py,
     app/services/claim_support_policy_impact_views.py, and
-    app/services/claim_support_policy_impact_replay.py remain above the
-    600-line default budget at 1536, 899, and 898 lines respectively.
+    app/services/claim_support_policy_impact_replay.py still carried the
+    residual implementation family above the 600-line default budget and the
+    promotions owner still back-imported the policy-impact facade.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/claim_support_policy_impacts.py
@@ -1173,19 +1174,26 @@ cases:
     - git diff --check
     - uv run ruff check app/services/claim_support_policy_impacts.py
       app/services/claim_support_policy_impact_views.py
+      app/services/claim_support_policy_impact_worklist.py
+      app/services/claim_support_policy_impact_alerts.py
       app/services/claim_support_policy_impact_replay.py
+      app/services/claim_support_policy_impact_replay_queue.py
+      app/services/claim_support_policy_impact_replay_closure.py
       app/services/claim_support_replay_alert_promotions.py
-      app/api/routers/claim_support_policy_impacts.py
-      app/api/routers/agent_tasks.py app/hotspot_prevention_classifier.py
+      app/services/claim_support_replay_alert_fixture_candidates.py
+      app/services/claim_support_replay_alert_promotion_governance.py
+      app/hotspot_prevention_classifier.py
+      app/hotspot_prevention_classifier_support.py
+      app/hotspot_prevention_claim_support_rules.py
       tests/unit/test_claim_support_policy_impacts.py
       tests/unit/test_claim_support_policy_impact_views.py
       tests/unit/test_claim_support_policy_impact_replay.py
-      tests/unit/test_agent_tasks_api.py
+      tests/unit/test_claim_support_policy_imports.py
       tests/unit/test_hotspot_prevention.py
     - uv run pytest -q tests/unit/test_claim_support_policy_impacts.py
       tests/unit/test_claim_support_policy_impact_views.py
       tests/unit/test_claim_support_policy_impact_replay.py
-      tests/unit/test_agent_tasks_api.py
+      tests/unit/test_claim_support_policy_imports.py
       tests/unit/test_hotspot_prevention.py
     - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
       tests/integration/test_claim_support_policy_activation_roundtrip.py
@@ -1201,48 +1209,69 @@ cases:
     - uv run docling-system-architecture-inspect
     - uv run docling-system-capability-contracts
     - uv run docling-system-architecture-quality-report --summary
-    - uv run docling-system-architecture-quality-report
     - uv run docling-system-improvement-case-validate
-    - uv run docling-system-improvement-case-summary
     - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
-      --format markdown --top 12
+      --format markdown --top 20
     - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
     acceptance_conditions:
     - app/services/claim_support_policy_impacts.py remains a narrow
-      compatibility facade with no read-model, alert, replay queueing, or
-      replay-closure implementation bodies.
-    - The moved claim-support owner modules and route-boundary tests preserve
-      the existing API and replay lifecycle contracts.
+      compatibility facade at 184 lines / 0 private helpers with no read-model,
+      alert, replay queueing, or replay-closure implementation bodies.
+    - app/services/claim_support_policy_impact_views.py,
+      app/services/claim_support_policy_impact_replay.py, and
+      app/services/claim_support_replay_alert_promotions.py each close within
+      the default 600-line budget, and every extracted policy-impact owner file
+      also remains at or below that budget.
+    - The claim-support cycle containing
+      app.services.claim_support_policy_impacts is gone from the live
+      architecture probe.
+    - Focused import, replay, alert-promotion, and strict hotspot-prevention
+      coverage block the old back-import and residual-owner regrowth patterns.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "3d7d090"
+    deployed_ref: local-current-checkout
     notes: >-
-      Claim-support policy impacts boundary closeout committed as 3d7d090.
-      The earlier replay-alert split remains committed as afc324a. This
-      boundary closeout reduces app/services/claim_support_policy_impacts.py to
-      a 184-line compatibility facade, adds
-      app/services/claim_support_policy_impact_views.py and
-      app/services/claim_support_policy_impact_replay.py, and keeps the
-      broader owner case open because the extracted owners still exceed the
-      default 600-line budget.
+      Claim-support policy impacts boundary closeout remains committed as
+      3d7d090, and the earlier replay-alert split remains committed as
+      afc324a. The residual owner-family packet is now resolved locally in the
+      current checkout: app/services/claim_support_policy_impact_views.py is
+      207 lines / 0 private helpers, claim_support_policy_impact_worklist.py
+      is 361 / 7, claim_support_policy_impact_alerts.py is 469 / 9,
+      claim_support_policy_impact_replay.py is 247 / 6,
+      claim_support_policy_impact_replay_queue.py is 344 / 4,
+      claim_support_policy_impact_replay_closure.py is 424 / 1,
+      claim_support_replay_alert_promotions.py is 600 / 9,
+      claim_support_replay_alert_fixture_candidates.py is 428 / 9, and
+      claim_support_replay_alert_promotion_governance.py is 535 / 6. The
+      claim-support cycle between claim_support_policy_impacts and
+      claim_support_replay_alert_promotions is gone, strict hotspot prevention
+      now allows only shrink-only residual refactors in the compact surfaces,
+      and the focused claim-support slice plus the full DB-backed suite both
+      passed.
   measurement:
-    metric_name: claim_support_hotspot_line_count
-    current_value: 184.0
-    measurement_window: 2026-05-13 local claim-support boundary verification
+    metric_name: claim_support_policy_impact_owner_family_max_line_count
+    current_value: 600.0
+    measurement_window: 2026-05-15 local claim-support residual owner family closeout
     notes: >-
-      The claim-support policy-impact boundary closeout moved read-model and
-      alert logic into app/services/claim_support_policy_impact_views.py at 899
-      lines / 16 private helpers and replay queueing plus closure lifecycle
-      logic into app/services/claim_support_policy_impact_replay.py at 898
-      lines / 11 private helpers, while the compatibility facade now measures
-      184 lines / 0 private helpers. The broader owner case remains reduced
-      because app/services/claim_support_replay_alert_promotions.py is still
-      1536 lines / 24 private helpers and the new owners remain above the
-      default 600-line budget.
+      Policy-impact ownership now closes within budget across the compact
+      facade and extracted owners: app/services/claim_support_policy_impacts.py
+      measures 184 lines / 0 private helpers,
+      app/services/claim_support_policy_impact_views.py 207 / 0,
+      app/services/claim_support_policy_impact_worklist.py 361 / 7,
+      app/services/claim_support_policy_impact_alerts.py 469 / 9,
+      app/services/claim_support_policy_impact_replay.py 247 / 6,
+      app/services/claim_support_policy_impact_replay_queue.py 344 / 4,
+      app/services/claim_support_policy_impact_replay_closure.py 424 / 1,
+      app/services/claim_support_replay_alert_promotions.py 600 / 9,
+      app/services/claim_support_replay_alert_fixture_candidates.py 428 / 9,
+      and app/services/claim_support_replay_alert_promotion_governance.py
+      535 / 6. The live architecture probe no longer reports the
+      claim_support_policy_impacts/promotions cycle, and the wrapped full
+      DB-backed suite passes at 1995 passed.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-13T16:28:33+00:00'
+  updated_at: '2026-05-15T07:23:14Z'
 - case_id: IC-BF180637814C
   title: 'Architecture hotspot: app/services/evaluations.py'
   status: deployed
@@ -2181,16 +2210,14 @@ cases:
   updated_at: '2026-05-15T02:30:00Z'
 - case_id: IC-7C73737C689F
   title: 'Architecture hotspot: app/services/claim_support_policy_governance.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
-  observed_failure: app/services/claim_support_policy_governance.py and the
-    remaining claim-support support family still rely on milestone-owned
-    hygiene routing after the post-stack refresh, with
-    app/services/claim_support_evaluations.py,
+  observed_failure: The post-stack claim-support support family previously
+    remained open because app/services/claim_support_evaluations.py,
     app/services/claim_support_policy_governance.py, and
-    app/services/claim_support_replay_alert_fixture_corpus.py measuring 1142,
-    1259, and 972 lines respectively and still mapped only through
-    residual-weakness-milestone-2.
+    app/services/claim_support_replay_alert_fixture_corpus.py still carried the
+    evaluation, governance, and replay-alert fixture corpus ownership above the
+    600-line default budget under inherited milestone-era hygiene routing.
   source:
     source_type: hygiene_finding
     source_ref: hygiene:file-budget:app/services/claim_support_policy_governance.py
@@ -2205,11 +2232,40 @@ cases:
     description: Claim-support support residual owner-family anchor.
   verification:
     commands:
+    - git diff --check
+    - uv run ruff check app/services/claim_support_evaluations.py
+      app/services/claim_support_evaluation_fixtures.py
+      app/services/claim_support_calibration_policies.py
+      app/services/claim_support_judge_evaluation_runs.py
+      app/services/claim_support_policy_governance.py
+      app/services/claim_support_policy_change_impact_governance.py
+      app/services/claim_support_policy_activation_governance.py
+      app/services/claim_support_replay_alert_fixture_corpus.py
+      app/services/claim_support_replay_alert_fixture_corpus_build.py
+      app/services/claim_support_replay_alert_fixture_corpus_governance.py
+      tests/unit/test_claim_support_evaluations.py
+      tests/unit/test_claim_support_policy_governance.py
+      tests/unit/test_hotspot_prevention.py
+    - uv run pytest -q tests/unit/test_claim_support_evaluations.py
+      tests/unit/test_claim_support_policy_governance.py
+      tests/unit/test_hotspot_prevention.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_claim_support_judge_evaluation_roundtrip.py
+      tests/integration/test_claim_support_policy_activation_roundtrip.py
+      tests/integration/test_claim_support_policy_activation_change_impacts_roundtrip.py
+      tests/integration/test_claim_support_policy_change_impacts_roundtrip.py
+      tests/integration/test_claim_support_policy_change_impacts_replay_alert_governance.py
+      tests/integration/test_claim_support_policy_change_impacts_replay_alert_promotions.py
+      tests/integration/test_claim_support_policy_mined_failures_roundtrip.py
     - uv run docling-system-improvement-case-validate
     - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-inspect
+    - uv run docling-system-capability-contracts
     - uv run docling-system-architecture-quality-report --summary
+    - uv run docling-system-hotspot-prevention-check --strict
     - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
       --format markdown --top 20
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
     acceptance_conditions:
     - app/services/claim_support_evaluations.py,
       app/services/claim_support_policy_governance.py, and
@@ -2217,24 +2273,44 @@ cases:
       split until each governed owner surface is within the configured budget
       while preserving claim-support evaluation, governance, and replay-fixture
       contracts.
+    - The extracted evaluation, governance, and replay-alert fixture owner
+      files also remain within the default 600-line budget.
+    - No claim-support support-family file remains routed through inherited
+      ratchet debt rather than explicit owner-case ceilings.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: Created during the hygiene owner-case routing Milestone 1 bootstrap.
-      The broader family remains open until the residual claim-support support
-      files are reduced under explicit owner routing.
+    deployed_ref: local-current-checkout
+    notes: >-
+      Created during the hygiene owner-case routing Milestone 1 bootstrap. The
+      residual claim-support support family is now resolved locally in the
+      current checkout: app/services/claim_support_evaluations.py is 164 lines
+      / 0 private helpers, claim_support_evaluation_fixtures.py is 534 / 7,
+      claim_support_calibration_policies.py is 319 / 4,
+      claim_support_judge_evaluation_runs.py is 339 / 1,
+      claim_support_policy_governance.py is 257 / 6,
+      claim_support_policy_change_impact_governance.py is 534 / 6,
+      claim_support_policy_activation_governance.py is 559 / 2,
+      claim_support_replay_alert_fixture_corpus.py is 206 / 0,
+      claim_support_replay_alert_fixture_corpus_build.py is 328 / 4, and
+      claim_support_replay_alert_fixture_corpus_governance.py is 569 / 8. The
+      focused support-family unit slice, the claim-support integration slice,
+      and the wrapped full DB-backed suite all passed without weakening tests.
   measurement:
     metric_name: claim_support_support_family_max_line_count
-    current_value: 1259.0
-    measurement_window: 2026-05-14 hygiene owner-case routing Milestone 1 bootstrap
-    notes: app/services/claim_support_evaluations.py measures 1142 lines,
-      app/services/claim_support_policy_governance.py 1259, and
-      app/services/claim_support_replay_alert_fixture_corpus.py 972 after the
-      Milestone 0 refresh.
+    current_value: 569.0
+    measurement_window: 2026-05-15 local claim-support residual owner family closeout
+    notes: app/services/claim_support_evaluations.py now measures 164 lines /
+      0 private helpers, app/services/claim_support_policy_governance.py
+      257 / 6, and app/services/claim_support_replay_alert_fixture_corpus.py
+      206 / 0, with extracted support owners at
+      534 / 7, 319 / 4, 339 / 1, 534 / 6, 559 / 2, 328 / 4, and 569 / 8
+      respectively. The largest governed support-family owner is now
+      app/services/claim_support_replay_alert_fixture_corpus_governance.py at
+      569 lines, so the case no longer carries inherited over-budget debt.
   created_at: '2026-05-14T16:09:02Z'
-  updated_at: '2026-05-14T16:09:02Z'
+  updated_at: '2026-05-15T07:23:14Z'
 - case_id: IC-81C531769EB3
   title: 'Architecture hotspot: app/services/semantic_governance.py'
   status: open
