@@ -6,9 +6,14 @@ duplicate_helper_names:
     reason: Evaluation and replay services compute the same concept over different result payloads.
   - name: _extractor_descriptor
     modules:
-      - app/services/semantic_candidates.py
-      - app/services/semantic_graph.py
+      - app/services/semantic_candidate_core.py
+      - app/services/semantic_graph_core.py
     reason: Candidate and graph semantic workflows describe extractor contracts at separate boundaries.
+  - name: _apply_registered_table_supplements
+    modules:
+      - app/services/docling_parser.py
+      - app/services/docling_parser_tables.py
+    reason: The parser facade preserves the supplement monkeypatch seam while the table owner keeps the extracted implementation.
   - name: _file_sha256
     modules:
       - app/services/ingest_batches.py
@@ -17,7 +22,7 @@ duplicate_helper_names:
   - name: _latest_evaluations_by_run
     modules:
       - app/services/audit.py
-      - app/services/quality.py
+      - app/services/quality_summary.py
     reason: Audit and quality keep separate in-memory projections of evaluation rows.
   - name: _load_replay_run
     modules:
@@ -27,7 +32,7 @@ duplicate_helper_names:
   - name: _load_target_documents
     modules:
       - app/services/semantic_bootstrap.py
-      - app/services/semantic_candidates.py
+      - app/services/semantic_candidate_core.py
     reason: Bootstrap and candidate workflows load target documents for different semantic stages.
   - name: _matching_rank
     modules:
@@ -42,7 +47,7 @@ duplicate_helper_names:
   - name: _page_label
     modules:
       - app/services/chat.py
-      - app/services/semantic_generation.py
+      - app/services/semantic_generation_shared.py
     reason: Chat citations and semantic generation render page labels in separate response models.
   - name: _payload_fingerprint
     modules:
@@ -72,13 +77,13 @@ duplicate_helper_names:
   - name: _review_rank
     modules:
       - app/services/semantic_facts.py
-      - app/services/semantic_graph.py
+      - app/services/semantic_graph_core.py
       - app/services/semantic_orchestration.py
     reason: Semantic facts, graph memory, and orchestration rank review states in different row shapes.
   - name: _support_level
     modules:
-      - app/services/semantic_generation.py
-      - app/services/semantic_graph.py
+      - app/services/semantic_generation_shared.py
+      - app/services/semantic_graph_core.py
     reason: Generation and graph verification compute support labels over different evidence structures.
   - name: _to_evaluation_summary
     modules:
@@ -129,11 +134,11 @@ duplicate_helper_bodies:
     reason: Payload hash helpers intentionally repeat the same stable JSON hashing contract at artifact boundaries.
   - helpers:
       - app/services/chat.py:_page_label
-      - app/services/semantic_generation.py:_page_label
+      - app/services/semantic_generation_shared.py:_page_label
     reason: Page-label formatting is duplicated for separate response models until a UI formatting module exists.
   - helpers:
       - app/services/semantic_facts.py:_review_rank
-      - app/services/semantic_graph.py:_review_rank
+      - app/services/semantic_graph_core.py:_review_rank
     reason: Fact and graph services rank semantic review status in different persistence workflows.
 file_budgets:
   defaults:
@@ -220,10 +225,35 @@ file_budgets:
       max_lines: 600
       max_private_helpers: 20
       owner_case_id: IC-F2A8110185EB
+    app/hotspot_prevention_claim_support_rules.py:
+      max_lines: 436
+      ratchet_max_lines: 436
+      max_private_helpers: 1
+      ratchet_max_private_helpers: 1
+      owner_case_id: IC-6C1B516A3F92
     app/hotspot_prevention_classifier.py:
-      max_lines: 600
-      ratchet_max_lines: 999
-      max_private_helpers: 20
+      max_lines: 360
+      ratchet_max_lines: 360
+      max_private_helpers: 1
+      ratchet_max_private_helpers: 1
+      owner_case_id: IC-6C1B516A3F92
+    app/hotspot_prevention_classifier_boundary_rules.py:
+      max_lines: 209
+      ratchet_max_lines: 209
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-6C1B516A3F92
+    app/hotspot_prevention_classifier_service_rules.py:
+      max_lines: 384
+      ratchet_max_lines: 384
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-6C1B516A3F92
+    app/hotspot_prevention_classifier_support.py:
+      max_lines: 571
+      ratchet_max_lines: 571
+      max_private_helpers: 1
+      ratchet_max_private_helpers: 1
       owner_case_id: IC-6C1B516A3F92
     app/schemas/agent_tasks.py:
       max_lines: 38
@@ -457,8 +487,19 @@ file_budgets:
       ratchet_max_private_helpers: 8
       owner_case_id: IC-7C73737C689F
     app/services/docling_parser.py:
-      max_lines: 1555
-      max_private_helpers: 57
+      max_lines: 199
+      ratchet_max_lines: 199
+      max_private_helpers: 1
+      ratchet_max_private_helpers: 1
+      owner_case_id: IC-9A0332D41F79
+    app/services/docling_parser_normalization.py:
+      max_private_helpers: 23
+      ratchet_max_private_helpers: 23
+      owner_case_id: IC-9A0332D41F79
+    app/services/docling_parser_tables.py:
+      max_private_helpers: 24
+      ratchet_max_private_helpers: 24
+      owner_case_id: IC-9A0332D41F79
     app/services/documents.py:
       max_lines: 822
       max_private_helpers: 28
@@ -496,29 +537,88 @@ file_budgets:
       ratchet_max_private_helpers: 20
       owner_case_id: IC-050E60059A34
     app/services/evidence_manifest_traces.py:
-      max_lines: 600
-      ratchet_max_lines: 980
-      max_private_helpers: 20
+      max_lines: 203
+      ratchet_max_lines: 203
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_manifest_trace_graph.py:
+      max_lines: 204
+      ratchet_max_lines: 204
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_manifest_trace_assembly.py:
+      max_lines: 461
+      ratchet_max_lines: 461
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_manifest_trace_replay.py:
+      max_lines: 244
+      ratchet_max_lines: 244
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
       owner_case_id: IC-65AF4A6D8B1E
     app/services/evidence_audit_views.py:
-      max_lines: 600
-      ratchet_max_lines: 699
-      max_private_helpers: 20
+      max_lines: 19
+      ratchet_max_lines: 19
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_audit_views_bundle.py:
+      max_lines: 482
+      ratchet_max_lines: 482
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_audit_views_context.py:
+      max_lines: 115
+      ratchet_max_lines: 115
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_audit_views_payloads.py:
+      max_lines: 26
+      ratchet_max_lines: 26
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_audit_views_release_readiness.py:
+      max_lines: 136
+      ratchet_max_lines: 136
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
       owner_case_id: IC-65AF4A6D8B1E
     app/services/evidence_claim_feedback.py:
-      max_lines: 600
-      ratchet_max_lines: 834
-      max_private_helpers: 20
+      max_lines: 48
+      ratchet_max_lines: 48
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
       owner_case_id: IC-65AF4A6D8B1E
     app/services/evidence_claim_support_replay_alerts.py:
-      max_lines: 600
-      ratchet_max_lines: 646
-      max_private_helpers: 20
+      max_lines: 407
+      ratchet_max_lines: 407
+      max_private_helpers: 4
+      ratchet_max_private_helpers: 4
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_claim_support_replay_alert_corpus.py:
+      max_lines: 128
+      ratchet_max_lines: 128
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_manifest_payloads.py:
+      max_lines: 384
+      ratchet_max_lines: 384
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
       owner_case_id: IC-65AF4A6D8B1E
     app/services/evidence_manifests.py:
-      max_lines: 600
-      ratchet_max_lines: 725
-      max_private_helpers: 20
+      max_lines: 370
+      ratchet_max_lines: 370
+      max_private_helpers: 8
+      ratchet_max_private_helpers: 8
       owner_case_id: IC-65AF4A6D8B1E
     app/services/evidence_provenance_exports.py:
       max_lines: 14
@@ -545,14 +645,40 @@ file_budgets:
       ratchet_max_private_helpers: 1
       owner_case_id: IC-65AF4A6D8B1E
     app/services/evidence_semantic_trace.py:
-      max_lines: 600
-      ratchet_max_lines: 837
-      max_private_helpers: 20
+      max_lines: 36
+      ratchet_max_lines: 36
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_semantic_trace_integrity.py:
+      max_lines: 149
+      ratchet_max_lines: 149
+      max_private_helpers: 1
+      ratchet_max_private_helpers: 1
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_semantic_trace_payloads.py:
+      max_lines: 182
+      ratchet_max_lines: 182
+      max_private_helpers: 5
+      ratchet_max_private_helpers: 5
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_semantic_trace_provenance.py:
+      max_lines: 444
+      ratchet_max_lines: 444
+      max_private_helpers: 1
+      ratchet_max_private_helpers: 1
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_semantic_trace_source_records.py:
+      max_lines: 109
+      ratchet_max_lines: 109
+      max_private_helpers: 2
+      ratchet_max_private_helpers: 2
       owner_case_id: IC-65AF4A6D8B1E
     app/services/evidence_technical_report_exports.py:
-      max_lines: 600
-      ratchet_max_lines: 884
-      max_private_helpers: 20
+      max_lines: 45
+      ratchet_max_lines: 45
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
       owner_case_id: IC-65AF4A6D8B1E
     app/services/improvement_case_intake.py:
       max_lines: 600
@@ -568,11 +694,17 @@ file_budgets:
       max_lines: 692
       max_private_helpers: 18
     app/services/quality.py:
-      max_lines: 1454
-      max_private_helpers: 24
+      max_lines: 15
+      ratchet_max_lines: 15
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-33B4990DC366
     app/services/runs.py:
-      max_lines: 1049
-      max_private_helpers: 15
+      max_lines: 404
+      ratchet_max_lines: 404
+      max_private_helpers: 2
+      ratchet_max_private_helpers: 2
+      owner_case_id: IC-8AFAD4A415CA
     app/services/retrieval_learning.py:
       max_lines: 143
       max_private_helpers: 0
@@ -639,19 +771,47 @@ file_budgets:
       max_lines: 1227
       max_private_helpers: 28
     app/services/semantic_candidates.py:
-      max_lines: 1357
-      max_private_helpers: 23
+      max_lines: 120
+      ratchet_max_lines: 120
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-649D7B4E3AB5
     app/services/semantic_generation.py:
-      max_lines: 1260
-      max_private_helpers: 15
-    app/services/semantic_governance.py:
+      max_lines: 91
+      ratchet_max_lines: 91
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-A92BA42C6D18
+    app/services/semantic_generation_brief.py:
       max_lines: 600
-      ratchet_max_lines: 1157
-      max_private_helpers: 20
+      ratchet_max_lines: 644
+      max_private_helpers: 1
+      ratchet_max_private_helpers: 1
+      owner_case_id: IC-6F4E2B5A91C3
+    app/services/semantic_governance.py:
+      max_lines: 39
+      ratchet_max_lines: 39
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
       owner_case_id: IC-81C531769EB3
     app/services/semantic_graph.py:
-      max_lines: 1848
-      max_private_helpers: 23
+      max_lines: 185
+      ratchet_max_lines: 185
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-865AB8419D55
+    app/services/semantic_graph_core.py:
+      max_lines: 600
+      ratchet_max_lines: 697
+      max_private_helpers: 21
+      ratchet_max_private_helpers: 21
+      owner_case_id: IC-C8D41A2F77BE
+    app/services/semantic_graph_promotions.py:
+      max_lines: 600
+      ratchet_max_lines: 718
+      max_private_helpers: 2
+      ratchet_max_private_helpers: 2
+      owner_case_id: IC-C8D41A2F77BE
     app/services/semantic_orchestration.py:
       max_lines: 1092
       max_private_helpers: 11
@@ -665,13 +825,35 @@ file_budgets:
       ratchet_max_private_helpers: 0
       owner_case_id: IC-9E6B8F5D62A1
     app/services/semantic_pass_lifecycle.py:
-      max_lines: 961
-      max_private_helpers: 10
-      owner_case_id: IC-9E6B8F5D62A1
+      max_lines: 529
+      ratchet_max_lines: 529
+      max_private_helpers: 3
+      ratchet_max_private_helpers: 3
+      owner_case_id: IC-8304248AB64C
+    app/services/semantic_pass_artifacts.py:
+      max_lines: 150
+      ratchet_max_lines: 150
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-8304248AB64C
+    app/services/semantic_pass_reviews.py:
+      max_lines: 369
+      ratchet_max_lines: 369
+      max_private_helpers: 4
+      ratchet_max_private_helpers: 4
+      owner_case_id: IC-8304248AB64C
     app/services/semantic_pass_reads.py:
-      max_lines: 762
-      max_private_helpers: 13
-      owner_case_id: IC-9E6B8F5D62A1
+      max_lines: 372
+      ratchet_max_lines: 372
+      max_private_helpers: 3
+      ratchet_max_private_helpers: 3
+      owner_case_id: IC-ADCFFF108626
+    app/services/semantic_pass_source_records.py:
+      max_lines: 415
+      ratchet_max_lines: 415
+      max_private_helpers: 4
+      ratchet_max_private_helpers: 4
+      owner_case_id: IC-ADCFFF108626
     app/services/semantic_registry_preview.py:
       max_lines: 558
       max_private_helpers: 5
@@ -727,6 +909,30 @@ file_budgets:
       max_private_helpers: 0
       ratchet_max_private_helpers: 0
       owner_case_id: IC-7A628A4CBCAC
+    tests/unit/hotspot_prevention_test_support.py:
+      max_lines: 50
+      ratchet_max_lines: 50
+      max_private_helpers: 2
+      ratchet_max_private_helpers: 2
+      owner_case_id: IC-15F6E41A9C77
+    tests/unit/test_hotspot_prevention.py:
+      max_lines: 595
+      ratchet_max_lines: 595
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-15F6E41A9C77
+    tests/unit/test_hotspot_prevention_family_rules.py:
+      max_lines: 318
+      ratchet_max_lines: 318
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-15F6E41A9C77
+    tests/unit/test_hotspot_prevention_wrapper_rules.py:
+      max_lines: 296
+      ratchet_max_lines: 296
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-15F6E41A9C77
     tests/unit/test_search_service.py:
       max_lines: 117
       ratchet_max_lines: 117

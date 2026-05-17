@@ -1,14 +1,21 @@
 # Evidence Residual Owner Family Milestone Plan
 
 Date: 2026-05-15 local / 2026-05-15 UTC
-Status: active standalone follow-on after
-`docs/evidence_provenance_exports_boundary_milestone_plan.md`; Milestone 0 is
-resolved locally through closeout commit `44bec70` on 2026-05-15, Milestone 1
-is resolved locally through closeout commit `d9d79ef` on 2026-05-15, Milestone
-2 is resolved locally through closeout commit `115be15` on 2026-05-15,
-Milestone 3 is resolved locally through closeout commit `245dc9f`, and
-Milestone 4 is resolved locally through closeout commit `3e033fc`, and Milestone 5 is
-now the next implementation slice
+Status: resolved locally in the current checkout as the selected four-owner
+follow-on after `docs/evidence_provenance_exports_boundary_milestone_plan.md`;
+Milestone 0 is resolved locally through closeout commit `44bec70` on
+2026-05-15, Milestone 1 is resolved locally through closeout commit `d9d79ef`
+on 2026-05-15, Milestone 2 is resolved locally through closeout commit
+`115be15` on 2026-05-15, Milestone 3 is resolved locally through closeout
+commit `245dc9f`, Milestone 4 is resolved locally through closeout commit
+`3e033fc`, Milestone 5 is resolved locally in the current checkout, Milestone
+6 is resolved locally in the current checkout, and Milestone 7 is now resolved
+locally in the current checkout. The later manifest-trace, manifest-owner, and
+replay-alert follow-ons now leave the broader `IC-65AF4A6D8B1E` case locally
+retirement-ready pending commit. The latest resolved bounded evidence follow-on
+is `docs/evidence_claim_support_replay_alerts_boundary_milestone_plan.md`, and
+the current broader repo active bounded packet is now
+`docs/hotspot_prevention_family_boundary_milestone_plan.md`.
 Owner context: residual evidence owner-family debt after the closeout that
 reduced `app/services/evidence.py` to a 141-line compatibility facade and
 `app/services/evidence_provenance_exports.py` to a 14-line compatibility
@@ -51,7 +58,8 @@ four selected residual evidence owners:
   reporting into `app/services/evidence_claim_feedback_integrity.py` at `305`
   lines and row lookup plus append-only live-link enforcement and ledger
   persistence into `app/services/evidence_claim_feedback_lifecycle.py` at
-  `215` lines.
+  `215` lines. The current checkout now measures `48` lines after the later
+  no-behavior seam-ratchet closeout.
 - The technical-report export public surface remains stable for
   `app/services/evidence.py`, `app/services/technical_reports.py`,
   `app/services/evidence_semantic_trace.py`,
@@ -62,40 +70,88 @@ four selected residual evidence owners:
   `app/services/evidence_audit_views.py`, `app/services/evidence_manifests.py`,
   and `app/services/evidence_provenance_export_lifecycle.py` because the
   existing imports still route through `app/services/evidence_claim_feedback.py`.
-- `IC-65AF4A6D8B1E` remains broader than the selected packet because
-  `app/services/evidence_semantic_trace.py` still measures `837` lines,
-  `app/services/evidence_audit_views.py` still measures `699`,
-  `app/services/evidence_manifest_traces.py` still measures `980`,
-  `app/services/evidence_manifests.py` still measures `725`, and
-  `app/services/evidence_claim_support_replay_alerts.py` still measures `646`.
-  `app/services/evidence_claim_feedback.py` is now reduced to a narrow
-  compatibility seam, and `app/services/evidence_semantic_trace.py` is now the
-  next selected owner because technical-report derivation integrity
-  recomputation, semantic trace materialization, source-record shaping,
-  evidence-card source record shaping, and provenance-edge expansion still
-  cohabit there.
-- Skeletal owner-test seams now exist in
+- The semantic-trace public surface remains stable for `app/services/evidence.py`,
+  `app/services/evidence_manifests.py`, and
+  `app/services/evidence_audit_views.py` because the existing imports still
+  route through `app/services/evidence_semantic_trace.py`.
+- Milestone 5 is resolved locally in the current checkout.
+  `app/services/evidence_semantic_trace.py` now measures `36` lines after
+  moving technical-report derivation integrity recomputation into
+  `app/services/evidence_semantic_trace_integrity.py` at `149` lines,
+  semantic-trace payload assembly into
+  `app/services/evidence_semantic_trace_payloads.py` at `182` lines,
+  source-record shaping into
+  `app/services/evidence_semantic_trace_source_records.py` at `109` lines, and
+  provenance-edge assembly into
+  `app/services/evidence_semantic_trace_provenance.py` at `444` lines.
+- The audit-view public surface remains stable for
+  `app/services/evidence.py`,
+  `app/services/evidence_manifests.py`,
+  `app/services/evidence_provenance_export_lifecycle.py`,
+  `app/services/capabilities/agent_orchestration.py`, and
+  `app/api/routers/agent_tasks.py` because the existing imports still route
+  through `app/services/evidence_audit_views.py`.
+- Milestone 6 is resolved locally in the current checkout.
+  `app/services/evidence_audit_views.py` now measures `19` lines after moving
+  the main audit-bundle aggregation into
+  `app/services/evidence_audit_views_bundle.py` at `482` lines, context-pack
+  audit reads into `app/services/evidence_audit_views_context.py` at `115`
+  lines, receipt payload shaping into
+  `app/services/evidence_audit_views_payloads.py` at `26` lines, and
+  release-readiness DB-gate persistence plus governance-event backfill into
+  `app/services/evidence_audit_views_release_readiness.py` at `136` lines.
+- At the time Milestone 7 closed locally,
+  `IC-65AF4A6D8B1E` remained broader than the selected packet because
+  `app/services/evidence_claim_support_replay_alerts.py` still measured `646`.
+  `app/services/evidence_manifest_traces.py` was already reduced to a
+  `203`-line compatibility facade with focused siblings at `204`, `461`, and
+  `244`, and `app/services/evidence_manifests.py` was already reduced to a
+  `370`-line facade with payload assembly moved into
+  `app/services/evidence_manifest_payloads.py` at `384` lines. The later
+  replay-alert follow-on now reduces replay alerts to `407 / 128`, leaving no
+  governed evidence owner above budget in the local checkout.
+  `app/services/evidence_technical_report_exports.py`,
+  `app/services/evidence_claim_feedback.py`,
+  `app/services/evidence_semantic_trace.py`, and
+  `app/services/evidence_audit_views.py` are now narrow compatibility seams,
+  and broader retirement is now blocked by the remaining replay-alert owner
+  rather than the selected four-file excerpt.
+- Dedicated owner-test seams now exist in
   `tests/unit/test_evidence_claim_feedback.py`,
   `tests/unit/test_evidence_semantic_trace.py`, and
-  `tests/unit/test_evidence_audit_views.py`, so the next production split does
-  not start from zero direct owner coverage.
-- Milestone 4 verification is green: focused `ruff`, the focused claim-feedback
-  and adjacent-caller unit slice at `37 passed`, the focused audit and
-  retrieval-learning integration slice at `6 passed`,
-  `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` at `2009 passed`,
-  hotspot-prevention strict, capability contracts, improvement-case validate
-  or summary, hygiene, architecture inspection, architecture quality summary,
-  and the architecture probe all passed on the post-split checkout.
-- Milestone 5, `Semantic Trace Integrity And Provenance Edge Boundary`, is now
-  the next active implementation slice for this packet.
+  `tests/unit/test_evidence_audit_views.py`.
+- Milestone 6 verification is green: the focused evidence-owner unit slice
+  passed at `41 passed`, the full required unit gate passed at `81 passed`,
+  the focused technical-report and evidence integration slice passed at
+  `9 passed`, `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+  passed at `2018 passed`, hotspot-prevention strict, capability contracts,
+  improvement-case validate or summary, hygiene, architecture inspection,
+  architecture quality summary, and the architecture probe all passed on the
+  post-split checkout.
+- Milestone 7, `Residual Evidence Owner Family Closeout`, is resolved locally
+  in the current checkout. The selected packet now closes with exact seam
+  ratchets on `app/services/evidence_technical_report_exports.py` at `45`
+  lines / `0` private helpers, `app/services/evidence_claim_feedback.py` at
+  `48` lines / `0` private helpers, `app/services/evidence_semantic_trace.py`
+  at `36` lines / `0` private helpers, and
+  `app/services/evidence_audit_views.py` at `19` lines / `0` private helpers.
+  At the time Milestone 7 closed locally, the broader case remained
+  intentionally reduced because
+  `app/services/evidence_manifest_traces.py`,
+  `app/services/evidence_manifests.py`, and
+  `app/services/evidence_claim_support_replay_alerts.py` still exceeded
+  budget, and the then-next active bounded implementation brief was
+  `docs/evidence_manifest_trace_graph_boundary_milestone_plan.md`. The later
+  manifest-trace and manifest-owner follow-ons now leave only
+  `app/services/evidence_claim_support_replay_alerts.py` above budget.
 
 ## Local Verification
 
 - `git diff --check` passed
-- `uv run ruff check app/services/evidence_claim_feedback.py app/services/evidence_claim_feedback_integrity.py app/services/evidence_claim_feedback_lifecycle.py tests/unit/test_evidence_claim_feedback.py tests/unit/test_evidence_facade_contract.py tests/unit/test_evidence_audit_views.py tests/unit/test_evidence_semantic_trace.py tests/unit/test_evidence_provenance.py tests/unit/test_technical_reports.py` passed
-- `uv run pytest -q tests/unit/test_evidence_claim_feedback.py tests/unit/test_evidence_facade_contract.py tests/unit/test_evidence_provenance.py tests/unit/test_evidence_audit_views.py tests/unit/test_evidence_semantic_trace.py tests/unit/test_technical_reports.py` passed at `37 passed`
-- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_technical_report_harness_audit_surfaces.py tests/integration/test_retrieval_learning_ledger_candidates.py tests/integration/test_retrieval_learning_ledger_datasets.py` passed at `6 passed`
-- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` passed at `2009 passed`
+- `uv run ruff check app/services/evidence.py app/services/evidence_technical_report_exports.py app/services/evidence_semantic_trace.py app/services/evidence_semantic_trace_integrity.py app/services/evidence_semantic_trace_payloads.py app/services/evidence_semantic_trace_provenance.py app/services/evidence_semantic_trace_source_records.py app/services/evidence_audit_views.py app/services/evidence_audit_views_bundle.py app/services/evidence_audit_views_context.py app/services/evidence_audit_views_payloads.py app/services/evidence_audit_views_release_readiness.py app/services/evidence_release_readiness.py app/services/evidence_technical_report_context.py app/services/evidence_provenance.py app/services/evidence_records.py app/services/evidence_search_closure.py app/services/semantic_governance.py app/hotspot_prevention_classifier.py tests/unit/test_evidence_technical_report_exports.py tests/unit/test_evidence_claim_feedback.py tests/unit/test_evidence_semantic_trace.py tests/unit/test_evidence_audit_views.py tests/unit/test_evidence_facade_contract.py tests/unit/test_technical_reports.py tests/unit/test_hotspot_prevention.py` passed
+- `uv run pytest -q tests/unit/test_evidence_technical_report_exports.py tests/unit/test_evidence_claim_feedback.py tests/unit/test_evidence_semantic_trace.py tests/unit/test_evidence_audit_views.py tests/unit/test_evidence_facade_contract.py tests/unit/test_technical_reports.py tests/unit/test_hotspot_prevention.py` passed at `81 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_technical_report_harness_roundtrip.py tests/integration/test_technical_report_harness_integrity.py tests/integration/test_technical_report_harness_source_evidence.py tests/integration/test_technical_report_harness_audit_surfaces.py tests/integration/test_semantic_governance_ledger.py tests/integration/test_retrieval_learning_ledger.py tests/integration/test_evidence_operator_runs_roundtrip.py` passed at `9 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` passed at `2018 passed`
 - `uv run docling-system-improvement-case-validate` returned `valid=true`
 - `uv run docling-system-improvement-case-summary` reported `case_count=46`, `status_counts.open=30`, and `measured_case_count=41`
 - `uv run docling-system-hotspot-prevention-check --strict` reported `changed_hotspots=0` and `blocked=0`
@@ -103,27 +159,24 @@ four selected residual evidence owners:
 - `uv run docling-system-capability-contracts` remained `valid=true` across `6` facades / `111` functions
 - `uv run docling-system-architecture-inspect` remained `valid=true` with `violation_count=0`
 - `uv run docling-system-architecture-quality-report --summary` reported `agent_legibility_average_score=90.0`, `broad_facade_count=2`, `hotspot_count=10`, and `max_hotspot_risk_score=501.06`
-- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20` reported `3` Python cycle components and `32` code files above `800` lines
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20` reported `3` Python cycle components and `31` code files above `800` lines
 
 ## Purpose
 
-Resolve the remaining dense implementation debt in the selected evidence owner
-modules without reopening the already-closed `app/services/evidence.py`
-compatibility-facade work.
+Close the selected evidence-owner packet without reopening the already-closed
+`app/services/evidence.py` compatibility-facade work.
 
-The scoped problem is not the public evidence facade anymore. Milestones 0-4
-already reduced the technical-report export and claim-feedback families to
-narrow forwarding seams. The remaining debt is that the still-open selected
-owner modules combine several distinct concern families:
+The scoped implementation problem is no longer the public evidence facade or
+the selected four owner splits themselves. Milestones 1 through 6 already
+reduced the technical-report export, claim-feedback, semantic-trace, and
+audit-view roots to narrow forwarding seams with focused sibling owners. The
+final work in this packet was Milestone 7 closeout and honest broader case
+routing: proving the selected four-file closure against the live gate stack,
+synchronizing the current-state docs and registries, and keeping
+`IC-65AF4A6D8B1E` explicitly reduced while larger case-owned files still remain
+above budget.
 
-- technical-report integrity recomputation, semantic trace materialization,
-  source-record shaping, and provenance-edge graph assembly still coexist in
-  `app/services/evidence_semantic_trace.py`
-- provenance receipt shaping, context-pack audit gathering, release-readiness
-  DB-gate persistence, and the main audit-bundle aggregation still coexist in
-  `app/services/evidence_audit_views.py`
-
-This plan resolves the selected residual by:
+This plan closed the selected residual by:
 
 - refreshing the live post-provenance-export baseline before code moves
 - splitting the selected files along real owner seams rather than cosmetic
@@ -160,14 +213,20 @@ wc -l app/services/evidence.py app/services/evidence_technical_report_exports.py
    498 app/services/evidence_claim_feedback.py
    699 app/services/evidence_audit_views.py
 
+Historical selected-packet baseline before the later semantic-trace,
+audit-view, and manifest-trace follow-ons:
+
 uv run docling-system-hygiene-check
   new hygiene regressions: none
   inherited budget debt includes:
     app/services/evidence_audit_views.py = 699 lines under IC-65AF4A6D8B1E
+      (now 19 after Milestone 6)
     app/services/evidence_semantic_trace.py = 837 lines under IC-65AF4A6D8B1E
+      (now 36 after Milestone 5)
     app/services/evidence_claim_support_replay_alerts.py = 646 lines under IC-65AF4A6D8B1E
     app/services/evidence_manifests.py = 725 lines under IC-65AF4A6D8B1E
     app/services/evidence_manifest_traces.py = 980 lines under IC-65AF4A6D8B1E
+      (now 203 with focused siblings at 204, 461, and 244)
 
 uv run docling-system-improvement-case-summary
   case_count=46
@@ -188,12 +247,14 @@ Current structural evidence since the Milestone 0 baseline:
 
 - `config/improvement_cases.yaml` still records `IC-65AF4A6D8B1E` as the live
   open owner-family case, but the selected excerpt has moved past technical
-  report export and claim-feedback closeout. After Milestone 4,
+  report export, claim-feedback, semantic-trace, and audit-view closeout. After
+  Milestone 6,
   `app/services/evidence_technical_report_exports.py` is within budget at `45`
-  lines, `app/services/evidence_claim_feedback.py` is within budget at `47`
+  lines, `app/services/evidence_claim_feedback.py` is within budget at `48`
+  lines, `app/services/evidence_semantic_trace.py` is within budget at `36`
+  lines, `app/services/evidence_audit_views.py` is within budget at `19`
   lines, and the same case still governs
   `app/services/evidence_semantic_trace.py`,
-  `app/services/evidence_audit_views.py`,
   `app/services/evidence_manifest_traces.py`,
   `app/services/evidence_manifests.py`, and
   `app/services/evidence_claim_support_replay_alerts.py`.
@@ -203,7 +264,7 @@ Current structural evidence since the Milestone 0 baseline:
   `app/services/evidence_technical_report_export_payloads.py` at `258` lines,
   and export persistence plus attachment helpers now live in
   `app/services/evidence_technical_report_export_lifecycle.py` at `138` lines.
-- `app/services/evidence_claim_feedback.py` is now a `47`-line compatibility
+- `app/services/evidence_claim_feedback.py` is now a `48`-line compatibility
   seam. Verdict-to-feedback classification, retrieval-span and
   request/result materialization, source payload shaping, and feedback payload
   shaping remain in
@@ -212,22 +273,35 @@ Current structural evidence since the Milestone 0 baseline:
   `app/services/evidence_claim_feedback_integrity.py` at `305` lines and row
   lookup plus append-only live-link enforcement and ledger persistence now
   live in `app/services/evidence_claim_feedback_lifecycle.py` at `215` lines.
-- `app/services/evidence_semantic_trace.py` currently mixes:
-  semantic assertion and fact payload shaping, technical-report derivation
-  integrity recomputation, semantic trace DB materialization, source-record
-  payload shaping, evidence-card source record shaping, and the large
-  technical-report provenance-edge expansion body.
-- `app/services/evidence_audit_views.py` currently mixes:
-  provenance-export receipt shaping, technical-report context-pack audit
-  collection, release-readiness DB-gate persistence plus governance event
-  backfill, and the main audit-bundle aggregation read surface.
-- Milestone 0 closes the missing owner-test seam with skeletal baseline suites
-  at
+- `app/services/evidence_semantic_trace.py` is now a `36`-line compatibility
+  seam. Technical-report derivation integrity recomputation now lives in
+  `app/services/evidence_semantic_trace_integrity.py` at `149` lines,
+  semantic-trace payload assembly now lives in
+  `app/services/evidence_semantic_trace_payloads.py` at `182` lines,
+  source-record shaping and evidence-card source record shaping now live in
+  `app/services/evidence_semantic_trace_source_records.py` at `109` lines, and
+  provenance-edge expansion now lives in
+  `app/services/evidence_semantic_trace_provenance.py` at `444` lines.
+- `app/services/evidence_audit_views.py` is now a `19`-line compatibility
+  seam. The main audit-bundle aggregation now lives in
+  `app/services/evidence_audit_views_bundle.py` at `482` lines, context-pack
+  audit reads now live in `app/services/evidence_audit_views_context.py` at
+  `115` lines, receipt payload shaping now lives in
+  `app/services/evidence_audit_views_payloads.py` at `26` lines, and
+  release-readiness DB-gate persistence plus governance-event backfill now
+  live in `app/services/evidence_audit_views_release_readiness.py` at `136`
+  lines.
+- Milestone 0 closed the missing owner-test seam, and the dedicated suites now
+  carry direct owner coverage at
   `tests/unit/test_evidence_claim_feedback.py`,
   `tests/unit/test_evidence_semantic_trace.py`, and
   `tests/unit/test_evidence_audit_views.py`.
 
 ## Goal
+
+Goal status after Milestone 7: satisfied locally for the selected four owner
+roots. The broader `IC-65AF4A6D8B1E` case remains open only for the
+manifest-owner closeout and replay-alert follow-on work.
 
 Resolve the selected residual evidence-owner issue so that:
 
@@ -306,7 +380,7 @@ Out of scope unless Milestone 0 explicitly widens the packet:
   `tests/unit/test_evidence_semantic_trace.py`
 - audit-view family:
   `app/services/evidence_audit_views.py`,
-  new focused owners under `app/services/evidence_audit_*.py`,
+  new focused owners under `app/services/evidence_audit_views_*.py`,
   `tests/unit/test_evidence_audit_views.py`
 - adjacent compatibility callers that must remain stable:
   `app/services/evidence.py`,
@@ -353,7 +427,8 @@ Out of scope unless Milestone 0 explicitly widens the packet:
   `app/services/evidence_semantic_trace_*.py` siblings. Do not create a new
   trace or graph catch-all that recreates the same broad owner under a
   different filename.
-- New audit-view ownership belongs under focused `app/services/evidence_audit_*.py`
+- New audit-view ownership belongs under focused
+  `app/services/evidence_audit_views_*.py`
   siblings. Do not reduce `evidence_audit_views.py` by dumping release-readiness
   logic into already-large adjacent evidence owners.
 - Any new owner module above `600` lines must receive same-milestone owner-case
@@ -528,7 +603,7 @@ Acceptance:
 
 ### Milestone 5 - Semantic Trace Integrity And Provenance Edge Boundary
 
-Status: drafted
+Status: resolved locally in the current checkout
 Outcome label: `resolved`
 
 - Extract technical-report derivation integrity recomputation out of
@@ -546,9 +621,23 @@ Acceptance:
 - `tests/unit/test_evidence_semantic_trace.py` and the technical-report
   integration slices cover integrity and provenance-edge behavior
 
+Closeout evidence:
+
+- satisfied locally in the current checkout:
+  `app/services/evidence_semantic_trace.py` now measures `36` lines,
+  `app/services/evidence_semantic_trace_integrity.py` measures `149` lines,
+  `app/services/evidence_semantic_trace_payloads.py` measures `182` lines,
+  `app/services/evidence_semantic_trace_source_records.py` measures `109`
+  lines, and `app/services/evidence_semantic_trace_provenance.py` measures
+  `444` lines
+- the focused evidence-owner unit slice passed at `36 passed`
+- the focused technical-report and evidence integration slice passed at
+  `9 passed`
+- the full DB-backed suite passed at `2013 passed`
+
 ### Milestone 6 - Audit Views And Release Readiness Boundary
 
-Status: drafted
+Status: resolved locally in the current checkout
 Outcome label: `resolved`
 
 - Extract release-readiness DB-gate persistence and related governance-event
@@ -567,18 +656,40 @@ Acceptance:
   audit-bundle aggregation body
 - audit surface unit and integration coverage is green
 
+Closeout evidence:
+
+- satisfied locally in the current checkout:
+  `app/services/evidence_audit_views.py` now measures `19` lines,
+  `app/services/evidence_audit_views_bundle.py` measures `482` lines,
+  `app/services/evidence_audit_views_context.py` measures `115` lines,
+  `app/services/evidence_audit_views_payloads.py` measures `26` lines, and
+  `app/services/evidence_audit_views_release_readiness.py` measures `136`
+  lines
+- the focused evidence-owner unit slice passed at `41 passed`
+- the full required unit gate passed at `81 passed`
+- the focused technical-report and evidence integration slice passed at
+  `9 passed`
+- the full DB-backed suite passed at `2018 passed`
+
 ### Milestone 7 - Residual Evidence Owner Family Closeout
 
-Status: drafted
-Outcome label: `resolved` for the selected issue and `resolved` or `reduced`
-for `IC-65AF4A6D8B1E` based on live proof
+Status: resolved locally in the current checkout
+Outcome label: `resolved` for the selected issue and `reduced` for
+`IC-65AF4A6D8B1E` based on live proof
 
 - Re-run the full selected verification stack plus the full DB-backed suite.
+- Tighten the hygiene ratchets for
+  `app/services/evidence_technical_report_exports.py` and
+  `app/services/evidence_claim_feedback.py` to the live seam counts and zero
+  local-helper budget so all four selected roots carry exact seam caps.
 - Refresh `config/improvement_cases.yaml`,
   `config/hygiene_policy.yaml`,
   `docs/SESSION_HANDOFF.md`, and
   `docs/agentic_architecture_index.md`
   to match the final measured file sizes and owner routing.
+- Create a fresh standalone follow-on for the largest remaining blocker,
+  `app/services/evidence_manifest_traces.py`, instead of leaving the broader
+  case with only a generic reroute note.
 - If the broader owner case still includes
   `evidence_manifest_traces.py`,
   `evidence_manifests.py`, or
@@ -598,6 +709,33 @@ Acceptance:
 - broader case status is honest and fully synchronized across registry,
   hygiene, index, and handoff
 
+Closeout evidence:
+
+- satisfied locally in the current checkout:
+  `app/services/evidence_technical_report_exports.py` now measures `45` lines,
+  `app/services/evidence_claim_feedback.py` now measures `48` lines,
+  `app/services/evidence_semantic_trace.py` measures `36` lines, and
+  `app/services/evidence_audit_views.py` measures `19` lines
+- the focused evidence-owner unit slice passed at `81 passed`
+- the focused technical-report and evidence integration slice passed at
+  `9 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` passed at
+  `2018 passed`
+- hotspot-prevention strict, hygiene, improvement-case validate and summary,
+  capability contracts, architecture inspection, architecture quality summary,
+  the architecture probe, `ruff`, and `git diff --check` all passed on the
+  closeout checkout
+- `config/hygiene_policy.yaml` now ratchets all four selected seams to their
+  exact current line counts with `0` private-helper budget
+- the later replay-alert follow-on now reduces
+  `app/services/evidence_claim_support_replay_alerts.py` to `407` lines,
+  adds `app/services/evidence_claim_support_replay_alert_corpus.py` at `128`,
+  and leaves no governed evidence owner above budget in the local checkout
+- the latest resolved bounded evidence-owner follow-on is now
+  `docs/evidence_claim_support_replay_alerts_boundary_milestone_plan.md`, and
+  the current broader repo active bounded packet is now
+  `docs/hotspot_prevention_family_boundary_milestone_plan.md`
+
 ## Required Implementation Artifacts
 
 - focused technical-report export owner modules under
@@ -606,7 +744,7 @@ Acceptance:
   `app/services/evidence_claim_feedback_*.py`
 - focused semantic-trace owner modules under
   `app/services/evidence_semantic_trace_*.py`
-- focused audit owner modules under `app/services/evidence_audit_*.py`
+- focused audit owner modules under `app/services/evidence_audit_views_*.py`
 - dedicated unit suites:
   `tests/unit/test_evidence_claim_feedback.py`,
   `tests/unit/test_evidence_semantic_trace.py`, and
@@ -630,7 +768,7 @@ Acceptance:
 ## Required Verification Gates
 
 - `git diff --check`
-- `uv run ruff check app/services/evidence.py app/services/evidence_technical_report_exports.py app/services/evidence_semantic_trace.py app/services/evidence_claim_feedback.py app/services/evidence_audit_views.py app/services/evidence_release_readiness.py app/services/evidence_technical_report_context.py app/services/evidence_provenance.py app/services/evidence_records.py app/services/evidence_search_closure.py app/services/semantic_governance.py app/hotspot_prevention_classifier.py tests/unit/test_evidence_technical_report_exports.py tests/unit/test_evidence_claim_feedback.py tests/unit/test_evidence_semantic_trace.py tests/unit/test_evidence_audit_views.py tests/unit/test_evidence_facade_contract.py tests/unit/test_technical_reports.py tests/unit/test_hotspot_prevention.py`
+- `uv run ruff check app/services/evidence.py app/services/evidence_technical_report_exports.py app/services/evidence_semantic_trace.py app/services/evidence_semantic_trace_integrity.py app/services/evidence_semantic_trace_payloads.py app/services/evidence_semantic_trace_provenance.py app/services/evidence_semantic_trace_source_records.py app/services/evidence_claim_feedback.py app/services/evidence_audit_views.py app/services/evidence_audit_views_bundle.py app/services/evidence_audit_views_context.py app/services/evidence_audit_views_payloads.py app/services/evidence_audit_views_release_readiness.py app/services/evidence_release_readiness.py app/services/evidence_technical_report_context.py app/services/evidence_provenance.py app/services/evidence_records.py app/services/evidence_search_closure.py app/services/semantic_governance.py app/hotspot_prevention_classifier.py tests/unit/test_evidence_technical_report_exports.py tests/unit/test_evidence_claim_feedback.py tests/unit/test_evidence_semantic_trace.py tests/unit/test_evidence_audit_views.py tests/unit/test_evidence_facade_contract.py tests/unit/test_technical_reports.py tests/unit/test_hotspot_prevention.py`
 - `uv run pytest -q tests/unit/test_evidence_technical_report_exports.py tests/unit/test_evidence_claim_feedback.py tests/unit/test_evidence_semantic_trace.py tests/unit/test_evidence_audit_views.py tests/unit/test_evidence_facade_contract.py tests/unit/test_technical_reports.py tests/unit/test_hotspot_prevention.py`
 - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_technical_report_harness_roundtrip.py tests/integration/test_technical_report_harness_integrity.py tests/integration/test_technical_report_harness_source_evidence.py tests/integration/test_technical_report_harness_audit_surfaces.py tests/integration/test_semantic_governance_ledger.py tests/integration/test_retrieval_learning_ledger.py tests/integration/test_evidence_operator_runs_roundtrip.py`
 - `uv run docling-system-hotspot-prevention-check --strict`
@@ -687,20 +825,22 @@ Acceptance:
 
 ## Residual Risks And Next Routing
 
-- The live `IC-65AF4A6D8B1E` case is broader than the selected excerpt. Even if
-  this packet resolves the selected four files, the broader case may still need
-  a follow-on for
-  `app/services/evidence_manifest_traces.py`,
-  `app/services/evidence_manifests.py`, and
-  `app/services/evidence_claim_support_replay_alerts.py`.
+- The live `IC-65AF4A6D8B1E` case was broader than the selected excerpt at the
+  time this packet closed locally. The later manifest-trace, manifest-owner,
+  and replay-alert follow-ons now close those remaining evidence seams in the
+  local checkout.
 - The architecture-quality summary may continue to mention
   `app/services/evidence.py` because of public fan-in even after selected-owner
   closure. That is acceptable only if the file remains a demonstrably narrow
   compatibility seam and the selected owner modules themselves are within
   budget.
-- The immediate next implementation slice is Milestone 5,
-  `Semantic Trace Integrity And Provenance Edge Boundary`.
-- If the broader case remains open after Milestone 7, the next packet should
-  start from the largest live blocker at the fresh closeout baseline,
-  currently `app/services/evidence_manifest_traces.py`, not from the already
-  closed evidence facade or provenance-export seams.
+- The later manifest-owner packet closes at `370 / 384`, and the later
+  replay-alert packet closes at `407 / 128`.
+- No further bounded evidence-owner follow-on remains after those successors.
+  The replay-alert packet is now the latest resolved evidence follow-on, and
+  broader routing currently runs through
+  `docs/hotspot_prevention_family_boundary_milestone_plan.md`; after that
+  packet commits, routing should return to
+  `docs/boring_change_architecture_milestone_plan.md`, not back to the already
+  closed evidence facade, provenance-export, manifest-trace, or manifest-owner
+  seams.

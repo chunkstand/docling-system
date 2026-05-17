@@ -1,6 +1,6 @@
 # Session Handoff
 
-Date: 2026-05-15 local / 2026-05-15 UTC
+Date: 2026-05-16 local / 2026-05-16 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
@@ -74,17 +74,148 @@ remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
 remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
 Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
+The app large owner modules follow-on is now resolved locally in the working
+tree through the Milestone 9 closeout pass. The routed selected-root owner
+cases are
+`IC-9A0332D41F79` for `app/services/docling_parser.py`,
+`IC-33B4990DC366` for `app/services/quality.py`,
+`IC-8AFAD4A415CA` for `app/services/runs.py`,
+`IC-865AB8419D55` for `app/services/semantic_graph.py`,
+`IC-649D7B4E3AB5` for `app/services/semantic_candidates.py`,
+`IC-A92BA42C6D18` for `app/services/semantic_generation.py`, and refreshed
+`IC-81C531769EB3` for `app/services/semantic_governance.py`. Accepted routed
+residual owner-family cases now remain open as `IC-6F4E2B5A91C3` for
+`app/services/semantic_generation_brief.py` at `644` lines and
+`IC-C8D41A2F77BE` for `app/services/semantic_graph_core.py` at `697` lines
+plus `app/services/semantic_graph_promotions.py` at `718` lines. The selected
+roots now measure `199`, `15`, `404`, `120`, `91`, `39`, and `185` lines for
+`docling_parser.py`, `quality.py`, `runs.py`, `semantic_candidates.py`,
+`semantic_generation.py`, `semantic_governance.py`, and `semantic_graph.py`
+respectively. The broader current working tree has since been revalidated
+after the evidence-owner closeout: `git diff --check` passed,
+`uv run ruff check app/services app/api tests/unit tests/integration config`
+passed, `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` passed at
+`2018 passed`, `uv run docling-system-hotspot-prevention-check --strict`
+reported `changed_hotspots=0` and `blocked=0`,
+`uv run docling-system-improvement-case-validate` returned `valid=true`,
+`uv run docling-system-improvement-case-summary` reported `case_count=49`,
+`status_counts.open=33`, and `measured_case_count=44`,
+`uv run docling-system-hygiene-check` reported `new hygiene regressions: none`,
+`uv run docling-system-architecture-quality-report --summary` reported
+`agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+`hotspot_count=10`, and `max_hotspot_risk_score=496.06`,
+`uv run docling-system-architecture-inspect` remained `valid=true` with
+`violation_count=0`, and the architecture probe now reports `3` Python cycle
+components with `29` code files above `800` lines while no selected closed
+owner regrew above its ratchet.
 Latest active bounded implementation brief:
-`docs/evidence_residual_owner_family_milestone_plan.md`
+`pending post-hotspot-prevention packet selection via docs/boring_change_architecture_milestone_plan.md`
 Latest resolved bounded implementation brief:
-`docs/claim_support_residual_owner_family_milestone_plan.md`
+`docs/hotspot_prevention_family_boundary_milestone_plan.md`
+Milestones 0 and 1 of `docs/boring_change_architecture_milestone_plan.md` are
+now resolved locally in the current checkout. The hotspot-prevention family
+packet is now resolved locally: `app/hotspot_prevention_classifier.py` is
+`360` lines / `1` private helper, the companion classifier owners now live in
+`app/hotspot_prevention_claim_support_rules.py` at `436 / 1`,
+`app/hotspot_prevention_classifier_service_rules.py` at `384 / 0`,
+`app/hotspot_prevention_classifier_boundary_rules.py` at `209 / 0`, and
+`app/hotspot_prevention_classifier_support.py` at `571 / 1`, and the test
+owner family now lives in `tests/unit/test_hotspot_prevention.py` at `595 / 0`
+plus `tests/unit/test_hotspot_prevention_family_rules.py` at `318 / 0`,
+`tests/unit/test_hotspot_prevention_wrapper_rules.py` at `296 / 0`, and
+`tests/unit/hotspot_prevention_test_support.py` at `50 / 2`. Focused
+verification is green: the hotspot-prevention Ruff slice passed, `uv run
+pytest -q tests/unit/test_hotspot_prevention.py
+tests/unit/test_hotspot_prevention_family_rules.py
+tests/unit/test_hotspot_prevention_wrapper_rules.py` passed at `40 passed`,
+`uv run docling-system-hotspot-prevention-check --strict` returned
+`changed_hotspots=0` and `blocked=0`, `uv run
+docling-system-improvement-case-validate` returned `valid=true`, `uv run
+docling-system-improvement-case-summary` still reports `case_count=49`,
+`status_counts.open=33`, `status_counts.deployed=15`, and
+`measured_case_count=44`, `uv run docling-system-hygiene-check` still reports
+`new hygiene regressions: none`, `uv run
+docling-system-architecture-quality-report --summary` still reports
+`hotspot_count=10` with `max_hotspot_risk_score=496.06`, and the architecture
+probe still reports `3` Python cycle components while dropping the code-file
+backlog from `29` to `27` files above `800`. The broader coordination brief
+remains `docs/boring_change_architecture_milestone_plan.md`, and its next
+fresh bounded packet should be selected from the refreshed post-closeout
+baseline. Current evidence favors a residual test-large-owner packet before
+reopening app or UI backlog because the hotspot-prevention family no longer
+appears in the `>800`-line queue.
+The semantic pass lifecycle or reads follow-on now remains the prior resolved
+bounded implementation brief:
+`docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md`: it refreshes
+the live post-replay-alert baseline, creates dedicated owner-case routing
+`IC-8304248AB64C` for `app/services/semantic_pass_lifecycle.py` and
+`IC-ADCFFF108626` for `app/services/semantic_pass_reads.py`, reduces
+`app/services/semantic_pass_lifecycle.py` to `529` lines / `3` private
+helpers by moving artifact ownership into
+`app/services/semantic_pass_artifacts.py` at `150` lines / `0` private
+helpers and keeping review and projection ownership in
+`app/services/semantic_pass_reviews.py` at `369` lines / `4` private helpers,
+reduces `app/services/semantic_pass_reads.py` to `372` lines / `3` private
+helpers by moving source materialization and record shaping into
+`app/services/semantic_pass_source_records.py` at `415` lines / `4` private
+helpers, and marks the older
+`docs/semantic_residual_owner_family_milestone_plan.md` draft as superseded by
+this narrower lifecycle/read packet. Milestone 5 now closes the selected
+owner-family packet locally: the full DB-backed closeout gate passed at
+`2037 passed`, the broader `IC-9E6B8F5D62A1` case plus selected owner cases
+`IC-8304248AB64C` and `IC-ADCFFF108626` are now retirement-ready pending an
+atomic commit, and the broader repo routing has now advanced to the
+hotspot-prevention family packet. Focused semantic verification is green:
+`uv run pytest -q tests/unit/test_semantic_pass_lifecycle.py tests/unit/test_semantic_pass_reads.py ... tests/unit/test_semantic_graph.py`
+passed at `108 passed`,
+`DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs ...test_semantic_backfill_roundtrip.py`
+passed at `8 passed`, the Milestone 4 focused read closeout slice passed at
+`21 passed` plus `2 passed`, the final full DB-backed suite passed at
+`2037 passed`, and the architecture probe still reports `3`
+Python cycle components.
+The replay-alert evidence follow-on now remains the latest resolved bounded
+evidence-owner packet in the current checkout. Its planned local closeout is
+still resolved in the current checkout. `app/services/evidence_claim_support_replay_alerts.py`
+now measures `407` lines / `4` private helpers, replay-alert fixture-corpus
+snapshot lineage now lives in
+`app/services/evidence_claim_support_replay_alert_corpus.py` at `128` lines /
+`0` private helpers, the manifest-owner predecessor remains reduced at `370`
+lines with payload assembly in `app/services/evidence_manifest_payloads.py` at
+`384`, and the broader `IC-65AF4A6D8B1E` evidence owner family now has no
+governed file above the default `600`-line budget in the local checkout. The
+focused owner suite now lives in
+`tests/unit/test_evidence_claim_support_replay_alerts.py` and adds shared
+governance reuse, snapshot payload completeness, promotion-event indexing,
+facade re-export coverage, and the `<= 600` facade ratchet. Closeout
+verification is green: `uv run pytest -q
+tests/unit/test_evidence_claim_support_replay_alerts.py
+tests/unit/test_evidence_facade_contract.py
+tests/unit/test_replay_alert_waiver_integrity.py
+tests/unit/test_claim_support_policy_impacts.py
+tests/unit/test_technical_reports.py` passed at `24 passed`,
+`DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+tests/integration/test_technical_report_harness_integrity.py
+tests/integration/test_technical_report_harness_audit_surfaces.py
+tests/integration/test_multivector_retrieval.py` passed at `5 passed`,
+`uv run docling-system-hygiene-check` still reports `new hygiene regressions:
+none`, `uv run docling-system-improvement-case-summary` still reports
+`case_count=48`, `status_counts.open=32`, and `measured_case_count=43`, and
+the architecture probe still reports `3` Python cycle components with `29`
+code files above `800` lines. The broader evidence owner-family case is now
+locally retirement-ready pending an atomic commit of this packet.
 The broader coordination brief remains
-`docs/boring_change_architecture_milestone_plan.md`. Milestone 0 of the
-active evidence-owner packet is now resolved locally through closeout commit
-`44bec70`, and Milestone 1 is resolved locally through closeout commit
-`d9d79ef`: `app/services/evidence_technical_report_exports.py` now measures
-`396` lines after moving release-binding and audit-bundle or receipt lookup
-plus provenance-lock assembly into
+`docs/boring_change_architecture_milestone_plan.md`, but the just-closed
+selected evidence packet is now the narrower standalone evidence-owner packet
+for
+`app/services/evidence_technical_report_exports.py`,
+`app/services/evidence_semantic_trace.py`,
+`app/services/evidence_claim_feedback.py`, and
+`app/services/evidence_audit_views.py`. Milestone 0 is now resolved locally
+through closeout commit `44bec70` for that evidence packet, and Milestone 1 is
+resolved locally through closeout commit `d9d79ef`:
+`app/services/evidence_technical_report_exports.py` now measures `396` lines
+after moving release-binding and audit-bundle or
+receipt lookup plus provenance-lock assembly into
 `app/services/evidence_technical_report_export_provenance_locks.py` at `426`
 lines and claim-derivation contract mismatch helpers into
 `app/services/evidence_technical_report_export_contracts.py` at `112` lines.
@@ -94,36 +225,77 @@ moving derivation package shaping and claim-derivation row payload shaping into
 `app/services/evidence_technical_report_export_payloads.py` at `258` lines and
 export persistence plus attachment helpers into
 `app/services/evidence_technical_report_export_lifecycle.py` at `138` lines.
-Milestone 4 is now resolved locally through closeout commit `3e033fc`:
-`app/services/evidence_claim_feedback.py` measures `47` lines after moving
+Milestone 3 is resolved locally through closeout commit `245dc9f`:
+`app/services/evidence_claim_feedback.py` measures `498` lines after moving
+verdict classification, retrieval-context materialization, evidence-ref
+shaping, and desired-row payload construction into
+`app/services/evidence_claim_feedback_payloads.py` at `376` lines.
+Milestone 4 is resolved locally through closeout commit `3e033fc`:
+`app/services/evidence_claim_feedback.py` now measures `47` lines after moving
 claim-retrieval row payload shaping plus row and integrity summary reporting
-into `app/services/evidence_claim_feedback_integrity.py` at `305` lines and row
-lookup plus append-only live-link enforcement and ledger persistence into
-`app/services/evidence_claim_feedback_lifecycle.py` at `215` lines.
-The selected packet remains intentionally narrower than the broader
-`IC-65AF4A6D8B1E` owner case because
-`app/services/evidence_semantic_trace.py`,
-`app/services/evidence_audit_views.py`,
-`app/services/evidence_manifest_traces.py`,
+into `app/services/evidence_claim_feedback_integrity.py` at `305` lines and
+row lookup plus append-only live-link enforcement and ledger persistence into
+`app/services/evidence_claim_feedback_lifecycle.py` at `215` lines. The current
+checkout now measures `48` lines after the later no-behavior seam-ratchet
+closeout.
+Milestone 5 is resolved locally in the current checkout:
+`app/services/evidence_semantic_trace.py` now measures `36` lines after moving
+technical-report derivation integrity recomputation into
+`app/services/evidence_semantic_trace_integrity.py` at `149` lines,
+semantic-trace payload assembly into
+`app/services/evidence_semantic_trace_payloads.py` at `182` lines,
+source-record shaping into
+`app/services/evidence_semantic_trace_source_records.py` at `109` lines, and
+provenance-edge assembly into
+`app/services/evidence_semantic_trace_provenance.py` at `444` lines.
+The semantic-trace public surface remains stable for
+`app/services/evidence.py`,
 `app/services/evidence_manifests.py`, and
-`app/services/evidence_claim_support_replay_alerts.py`
-still measure `837`, `699`, `980`, `725`, and `646`, while the claim-feedback
-public surface remains stable for `app/services/evidence.py`,
-`app/services/evidence_audit_views.py`,
-`app/services/evidence_manifests.py`, and
-`app/services/evidence_provenance_export_lifecycle.py`. Milestone 4
-verification is green: `git diff --check`, focused claim-feedback `ruff`, the
-focused claim-feedback and adjacent-caller unit slice at `37 passed`, the
-focused audit and retrieval-learning integration slice at `6 passed`,
-`DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` at `2009 passed`,
-hotspot-prevention strict, capability contracts, improvement-case validate or
-summary, hygiene, architecture inspection, architecture quality summary, and
-the architecture probe all passed on the post-split checkout. Milestone 5,
-`Semantic Trace Integrity And Provenance Edge Boundary`, is now the next
-implementation slice for the evidence packet because technical-report
-derivation integrity recomputation, semantic trace materialization,
-source-record shaping, evidence-card source record shaping, and provenance-edge
-expansion still cohabit in `app/services/evidence_semantic_trace.py`.
+`app/services/evidence_audit_views.py` because the existing imports still
+route through `app/services/evidence_semantic_trace.py`.
+Milestone 6 is resolved locally in the current checkout:
+`app/services/evidence_audit_views.py` now measures `19` lines after moving
+the main audit-bundle aggregation into
+`app/services/evidence_audit_views_bundle.py` at `482` lines, context-pack
+audit reads into `app/services/evidence_audit_views_context.py` at `115`
+lines, receipt payload shaping into
+`app/services/evidence_audit_views_payloads.py` at `26` lines, and
+release-readiness DB-gate persistence plus governance-event backfill into
+`app/services/evidence_audit_views_release_readiness.py` at `136` lines.
+The audit-view public surface remains stable for
+`app/services/evidence.py`,
+`app/services/evidence_manifests.py`,
+`app/services/evidence_provenance_export_lifecycle.py`,
+`app/services/capabilities/agent_orchestration.py`, and
+`app/api/routers/agent_tasks.py` because the existing imports still route
+through `app/services/evidence_audit_views.py`.
+The selected residual evidence packet, manifest-trace follow-on, and
+manifest-owner follow-on all remain resolved locally in the current checkout.
+`app/services/evidence_technical_report_exports.py`,
+`app/services/evidence_claim_feedback.py`,
+`app/services/evidence_semantic_trace.py`, and
+`app/services/evidence_audit_views.py` remain closed at `45`, `48`, `36`, and
+`19` lines / `0` private helpers respectively;
+`app/services/evidence_manifest_traces.py` remains closed at `203` lines with
+focused siblings at `204`, `461`, and `244`; and
+`app/services/evidence_manifests.py` remains closed at `370` lines with
+payload assembly in `app/services/evidence_manifest_payloads.py` at `384`.
+The replay-alert follow-on now closes the last live over-budget evidence root:
+`app/services/evidence_claim_support_replay_alerts.py` is reduced to `407`
+lines / `4` private helpers, the new
+`app/services/evidence_claim_support_replay_alert_corpus.py` owner measures
+`128` lines / `0` private helpers, and the broader
+`IC-65AF4A6D8B1E` case now has no governed owner above budget in the current
+checkout. This leaves the broader case open only as an uncommitted
+retirement-ready route rather than as a still-blocked live evidence split.
+The older semantic residual draft at
+`docs/semantic_residual_owner_family_milestone_plan.md` is now explicitly
+superseded by
+`docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md`: the stale
+draft predates the app large owner closeout that reduced
+`app/services/semantic_governance.py` to `39` lines, while the remaining live
+semantic pass residuals are now routed under `IC-8304248AB64C` and
+`IC-ADCFFF108626`.
 The hygiene owner-case routing packet is now resolved locally through closeout
 commit `9876f67`. Its Milestone 0 refresh is committed locally as `08a1a75`,
 Milestone 1 owner-case bootstrap is committed locally as `d4f082c` through
@@ -363,12 +535,13 @@ public evidence facade, the agent-orchestration capability seam, and
 hotspot-prevention now blocks provenance graph, report-lineage, lifecycle, and
 governance change-impact regrowth in the facade.
 
-The broader evidence owner case `IC-65AF4A6D8B1E` remains reduced rather than
-retired because `app/services/evidence_technical_report_exports.py` measures
-884 lines, `app/services/evidence_semantic_trace.py` 837,
+At the 2026-05-13 provenance-export checkpoint, the broader evidence owner
+case `IC-65AF4A6D8B1E` still remained reduced rather than retired because
+`app/services/evidence_technical_report_exports.py` measured 884 lines,
+`app/services/evidence_semantic_trace.py` 837,
 `app/services/evidence_claim_feedback.py` 834, and
 `app/services/evidence_audit_views.py` 699. The hotspot-prevention classifier
-follow-up case `IC-6C1B516A3F92` also remains open after the semantics gate
+follow-up case `IC-6C1B516A3F92` also remained open after the semantics gate
 and later CLI Milestone 1 facade-prevention ratchet expanded the classifier;
 the oversized-test closeout then split shared classification helpers into
 `app/hotspot_prevention_classifier_support.py`, leaving
@@ -379,12 +552,20 @@ through closeout commit `a2eb27e`. The scoped semantics service-boundary
 knot under `IC-9E6B8F5D62A1` is resolved: `app/services/semantics.py` is now a
 54-line / 0-private-helper compatibility facade, semantic pass lifecycle
 ownership now lives in `app/services/semantic_pass_lifecycle.py` at
-961 lines / 10 private helpers, active-pass row/detail/continuity reads now
-live in `app/services/semantic_pass_reads.py` at 762 lines / 13 private
-helpers, and registry preview ownership now lives in
+529 lines / 3 private helpers after the later lifecycle or reads follow-on
+moved artifact ownership into
+`app/services/semantic_pass_artifacts.py` at 150 lines / 0 private helpers
+and review and projection ownership into
+`app/services/semantic_pass_reviews.py` at 369 lines / 4 private helpers,
+active-pass row/detail/continuity reads now live in
+`app/services/semantic_pass_reads.py` at 372 lines / 3 private helpers after
+the later read materialization split moved source materialization and record
+shaping into `app/services/semantic_pass_source_records.py` at 415 lines / 4
+private helpers, and registry preview ownership now lives in
 `app/services/semantic_registry_preview.py` at 558 lines / 5 private helpers.
-The broader owner case remains reduced/open because the extracted lifecycle
-and read owners still exceed the default 600-line budget even though the
+The broader owner case is now locally retirement-ready pending an atomic
+closeout commit because the extracted lifecycle, artifact, review, read, and
+source-record owners are all under budget locally even though the
 architecture probe no longer lists the semantics facade among the top 12 churn
 hotspots.
 
@@ -879,11 +1060,17 @@ Results:
 - refreshed `config/hygiene_policy.yaml` and `config/improvement_cases.yaml`
   so the facade, extracted owners, and classifier follow-on all reflect the
   live post-split state
-- kept the broader owner case reduced/open because
-  `app/services/semantic_pass_lifecycle.py` measures 961 lines and
-  `app/services/semantic_pass_reads.py` measures 762 lines, both still above
-  the default 600-line budget, and routed the next active brief to
-  `docs/cli_command_dispatch_boundary_milestone_plan.md`
+- later lifecycle/read follow-on work now reduces
+  `app/services/semantic_pass_lifecycle.py` to 529 lines / 3 private helpers,
+  `app/services/semantic_pass_reads.py` to 372 lines / 3 private helpers,
+  moves artifact ownership into
+  `app/services/semantic_pass_artifacts.py` at 150 lines / 0 private helpers,
+  keeps review and projection ownership in
+  `app/services/semantic_pass_reviews.py` at 369 lines / 4 private helpers,
+  and moves read source materialization or record shaping into
+  `app/services/semantic_pass_source_records.py` at 415 lines / 4 private
+  helpers, leaving the broader semantic owner family locally
+  retirement-ready pending an atomic closeout commit
 - local closeout commit:
   `a2eb27e`
 

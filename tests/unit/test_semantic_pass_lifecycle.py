@@ -5,7 +5,9 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import app.services.semantics as semantics
+from app.services import semantic_pass_artifacts as artifact_owner
 from app.services import semantic_pass_lifecycle as lifecycle
+from app.services import semantic_pass_reviews as review_owner
 
 
 def test_semantics_facade_forwards_lifecycle_entrypoints() -> None:
@@ -16,6 +18,25 @@ def test_semantics_facade_forwards_lifecycle_entrypoints() -> None:
         is lifecycle.review_active_semantic_assertion_category_binding
     )
     assert semantics.latest_concept_review_overlays is lifecycle.latest_concept_review_overlays
+
+
+def test_lifecycle_root_reexports_review_owner_entrypoints() -> None:
+    assert (
+        lifecycle.review_active_semantic_assertion
+        is review_owner.review_active_semantic_assertion
+    )
+    assert (
+        lifecycle.review_active_semantic_assertion_category_binding
+        is review_owner.review_active_semantic_assertion_category_binding
+    )
+    assert lifecycle.latest_concept_review_overlays is review_owner.latest_concept_review_overlays
+    assert lifecycle.latest_category_review_overlays is review_owner.latest_category_review_overlays
+    assert lifecycle._semantic_artifact_payload is artifact_owner.semantic_artifact_payload
+
+    with open(lifecycle.__file__, encoding="utf-8") as handle:
+        line_count = sum(1 for _ in handle)
+
+    assert line_count <= 600
 
 
 def test_semantic_artifact_payload_includes_registry_evaluation_and_continuity() -> None:

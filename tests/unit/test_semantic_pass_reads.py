@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import app.services.semantics as semantics
 from app.services import semantic_pass_reads as read_owners
+from app.services import semantic_pass_source_records as source_record_owner
 
 
 def test_semantics_facade_forwards_read_owner_symbols() -> None:
@@ -17,6 +18,31 @@ def test_semantics_facade_forwards_read_owner_symbols() -> None:
         facade_line_count = sum(1 for _ in handle)
 
     assert facade_line_count <= 600
+
+
+def test_read_root_reexports_source_record_owner_symbols() -> None:
+    assert read_owners.SemanticSourceItem is source_record_owner.SemanticSourceItem
+    assert read_owners.SemanticReviewOverlay is source_record_owner.SemanticReviewOverlay
+    assert read_owners.assertion_records is source_record_owner.assertion_records
+    assert (
+        read_owners.concept_category_binding_records
+        is source_record_owner.concept_category_binding_records
+    )
+    assert (
+        read_owners.details_with_review_overlay
+        is source_record_owner.details_with_review_overlay
+    )
+    assert read_owners.build_semantic_sources is source_record_owner.build_semantic_sources
+    assert (
+        read_owners.materialize_semantic_assertions
+        is source_record_owner.materialize_semantic_assertions
+    )
+    assert read_owners.source_artifact_api_path is source_record_owner.source_artifact_api_path
+
+    with open(read_owners.__file__, encoding="utf-8") as handle:
+        line_count = sum(1 for _ in handle)
+
+    assert line_count <= 400
 
 
 def test_details_with_review_overlay_adds_and_clears_overlay() -> None:

@@ -87,6 +87,58 @@ _CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ROUTES: tuple[ClaimSupportRouteRule, ...] = 
     ),
 )
 
+_CLAIM_SUPPORT_POLICY_IMPACTS_ROUTES: tuple[ClaimSupportRouteRule, ...] = (
+    (
+        (
+            r"(async def |def )_replay_closure_",
+            r"(async def |def )_record_replay_closure_governance_event",
+        ),
+        lambda lowered: "claim_support_policy_impact_replay_closure" in lowered,
+        "replay_closure_receipt_logic",
+        "replay closure receipts belong in claim_support_policy_impact_replay.py",
+    ),
+    (
+        (
+            r"(async def |def )_(alert_|fresh_alert_worklist_item)",
+            (
+                r"(async def |def )_("
+                r"record_alert_escalation_event|"
+                r"refresh_existing_evidence_manifests_for_alert_item)"
+            ),
+            r"(async def |def )claim_support_policy_change_impact_alerts",
+            r"(async def |def )record_claim_support_policy_change_impact_alert_escalations",
+        ),
+        lambda lowered: "alert" in lowered and "worklist" in lowered,
+        "alert_projection_or_escalation_logic",
+        "alert projection and escalation logic belong in claim_support_policy_impact_views.py",
+    ),
+    (
+        (
+            r"(async def |def )_(verify_replay_|replay_response|validated_replay_work_items)",
+            r"(async def |def )_(recommended_source_task|created_task_spec|queue_agent_task)",
+            r"(async def |def )queue_claim_support_policy_change_impact_replay_tasks",
+            r"(async def |def )refresh_claim_support_policy_change_impact_replay_status",
+            r"(async def |def )refresh_claim_support_policy_change_impacts_for_replay_task",
+        ),
+        lambda lowered: "replay" in lowered
+        and any(token in lowered for token in ("queue", "refresh", "closure")),
+        "replay_lifecycle_logic",
+        "replay queueing and refresh logic belong in claim_support_policy_impact_replay.py",
+    ),
+    (
+        (
+            r"(async def |def )_(uuid_list|get_impact_row|impact_response|hours_since|worklist_)",
+            r"(async def |def )list_claim_support_policy_change_impacts",
+            r"(async def |def )summarize_claim_support_policy_change_impacts",
+            r"(async def |def )claim_support_policy_change_impact_worklist",
+            r"(async def |def )get_claim_support_policy_change_impact",
+        ),
+        lambda lowered: False,
+        "read_model_worklist_logic",
+        "claim-support read-model logic belongs in claim_support_policy_impact_views.py",
+    ),
+)
+
 _CLAIM_SUPPORT_REPLAY_ALERT_PROMOTION_ROUTES: tuple[ClaimSupportRouteRule, ...] = (
     (
         (
@@ -304,6 +356,22 @@ def classify_claim_support_policy_impact_replay_addition(
         routes=_CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ROUTES,
         fallback_message=(
             "new claim-support replay helpers belong in focused replay owner modules"
+        ),
+    )
+
+
+def classify_claim_support_policy_impacts_addition(
+    *,
+    stripped: str,
+    line: ChangedLine,
+) -> ClassifiedLine | None:
+    return _claim_support_route_decision(
+        stripped=stripped,
+        line=line,
+        routes=_CLAIM_SUPPORT_POLICY_IMPACTS_ROUTES,
+        fallback_message=(
+            "new claim-support policy impact service behavior belongs in "
+            "claim_support_policy_impact_*.py"
         ),
     )
 

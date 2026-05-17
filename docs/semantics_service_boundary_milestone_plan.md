@@ -8,14 +8,24 @@ local / 2026-05-14 UTC after
 `docs/evaluations_service_boundary_milestone_plan.md`, and
 `docs/evidence_provenance_exports_boundary_milestone_plan.md` all closed
 first. Milestones 0-5 completed, `app/services/semantics.py` is now a 54-line
-compatibility facade, and the broader `IC-9E6B8F5D62A1` owner case remains
-reduced/open because `app/services/semantic_pass_lifecycle.py` at 961 lines
-and `app/services/semantic_pass_reads.py` at 762 lines still exceed the
-default 600-line budget.
-Owner context: local closeout under `IC-9E6B8F5D62A1`; the next routed
-residual semantic owner surface is `app/services/semantic_pass_lifecycle.py`
-at 961 lines, and `docs/cli_command_dispatch_boundary_milestone_plan.md` is
-now the next active bounded implementation brief.
+compatibility facade, and the broader `IC-9E6B8F5D62A1` owner case is now
+locally retirement-ready pending commit because the later lifecycle
+or reads follow-on now keeps
+`app/services/semantic_pass_lifecycle.py` at 529 lines,
+`app/services/semantic_pass_reads.py` at 372 lines, the extracted lifecycle
+artifact owner `app/services/semantic_pass_artifacts.py` at 150 lines, and the
+extracted review or projection owner `app/services/semantic_pass_reviews.py`
+at 369 lines while the extracted read source-record owner now also lives in
+`app/services/semantic_pass_source_records.py` at 415 lines and all governed
+semantic owners are under the default 600-line budget or the 800-line
+secondary owner ceiling.
+Owner context: local closeout under `IC-9E6B8F5D62A1`; the lifecycle/read
+follow-on is now the latest resolved bounded semantic packet in
+`docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md`, where
+Milestones 0 through 5 are resolved locally and the broader semantic owner
+family is retirement-ready pending commit. The broader repo current active
+bounded follow-on now routes through
+`docs/hotspot_prevention_family_boundary_milestone_plan.md`.
 
 ## Local Closeout Summary
 
@@ -25,27 +35,41 @@ now the next active bounded implementation brief.
   the active bounded implementation brief before the semantics split landed.
 - Milestones 1-4 added explicit semantics owner-case and hotspot-prevention
   governance, extracted semantic pass lifecycle ownership into
-  `app/services/semantic_pass_lifecycle.py` at 961 lines / 10 private
-  helpers, active-pass row/detail/continuity reads into
-  `app/services/semantic_pass_reads.py` at 762 lines / 13 private helpers, and
-  registry preview ownership into
+  `app/services/semantic_pass_lifecycle.py`, active-pass
+  row/detail/continuity reads into
+  `app/services/semantic_pass_reads.py`, and registry preview ownership into
   `app/services/semantic_registry_preview.py` at 558 lines / 5 private
   helpers.
 - `app/services/semantics.py` is now a 54-line compatibility facade that only
   re-exports the stable semantics surface and preserves the registry-preview
   forwarding wrapper through an allowed facade seam.
+- The later semantic lifecycle or reads follow-on now reduces
+  `app/services/semantic_pass_lifecycle.py` to 529 lines / 3 private helpers,
+  moves semantic artifact ownership into
+  `app/services/semantic_pass_artifacts.py` at 150 lines / 0 private helpers,
+  and moves review or projection ownership into
+  `app/services/semantic_pass_reviews.py` at 369 lines / 4 private helpers,
+  reduces `app/services/semantic_pass_reads.py` to 372 lines / 3 private
+  helpers, and moves source materialization or record shaping into
+  `app/services/semantic_pass_source_records.py` at 415 lines / 4 private
+  helpers.
 - Route, capability, worker, and backfill behavior remained stable through the
   existing semantics surface while the split added focused owner coverage in
   `tests/unit/test_semantic_pass_lifecycle.py`,
   `tests/unit/test_semantic_pass_reads.py`, and
   `tests/unit/test_semantic_registry_preview.py`.
-- The broader owner case remains reduced/open because the extracted lifecycle
-  and read owners still exceed the default 600-line budget even though the
-  architecture probe no longer lists `app/services/semantics.py` among the top
-  12 churn hotspots.
-- The hotspot-prevention classifier follow-on case `IC-6C1B516A3F92` remains
-  open after the new strict semantics gate expanded
-  `app/hotspot_prevention_classifier.py` to 850 lines.
+- The broader owner case is now locally retirement-ready pending commit
+  because the extracted lifecycle, read, artifact, review, and read
+  source-record owners are all under budget, and the latest architecture
+  probe no longer lists the semantic runtime family inside the current
+  three-component Python cycle baseline.
+- The broader repo has now advanced to the hotspot-prevention family follow-on
+  in `docs/hotspot_prevention_family_boundary_milestone_plan.md`, where
+  `IC-6C1B516A3F92` currently governs
+  `app/hotspot_prevention_classifier.py` at `999` lines / `1` private helper
+  and companion test routing now also lives under `IC-15F6E41A9C77` for
+  `tests/unit/test_hotspot_prevention.py` at `1244` lines / `2` private
+  helpers.
 
 ## Local Verification
 

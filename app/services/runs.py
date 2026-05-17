@@ -1,41 +1,46 @@
 from __future__ import annotations
 
-import hashlib
-import json
-import threading
 import time
-import uuid
-from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
 from uuid import UUID
 
-import yaml
-from sqlalchemy import Select, and_, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings, semantics_feature_enabled
 from app.core.logging import get_logger
-from app.core.time import utcnow
-from app.db.models import (
-    Document,
-    DocumentChunk,
-    DocumentFigure,
-    DocumentRun,
-    DocumentTable,
-    DocumentTableSegment,
-    RunStatus,
-)
-from app.services.docling_parser import DoclingParser, ParsedDocument, ParsedFigure, ParsedTable
+from app.db.models import Document, DocumentRun
+from app.services import run_persistence as _run_persistence
+from app.services import run_post_promotion as _run_post_promotion
+from app.services.docling_parser import DoclingParser, ParsedDocument
 from app.services.embeddings import EmbeddingProvider, get_embedding_provider
 from app.services.evaluations import (
     evaluate_run,
     resolve_baseline_run_id,
 )
 from app.services.retrieval_spans import rebuild_retrieval_evidence_spans
-from app.services.run_failure_artifacts import write_failure_artifact
+from app.services.run_leases import (
+    claim_next_run as claim_next_run,
+)
+from app.services.run_leases import (
+    heartbeat_run as heartbeat_run,
+)
+from app.services.run_leases import (
+    is_retryable_error as is_retryable_error,
+)
+from app.services.run_leases import (
+    requeue_stale_runs as requeue_stale_runs,
+)
+from app.services.run_leases import (
+    run_lease_heartbeat as run_lease_heartbeat,
+)
+from app.services.run_post_promotion import (
+    finalize_run_failure as finalize_run_failure,
+)
+from app.services.run_post_promotion import (
+    finalize_run_success as finalize_run_success,
+)
 from app.services.runtime import (
     get_process_identity,
     runtime_code_is_current,
@@ -43,7 +48,7 @@ from app.services.runtime import (
 )
 from app.services.semantics import execute_semantic_pass
 from app.services.storage import StorageService
-from app.services.telemetry import increment, increment_many
+from app.services.telemetry import increment
 from app.services.validation import ValidationReport, validate_persisted_run
 
 
@@ -54,619 +59,14 @@ class ValidationError(ValueError):
 
 
 logger = get_logger(__name__)
-
-
-def is_retryable_error(exc: Exception) -> bool:
-    return not isinstance(exc, ValueError)
-
-
-def requeue_stale_runs(session: Session, storage_service: StorageService | None = None) -> int:
-    settings = get_settings()
-    stale_before = utcnow() - timedelta(seconds=settings.worker_lease_timeout_seconds)
-    stale_runs = session.execute(
-        select(DocumentRun).where(
-            DocumentRun.status.in_([RunStatus.PROCESSING.value, RunStatus.VALIDATING.value]),
-            DocumentRun.last_heartbeat_at.is_not(None),
-            DocumentRun.last_heartbeat_at < stale_before,
-        )
-    ).scalars()
-
-    updated = 0
-    for run in stale_runs:
-        run.locked_at = None
-        run.locked_by = None
-        run.last_heartbeat_at = None
-        if run.attempts >= settings.worker_max_attempts:
-            run.status = RunStatus.FAILED.value
-            run.completed_at = utcnow()
-            run.validation_status = "failed"
-            run.error_message = run.error_message or "Run exceeded max attempts after stale lease."
-            run.failure_stage = run.failure_stage or "stale_lease"
-            failure_path = write_failure_artifact(
-                storage_service,
-                None,
-                run,
-                RuntimeError(run.error_message),
-                failure_stage=run.failure_stage,
-            )
-            run.failure_artifact_path = str(failure_path) if failure_path is not None else None
-        else:
-            run.status = RunStatus.RETRY_WAIT.value
-            run.next_attempt_at = utcnow()
-        updated += 1
-
-    if updated:
-        session.commit()
-        logger.info("stale_runs_requeued", count=updated)
-
-    return updated
-
-
-def claim_next_run(session: Session, worker_id: str) -> DocumentRun | None:
-    now = utcnow()
-    eligible_query: Select[tuple[DocumentRun]] = (
-        select(DocumentRun)
-        .where(
-            or_(
-                DocumentRun.status == RunStatus.QUEUED.value,
-                and_(
-                    DocumentRun.status == RunStatus.RETRY_WAIT.value,
-                    or_(DocumentRun.next_attempt_at.is_(None), DocumentRun.next_attempt_at <= now),
-                ),
-            )
-        )
-        .order_by(DocumentRun.created_at)
-        .limit(1)
-        .with_for_update(skip_locked=True)
-    )
-    run = session.execute(eligible_query).scalar_one_or_none()
-    if run is None:
-        session.rollback()
-        return None
-
-    run.status = RunStatus.PROCESSING.value
-    run.locked_at = now
-    run.locked_by = worker_id
-    run.last_heartbeat_at = now
-    run.started_at = run.started_at or now
-    run.next_attempt_at = None
-    run.validation_status = "pending"
-    run.validation_results_json = {}
-    run.failure_stage = None
-    run.attempts += 1
-    session.commit()
-    session.refresh(run)
-    logger.info(
-        "run_claimed", run_id=str(run.id), document_id=str(run.document_id), worker_id=worker_id
-    )
-    return run
-
-
-def heartbeat_run(session: Session, run: DocumentRun) -> None:
-    run.last_heartbeat_at = utcnow()
-    session.commit()
-
-
-def _refresh_run_lease(session_factory, run_id: UUID, worker_id: str) -> bool:
-    with session_factory() as heartbeat_session:
-        result = heartbeat_session.execute(
-            update(DocumentRun)
-            .where(
-                DocumentRun.id == run_id,
-                DocumentRun.locked_by == worker_id,
-                DocumentRun.status.in_([RunStatus.PROCESSING.value, RunStatus.VALIDATING.value]),
-            )
-            .values(last_heartbeat_at=utcnow())
-        )
-        heartbeat_session.commit()
-        return bool(result.rowcount)
-
-
-@contextmanager
-def run_lease_heartbeat(run_id: UUID, *, worker_id: str | None):
-    from app.db.session import get_session_factory
-
-    settings = get_settings()
-    interval_seconds = settings.worker_heartbeat_seconds
-    if worker_id is None or interval_seconds <= 0:
-        yield
-        return
-
-    session_factory = get_session_factory()
-    stop_event = threading.Event()
-
-    def _loop() -> None:
-        while not stop_event.wait(interval_seconds):
-            try:
-                if not _refresh_run_lease(session_factory, run_id, worker_id):
-                    return
-            except Exception as exc:
-                logger.warning(
-                    "run_lease_heartbeat_failed",
-                    run_id=str(run_id),
-                    worker_id=worker_id,
-                    error=str(exc),
-                )
-
-    heartbeat_thread = threading.Thread(
-        target=_loop,
-        name=f"run-heartbeat-{run_id}",
-        daemon=True,
-    )
-    heartbeat_thread.start()
-    try:
-        yield
-    finally:
-        stop_event.set()
-        heartbeat_thread.join(timeout=max(1, interval_seconds))
-
-
-def _persist_parsed_artifacts(
-    storage_service: StorageService,
-    document: Document,
-    run: DocumentRun,
-    parsed: ParsedDocument,
-) -> tuple[Path, Path]:
-    json_path = storage_service.get_docling_json_path(document.id, run.id)
-    yaml_path = storage_service.get_yaml_path(document.id, run.id)
-    json_path.write_text(parsed.docling_json)
-    yaml_path.write_text(parsed.yaml_text)
-    return json_path, yaml_path
-
-
-def _persist_table_artifacts(
-    storage_service: StorageService,
-    document: Document,
-    run: DocumentRun,
-    table: ParsedTable,
-    *,
-    table_id: UUID,
-    logical_table_key: str | None,
-    created_at: datetime,
-) -> tuple[Path, Path, str, str]:
-    table_payload = table.artifact_payload(
-        document_id=str(document.id),
-        run_id=str(run.id),
-        table_id=str(table_id),
-        logical_table_key=logical_table_key,
-        created_at=created_at.isoformat(),
-    )
-    json_path = storage_service.get_table_json_path(document.id, run.id, table.table_index)
-    yaml_path = storage_service.get_table_yaml_path(document.id, run.id, table.table_index)
-    json_bytes = json.dumps(table_payload, indent=2).encode("utf-8")
-    yaml_bytes = yaml.safe_dump(table_payload, sort_keys=False, allow_unicode=True).encode("utf-8")
-    json_path.write_bytes(json_bytes)
-    yaml_path.write_bytes(yaml_bytes)
-    return (
-        json_path,
-        yaml_path,
-        hashlib.sha256(json_bytes).hexdigest(),
-        hashlib.sha256(yaml_bytes).hexdigest(),
-    )
-
-
-def _persist_figure_artifacts(
-    storage_service: StorageService,
-    document: Document,
-    run: DocumentRun,
-    figure: ParsedFigure,
-    *,
-    figure_id: UUID,
-    created_at: datetime,
-) -> tuple[Path, Path, str, str]:
-    figure_payload = figure.artifact_payload(
-        document_id=str(document.id),
-        run_id=str(run.id),
-        figure_id=str(figure_id),
-        created_at=created_at.isoformat(),
-    )
-    json_path = storage_service.get_figure_json_path(document.id, run.id, figure.figure_index)
-    yaml_path = storage_service.get_figure_yaml_path(document.id, run.id, figure.figure_index)
-    json_bytes = json.dumps(figure_payload, indent=2).encode("utf-8")
-    yaml_bytes = yaml.safe_dump(figure_payload, sort_keys=False, allow_unicode=True).encode("utf-8")
-    json_path.write_bytes(json_bytes)
-    yaml_path.write_bytes(yaml_bytes)
-    return (
-        json_path,
-        yaml_path,
-        hashlib.sha256(json_bytes).hexdigest(),
-        hashlib.sha256(yaml_bytes).hexdigest(),
-    )
-
-
-def _stable_table_key_source(table: ParsedTable) -> str | None:
-    if not table.title:
-        return None
-    return (
-        f"{table.title.strip().lower()}|{(table.heading or '').strip().lower()}|{table.col_count}"
-    )
-
-
-def _build_lineage_assignments(
-    session: Session, document: Document, parsed: ParsedDocument
-) -> dict[int, dict[str, object | None]]:
-    key_counts: dict[str, int] = {}
-    for table in parsed.tables:
-        source = _stable_table_key_source(table)
-        if source is not None:
-            key_counts[source] = key_counts.get(source, 0) + 1
-
-    previous_by_key: dict[str, DocumentTable] = {}
-    if document.active_run_id is not None:
-        previous_tables = (
-            session.execute(
-                select(DocumentTable).where(DocumentTable.run_id == document.active_run_id)
-            )
-            .scalars()
-            .all()
-        )
-        for previous in previous_tables:
-            if previous.logical_table_key:
-                previous_by_key[previous.logical_table_key] = previous
-
-    assignments: dict[int, dict[str, object | None]] = {}
-    for table in parsed.tables:
-        source = _stable_table_key_source(table)
-        if source is None or key_counts.get(source, 0) != 1:
-            assignments[table.table_index] = {
-                "logical_table_key": None,
-                "table_version": None,
-                "supersedes_table_id": None,
-                "lineage_group": None,
-            }
-            continue
-
-        logical_table_key = hashlib.sha256(source.encode("utf-8")).hexdigest()[:16]
-        previous = previous_by_key.get(logical_table_key)
-        assignments[table.table_index] = {
-            "logical_table_key": logical_table_key,
-            "table_version": (previous.table_version or 1) + 1 if previous else 1,
-            "supersedes_table_id": previous.id if previous else None,
-            "lineage_group": previous.lineage_group or logical_table_key
-            if previous
-            else logical_table_key,
-        }
-
-    return assignments
-
-
-def _replace_run_chunks(
-    session: Session, document: Document, run: DocumentRun, parsed: ParsedDocument
-) -> None:
-    session.query(DocumentChunk).filter(DocumentChunk.run_id == run.id).delete()
-    now = utcnow()
-    for chunk in parsed.chunks:
-        session.add(
-            DocumentChunk(
-                document_id=document.id,
-                run_id=run.id,
-                chunk_index=chunk.chunk_index,
-                text=chunk.text,
-                heading=chunk.heading,
-                page_from=chunk.page_from,
-                page_to=chunk.page_to,
-                metadata_json=chunk.metadata,
-                embedding=chunk.embedding,
-                created_at=now,
-            )
-        )
-
-
-def _replace_run_tables(
-    session: Session,
-    document: Document,
-    run: DocumentRun,
-    parsed: ParsedDocument,
-    storage_service: StorageService,
-    lineage_assignments: dict[int, dict[str, object | None]],
-) -> None:
-    session.query(DocumentTableSegment).filter(DocumentTableSegment.run_id == run.id).delete()
-    session.query(DocumentTable).filter(DocumentTable.run_id == run.id).delete()
-    now = utcnow()
-
-    table_metric_counts: dict[str, float] = {}
-    for table in parsed.tables:
-        table_id = uuid.uuid4()
-        lineage = lineage_assignments.get(table.table_index, {})
-        table_metadata = {
-            key: value for key, value in (table.metadata or {}).items() if key != "audit"
-        }
-        table.metadata = table_metadata
-        try:
-            json_path, yaml_path, json_sha, yaml_sha = _persist_table_artifacts(
-                storage_service,
-                document,
-                run,
-                table,
-                table_id=table_id,
-                logical_table_key=lineage.get("logical_table_key"),
-                created_at=now,
-            )
-        except Exception:
-            increment("table_artifact_write_failures_total")
-            raise
-        audit = {
-            "extractor_version": "docling",
-            "profile_name": "standard_pdf",
-            "fallback_used": False,
-            "source_segment_refs": [segment.source_table_ref for segment in table.segments],
-            "page_from": table.page_from,
-            "page_to": table.page_to,
-            "json_artifact_sha256": json_sha,
-            "yaml_artifact_sha256": yaml_sha,
-            "search_text_sha256": hashlib.sha256(table.search_text.encode("utf-8")).hexdigest(),
-        }
-        merge_metadata_sha = hashlib.sha256(
-            json.dumps(table.metadata, sort_keys=True).encode("utf-8")
-        ).hexdigest()
-        audit["merge_metadata_sha256"] = merge_metadata_sha
-        table.metadata = {**table.metadata, "audit": audit}
-        table_row = DocumentTable(
-            id=table_id,
-            document_id=document.id,
-            run_id=run.id,
-            table_index=table.table_index,
-            title=table.title,
-            logical_table_key=lineage.get("logical_table_key"),
-            table_version=lineage.get("table_version"),
-            supersedes_table_id=lineage.get("supersedes_table_id"),
-            lineage_group=lineage.get("lineage_group"),
-            heading=table.heading,
-            page_from=table.page_from,
-            page_to=table.page_to,
-            row_count=table.row_count,
-            col_count=table.col_count,
-            status="persisted",
-            search_text=table.search_text,
-            preview_text=table.preview_text,
-            metadata_json=table.metadata,
-            embedding=table.embedding,
-            json_path=str(json_path),
-            yaml_path=str(yaml_path),
-            created_at=now,
-        )
-        session.add(table_row)
-        session.flush()
-
-        for segment in table.segments:
-            session.add(
-                DocumentTableSegment(
-                    table_id=table_row.id,
-                    run_id=run.id,
-                    segment_index=segment.segment_index,
-                    source_table_ref=segment.source_table_ref,
-                    page_from=segment.page_from,
-                    page_to=segment.page_to,
-                    segment_order=segment.segment_order,
-                    metadata_json=segment.metadata,
-                    created_at=now,
-                )
-            )
-        table_metric_counts["logical_tables_persisted_total"] = (
-            table_metric_counts.get("logical_tables_persisted_total", 0) + 1
-        )
-        table_metric_counts["table_segments_persisted_total"] = table_metric_counts.get(
-            "table_segments_persisted_total", 0
-        ) + len(table.segments)
-        if table.metadata.get("is_merged"):
-            table_metric_counts["continuation_merges_total"] = (
-                table_metric_counts.get("continuation_merges_total", 0) + 1
-            )
-        if table.metadata.get("ambiguous_continuation_candidate"):
-            table_metric_counts["ambiguous_continuations_total"] = (
-                table_metric_counts.get("ambiguous_continuations_total", 0) + 1
-            )
-        removed_rows = table.metadata.get("header_rows_removed_count", 0)
-        if removed_rows:
-            table_metric_counts["repeated_header_rows_removed_total"] = table_metric_counts.get(
-                "repeated_header_rows_removed_total", 0
-            ) + float(removed_rows)
-    increment_many(table_metric_counts)
-
-
-def _replace_run_figures(
-    session: Session,
-    document: Document,
-    run: DocumentRun,
-    parsed: ParsedDocument,
-    storage_service: StorageService,
-) -> None:
-    session.query(DocumentFigure).filter(DocumentFigure.run_id == run.id).delete()
-    now = utcnow()
-
-    for figure in parsed.figures:
-        figure_id = uuid.uuid4()
-        figure.metadata = {
-            key: value for key, value in (figure.metadata or {}).items() if key != "audit"
-        }
-        json_path, yaml_path, json_sha, yaml_sha = _persist_figure_artifacts(
-            storage_service,
-            document,
-            run,
-            figure,
-            figure_id=figure_id,
-            created_at=now,
-        )
-        audit = {
-            "extractor_version": "docling",
-            "profile_name": "standard_pdf",
-            "fallback_used": figure.metadata.get("caption_resolution_source") != "explicit_ref",
-            "page_from": figure.page_from,
-            "page_to": figure.page_to,
-            "json_artifact_sha256": json_sha,
-            "yaml_artifact_sha256": yaml_sha,
-        }
-        figure.metadata = {**figure.metadata, "audit": audit}
-        session.add(
-            DocumentFigure(
-                id=figure_id,
-                document_id=document.id,
-                run_id=run.id,
-                figure_index=figure.figure_index,
-                source_figure_ref=figure.source_figure_ref,
-                caption=figure.caption,
-                heading=figure.heading,
-                page_from=figure.page_from,
-                page_to=figure.page_to,
-                confidence=figure.confidence,
-                status="persisted",
-                metadata_json=figure.metadata,
-                json_path=str(json_path),
-                yaml_path=str(yaml_path),
-                created_at=now,
-            )
-        )
-
-
-def _apply_embeddings(
-    parsed: ParsedDocument, embedding_provider: EmbeddingProvider | None, run: DocumentRun
-) -> None:
-    if embedding_provider is None:
-        run.embedding_model = None
-        run.embedding_dim = None
-        return
-
-    settings = get_settings()
-    chunk_texts = [chunk.text for chunk in parsed.chunks]
-    table_texts = [table.search_text for table in parsed.tables]
-
-    try:
-        chunk_embeddings = embedding_provider.embed_texts(chunk_texts)
-        table_embeddings = embedding_provider.embed_texts(table_texts)
-    except Exception as exc:
-        logger.warning("embedding_generation_failed", run_id=str(run.id), error=str(exc))
-        increment("table_embedding_failures_total", len(parsed.tables))
-        run.embedding_model = None
-        run.embedding_dim = None
-        return
-
-    for chunk, embedding in zip(parsed.chunks, chunk_embeddings, strict=True):
-        chunk.embedding = embedding
-    for table, embedding in zip(parsed.tables, table_embeddings, strict=True):
-        table.embedding = embedding
-
-    run.embedding_model = settings.openai_embedding_model
-    run.embedding_dim = settings.embedding_dim
-
-
-def _mark_run_persisted(
-    session: Session,
-    document: Document,
-    run: DocumentRun,
-    parsed: ParsedDocument,
-    json_path: Path,
-    yaml_path: Path,
-) -> None:
-    run.docling_json_path = str(json_path)
-    run.yaml_path = str(yaml_path)
-    run.chunk_count = len(parsed.chunks)
-    run.table_count = len(parsed.tables)
-    run.figure_count = len(parsed.figures)
-    run.validation_status = "pending"
-    document.latest_run_id = run.id
-    document.updated_at = utcnow()
-    session.commit()
-
-
-def _mark_run_validating(session: Session, run: DocumentRun) -> None:
-    run.status = RunStatus.VALIDATING.value
-    run.last_heartbeat_at = utcnow()
-    session.commit()
-
-
-def finalize_run_success(
-    session: Session,
-    document: Document,
-    run: DocumentRun,
-    parsed: ParsedDocument,
-    report: ValidationReport,
-    *,
-    storage_service: StorageService | None = None,
-) -> None:
-    now = utcnow()
-    run.locked_at = None
-    run.locked_by = None
-    run.last_heartbeat_at = None
-    run.next_attempt_at = None
-    run.chunk_count = len(parsed.chunks)
-    run.table_count = len(parsed.tables)
-    run.figure_count = len(parsed.figures)
-    run.validation_status = "passed"
-    run.validation_results_json = report.details
-    run.failure_stage = None
-    run.completed_at = now
-    run.status = RunStatus.COMPLETED.value
-    run.error_message = None
-    if run.failure_artifact_path and storage_service is not None:
-        storage_service.delete_file_if_exists(Path(run.failure_artifact_path))
-    run.failure_artifact_path = None
-    session.query(DocumentTable).filter(DocumentTable.run_id == run.id).update(
-        {"status": "validated"}
-    )
-    session.query(DocumentFigure).filter(DocumentFigure.run_id == run.id).update(
-        {"status": "validated"}
-    )
-
-    document.active_run_id = run.id
-    document.latest_run_id = run.id
-    document.title = parsed.title
-    document.page_count = parsed.page_count
-    document.updated_at = now
-    session.commit()
-
-
-def finalize_run_failure(
-    session: Session,
-    run: DocumentRun,
-    exc: Exception,
-    report: ValidationReport | None = None,
-    failure_stage: str | None = None,
-    *,
-    storage_service: StorageService | None = None,
-    document: Document | None = None,
-) -> None:
-    settings = get_settings()
-    now = utcnow()
-    run.locked_at = None
-    run.locked_by = None
-    run.last_heartbeat_at = None
-    run.error_message = str(exc)
-    run.failure_stage = failure_stage
-    run.validation_results_json = getattr(run, "validation_results_json", None) or {}
-    run.validation_results_json["failure_type"] = exc.__class__.__name__
-    if failure_stage:
-        run.validation_results_json["failure_stage"] = failure_stage
-    if report is not None:
-        run.validation_status = "failed"
-        run.validation_results_json = {**report.details, **run.validation_results_json}
-        session.query(DocumentTable).filter(DocumentTable.run_id == run.id).update(
-            {"status": "rejected"}
-        )
-        session.query(DocumentFigure).filter(DocumentFigure.run_id == run.id).update(
-            {"status": "rejected"}
-        )
-
-    attempts = int(getattr(run, "attempts", settings.worker_max_attempts))
-    if is_retryable_error(exc) and attempts < settings.worker_max_attempts:
-        backoff_seconds = min(60, 2 ** max(attempts - 1, 0))
-        run.status = RunStatus.RETRY_WAIT.value
-        run.next_attempt_at = now + timedelta(seconds=backoff_seconds)
-    else:
-        run.status = RunStatus.FAILED.value
-        run.validation_status = "failed"
-        run.completed_at = now
-
-    failure_path = write_failure_artifact(
-        storage_service,
-        document,
-        run,
-        exc,
-        failure_stage=failure_stage,
-        report=report,
-    )
-    run.failure_artifact_path = str(failure_path) if failure_path is not None else None
-
-    session.commit()
+_apply_embeddings = _run_persistence._apply_embeddings
+_build_lineage_assignments = _run_persistence._build_lineage_assignments
+_persist_parsed_artifacts = _run_persistence._persist_parsed_artifacts
+_replace_run_chunks = _run_persistence._replace_run_chunks
+_replace_run_tables = _run_persistence._replace_run_tables
+_replace_run_figures = _run_persistence._replace_run_figures
+_mark_run_persisted = _run_persistence._mark_run_persisted
+_mark_run_validating = _run_persistence._mark_run_validating
 
 
 def _evaluate_promoted_run(
@@ -676,27 +76,12 @@ def _evaluate_promoted_run(
     *,
     baseline_run_id: UUID | None,
 ) -> None:
-    try:
-        evaluation = evaluate_run(
-            session,
-            document,
-            run,
-            baseline_run_id=baseline_run_id,
-        )
-    except Exception:
-        logger.exception(
-            "run_post_promotion_evaluation_failed",
-            run_id=str(run.id),
-            document_id=str(document.id),
-        )
-        return
-
-    logger.info(
-        "run_evaluation_completed",
-        run_id=str(run.id),
-        document_id=str(document.id),
-        evaluation_status=evaluation.status,
-        fixture_name=evaluation.fixture_name,
+    _run_post_promotion.evaluate_promoted_run(
+        session,
+        document,
+        run,
+        baseline_run_id=baseline_run_id,
+        evaluate_run_fn=evaluate_run,
     )
 
 
@@ -708,21 +93,14 @@ def _run_post_promotion_semantics(
     baseline_run_id: UUID | None,
     storage_service: StorageService,
 ) -> None:
-    try:
-        execute_semantic_pass(
-            session,
-            document,
-            run,
-            baseline_run_id=baseline_run_id,
-            storage_service=storage_service,
-        )
-    except Exception:
-        session.rollback()
-        logger.exception(
-            "run_post_promotion_semantics_failed",
-            run_id=str(run.id),
-            document_id=str(document.id),
-        )
+    _run_post_promotion.run_post_promotion_semantics(
+        session,
+        document,
+        run,
+        baseline_run_id=baseline_run_id,
+        storage_service=storage_service,
+        execute_semantic_pass_fn=execute_semantic_pass,
+    )
 
 
 class RunProcessingStage(StrEnum):

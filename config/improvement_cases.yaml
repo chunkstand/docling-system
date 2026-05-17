@@ -161,39 +161,40 @@ cases:
       Postgres-backed test suite passes, and the architecture probe no longer
       lists app/services/evidence.py in the top 12 churn hotspots.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-15T00:00:00+00:00'
+  updated_at: '2026-05-13T00:00:00+00:00'
 - case_id: IC-65AF4A6D8B1E
   title: 'Architecture hotspot: evidence owner-family modules'
   status: open
   cause_class: unclear_ownership
-  observed_failure: app/services/evidence_provenance_exports.py is now a 14-line
-    compatibility facade, but the broader evidence owner-family case remains
-    reduced rather than retired because app/services/evidence_semantic_trace.py
-    and app/services/evidence_audit_views.py remain above the 600-line default
-    budget at 837 and 699 lines respectively, while
-    app/services/evidence_manifest_traces.py, app/services/evidence_manifests.py,
-    and app/services/evidence_claim_support_replay_alerts.py also still exceed
-    budget at 980, 725, and 646 lines. Milestone 4 reduced
-    app/services/evidence_claim_feedback.py to a 47-line compatibility seam,
-    so app/services/evidence_semantic_trace.py is now the next selected owner.
+  observed_failure: The broader evidence owner-family case previously remained
+    reduced because app/services/evidence_claim_support_replay_alerts.py still
+    exceeded budget at 646 lines after the manifest-trace and manifest-owner
+    follow-ons. The current checkout now reduces that replay-alert root to 407
+    lines, adds app/services/evidence_claim_support_replay_alert_corpus.py at
+    128 lines, and leaves no governed evidence owner above the default
+    600-line budget, so the case is locally retirement-ready pending an atomic
+    closeout commit.
   source:
     source_type: hygiene_finding
-    source_ref: hygiene:file-budget:app/services/evidence_semantic_trace.py
-    notes: Refreshed during the 2026-05-15 Milestone 0 scope lock after the
-      provenance-export boundary closeout proved app/services/evidence_provenance_exports.py
-      could stay a thin compatibility facade and the remaining evidence
-      owner-family budgets were remeasured against the selected four-file packet.
-      Milestones 1 and 2 then reduced the selected technical-report export
-      owner below budget without retiring the broader owner-family case.
-      Milestone 3 then reduced the selected claim-feedback root below budget.
-      Milestone 4 finished the integrity and ledger boundary split, so
-      semantic trace is now the next selected owner in the active packet.
+    source_ref: hygiene:file-budget:app/services/evidence_claim_support_replay_alerts.py
+    notes: Refreshed during the 2026-05-15 replay-alert evidence closeout.
+      The selected four-owner residual packet, manifest-trace follow-on, and
+      manifest-owner follow-on all remain resolved locally in the current
+      checkout. Milestones 0 through 2 of
+      docs/evidence_claim_support_replay_alerts_boundary_milestone_plan.md are
+      now resolved locally, where
+      app/services/evidence_claim_support_replay_alerts.py measures 407 lines
+      with an exact four-helper ratchet and replay-alert fixture-corpus
+      snapshot lineage now lives in
+      app/services/evidence_claim_support_replay_alert_corpus.py at 128 lines
+      with an exact zero-helper ratchet. The broader case now has no governed
+      evidence owner above budget in the local checkout and is retirement-ready
+      pending commit.
   artifact:
     artifact_type: contract
-    target_path: app/services/evidence_semantic_trace.py
-    description: Next selected owner in the residual evidence packet after the
-      claim-feedback integrity and ledger closeout; broader owner-family max
-      line count now remains elsewhere.
+    target_path: app/services/evidence_claim_support_replay_alerts.py
+    description: Ready-to-close replay-alert owner packet that retires the last
+      live over-budget evidence root in the local checkout.
   verification:
     commands:
     - uv run docling-system-hygiene-check
@@ -232,119 +233,277 @@ cases:
       app/services/evidence_technical_report_export_payloads.py at 258 lines,
       moved export persistence plus attachment helpers into
       app/services/evidence_technical_report_export_lifecycle.py at 138 lines,
-      and routed Milestone 3 as the next selected slice. Milestone 4 closeout
-      commit `3e033fc` reduced app/services/evidence_claim_feedback.py to 47
-      lines,
-      app/services/evidence_claim_feedback_payloads.py remains at 376 lines,
-      row payload shaping plus row and integrity summary reporting now live in
-      app/services/evidence_claim_feedback_integrity.py at 305 lines, row
-      lookup plus append-only live-link enforcement and ledger persistence now
-      live in app/services/evidence_claim_feedback_lifecycle.py at 215 lines,
-      and Milestone 5 is now the next selected slice.
+      and routed Milestone 3 as the next selected slice. Milestone 3 closeout
+      commit `245dc9f` reduced app/services/evidence_claim_feedback.py to 498
+      lines by moving verdict classification plus retrieval-context,
+      evidence-ref, and desired-row payload shaping into
+      app/services/evidence_claim_feedback_payloads.py at 376 lines. Milestone
+      4 closeout commit `3e033fc` then reduced
+      app/services/evidence_claim_feedback.py to 47 lines by moving integrity
+      reporting into app/services/evidence_claim_feedback_integrity.py at 305
+      lines and ledger or append-only lifecycle ownership into
+      app/services/evidence_claim_feedback_lifecycle.py at 215 lines. The
+      current checkout now measures app/services/evidence_claim_feedback.py at
+      48 lines after the later no-behavior seam-ratchet closeout. Milestone 5
+      is resolved locally in the current checkout where
+      app/services/evidence_semantic_trace.py is reduced to 36 lines,
+      derivation integrity recomputation now lives in
+      app/services/evidence_semantic_trace_integrity.py at 149 lines,
+      semantic-trace payload assembly now lives in
+      app/services/evidence_semantic_trace_payloads.py at 182 lines,
+      source-record shaping now lives in
+      app/services/evidence_semantic_trace_source_records.py at 109 lines,
+      provenance-edge assembly now lives in
+      app/services/evidence_semantic_trace_provenance.py at 444 lines. Milestone
+      6 is now resolved locally in the current checkout where
+      app/services/evidence_audit_views.py is reduced to 19 lines, receipt
+      payload shaping now lives in
+      app/services/evidence_audit_views_payloads.py at 26 lines, context-pack
+      audit reads now live in
+      app/services/evidence_audit_views_context.py at 115 lines,
+      release-readiness DB-gate persistence plus governance-event backfill now
+      live in app/services/evidence_audit_views_release_readiness.py at 136
+      lines, the main audit-bundle aggregation now lives in
+      app/services/evidence_audit_views_bundle.py at 482 lines. Milestone 7 is
+      now resolved locally in the current checkout. The selected packet closes
+      with exact seam ratchets for the 45-line export facade, the 48-line
+      claim-feedback facade, the 36-line semantic-trace facade, and the
+      19-line audit-view facade, while the broader case remains intentionally
+      reduced and now routes to
+      docs/evidence_manifest_trace_graph_boundary_milestone_plan.md.
+      Milestones 0 through 2 of that manifest-trace follow-on are now
+      resolved locally in the current checkout, where
+      app/services/evidence_manifest_traces.py measures 203 lines with exact
+      zero-helper ratchets, graph canonicalization now lives in
+      app/services/evidence_manifest_trace_graph.py at 204 lines, mixed trace
+      assembly now lives in app/services/evidence_manifest_trace_assembly.py
+      at 461 lines, and replay lineage now lives in
+      app/services/evidence_manifest_trace_replay.py at 244 lines. Milestones
+      0 through 2 of
+      docs/evidence_manifest_owner_boundary_milestone_plan.md are now resolved
+      locally in the current checkout, where
+      app/services/evidence_manifests.py measures 370 lines with payload
+      assembly moved into app/services/evidence_manifest_payloads.py at 384
+      lines. Milestones 0 through 2 of
+      docs/evidence_claim_support_replay_alerts_boundary_milestone_plan.md are
+      now resolved locally in the current checkout, where
+      app/services/evidence_claim_support_replay_alerts.py measures 407 lines,
+      replay-alert fixture-corpus snapshot lineage now lives in
+      app/services/evidence_claim_support_replay_alert_corpus.py at 128 lines,
+      and the broader evidence owner-family case now has no governed file above
+      the default budget in the local checkout. Because this slice is still
+      uncommitted, the broader case remains open in the registry until the
+      atomic closeout commit lands.
   measurement:
     metric_name: evidence_owner_family_max_line_count
-    current_value: 980.0
-    measurement_window: 2026-05-15 evidence residual Milestone 4 claim-feedback integrity and ledger closeout
+    current_value: 549.0
+    measurement_window: 2026-05-15 replay-alert evidence boundary closeout
     notes: app/services/evidence_provenance_exports.py remains at 14 lines,
       app/services/evidence_provenance_export_graph_core.py remains at 549,
       app/services/evidence_provenance_export_graph_report.py remains at 218,
       and app/services/evidence_provenance_export_lifecycle.py remains at 278.
-      The active selected packet reduced
-      app/services/evidence_technical_report_exports.py to 45 lines, added
-      app/services/evidence_technical_report_export_payloads.py at 258,
-      app/services/evidence_technical_report_export_lifecycle.py at 138,
-      reduced app/services/evidence_claim_feedback.py to 47 lines, keeps
-      app/services/evidence_claim_feedback_payloads.py at 376, and adds
-      app/services/evidence_claim_feedback_integrity.py at 305 plus
-      app/services/evidence_claim_feedback_lifecycle.py at 215.
-      Semantic trace is now the next selected owner for the Milestone 5
-      follow-on.
-      app/services/evidence_technical_report_export_provenance_locks.py remains
-      at 426, and app/services/evidence_technical_report_export_contracts.py
-      remains at 112.
-      The remaining selected owners still measure
-      app/services/evidence_semantic_trace.py at 837,
-      app/services/evidence_audit_views.py at 699, while broader retirement is
-      still blocked by app/services/evidence_manifest_traces.py at 980,
-      app/services/evidence_manifests.py at 725, and
-      app/services/evidence_claim_support_replay_alerts.py at 646.
+      The selected four residual evidence seams remain closed at 45, 48, 36,
+      and 19 lines with exact zero-helper ratchets. The manifest-trace
+      follow-on remains closed at 203 / 204 / 461 / 244, and the manifest-owner
+      follow-on remains closed at 370 / 384. The replay-alert follow-on now
+      reduces app/services/evidence_claim_support_replay_alerts.py to 407
+      lines with an exact four-helper ratchet, adds
+      app/services/evidence_claim_support_replay_alert_corpus.py at 128 lines
+      with an exact zero-helper ratchet, and leaves no governed evidence owner
+      above the default 600-line budget in the local checkout. The broader case
+      therefore stays open only as an uncommitted retirement-ready route.
   created_at: '2026-05-12T00:00:00+00:00'
-  updated_at: '2026-05-15T17:16:26Z'
+  updated_at: '2026-05-15T00:00:00+00:00'
 - case_id: IC-6C1B516A3F92
   title: 'Hygiene budget hotspot: app/hotspot_prevention_classifier.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: app/hotspot_prevention_classifier.py exceeds the default
-    file budget at 1002 lines after the semantics, CLI, agent-task schema,
-    oversized-test, and search-facade governance ratchets expanded the hotspot-prevention
-    classifier rules again.
+  observed_failure: The hotspot-prevention family packet now reduces
+    app/hotspot_prevention_classifier.py to 360 lines while keeping the
+    broader rule family distributed across app/hotspot_prevention_claim_support_rules.py
+    at 436 lines, app/hotspot_prevention_classifier_service_rules.py at 384
+    lines, app/hotspot_prevention_classifier_boundary_rules.py at 209 lines,
+    and app/hotspot_prevention_classifier_support.py at 571 lines. The
+    classifier owner family is now locally retirement-ready pending an atomic
+    hotspot-prevention closeout commit.
   source:
     source_type: hygiene_finding
     source_ref: hygiene:file-budget:app/hotspot_prevention_classifier.py
-    notes: Refreshed while re-running the search compatibility-facade closeout
-      verification after tightening the search compatibility-facade hotspot gate.
+    notes: Refreshed during Milestone 3 of
+      docs/hotspot_prevention_family_boundary_milestone_plan.md after the
+      classifier split reduced the root to 360 lines / 1 private helper,
+      kept the support siblings at 571 / 1, 436 / 1, 384 / 0, and 209 / 0,
+      and left the full family below the architecture-probe 800-line
+      threshold.
   artifact:
     artifact_type: contract
     target_path: app/hotspot_prevention_classifier.py
-    description: Hotspot prevention classifier budget follow-on after the
-      search persistence/operator-trace gate hardening.
+    description: Ready-to-close hotspot-prevention classifier owner packet.
   verification:
     commands:
+    - git diff --check
     - uv run ruff check app/hotspot_prevention_classifier.py
+      app/hotspot_prevention_classifier_service_rules.py
+      app/hotspot_prevention_classifier_boundary_rules.py
+      app/hotspot_prevention_claim_support_rules.py
+      app/hotspot_prevention_classifier_support.py
       tests/unit/test_hotspot_prevention.py
+      tests/unit/test_hotspot_prevention_family_rules.py
+      tests/unit/test_hotspot_prevention_wrapper_rules.py
+      tests/unit/hotspot_prevention_test_support.py
     - uv run pytest -q tests/unit/test_hotspot_prevention.py
+      tests/unit/test_hotspot_prevention_family_rules.py
+      tests/unit/test_hotspot_prevention_wrapper_rules.py
     - uv run docling-system-hotspot-prevention-check --strict
     - uv run docling-system-hygiene-check
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
     acceptance_conditions:
-    - app/hotspot_prevention_classifier.py is reduced back under the 600-line
-      default budget or split into smaller helpers without changing classifier
-      behavior.
+    - app/hotspot_prevention_classifier.py remains a 360-line / 1-private-helper
+      dispatcher with no regrowth above its exact closeout ratchet.
+    - app/hotspot_prevention_classifier_support.py,
+      app/hotspot_prevention_claim_support_rules.py,
+      app/hotspot_prevention_classifier_service_rules.py, and
+      app/hotspot_prevention_classifier_boundary_rules.py remain governed at
+      or below their same-milestone exact ratchets.
     - Hotspot prevention fixture coverage remains green for registry
-      composition and strict blocking behavior.
+      composition, wrapper allowances, and strict blocking behavior.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: "efe6d4e"
-    notes: Residual ratchet increase was first recorded in the search execution
+    notes: >-
+      Residual ratchet increase was first recorded in the search execution
       persistence closeout commit f55b474 and refreshed during the local
-      provenance-export closeout after adding the dedicated
-      evidence_provenance_exports hotspot classifier rules. The semantics
-      service-boundary closeout expanded the classifier again to cover
-      semantic lifecycle, review, read, and registry-preview regrowth in
-      app/services/semantics.py. The CLI Milestone 1 facade-prevention ratchet
-      expanded the classifier again to block direct session or storage wiring
-      plus parser-body or JSON-render scaffolding in app/cli.py. The local
-      agent-task schema closeout extends that rule set again so the classifier
-      also allows only the compact registry-backed __getattr__/__dir__
-      compatibility facade used by app/schemas/agent_tasks.py while still
-      blocking new schema definitions, broad re-export batches, and
-      export-sink surfaces. The oversized-test closeout then moved shared
-      rule-classification helpers into app/hotspot_prevention_classifier_support.py
-      and reduced the primary classifier back to 960 lines. The search
-      compatibility-facade closeout then extended the classifier again to
-      block harness-registry, retrieval-primitive, and metadata-supplement
-      regrowth in app/services/search.py. The hygiene follow-on remains open.
+      provenance-export, semantics, CLI, and agent-task schema guard
+      hardening. The hotspot-prevention family packet now resolves the owner
+      split locally in the current checkout: app/hotspot_prevention_classifier.py
+      is 360 / 1, claim-support routes remain in
+      app/hotspot_prevention_claim_support_rules.py at 436 / 1, source-family
+      routes now live in app/hotspot_prevention_classifier_service_rules.py
+      at 384 / 0, boundary and wrapper routes now live in
+      app/hotspot_prevention_classifier_boundary_rules.py at 209 / 0, and the
+      shared support helpers remain in app/hotspot_prevention_classifier_support.py
+      at 571 / 1. The owner case is now retirement-ready pending an atomic
+      closeout commit.
   measurement:
     metric_name: hotspot_prevention_classifier_line_count
-    current_value: 1002.0
-    measurement_window: 2026-05-14 search compatibility-facade closeout
-    notes: The classifier still carries the earlier registry-composition and
-      search-boundary allowances and now also blocks provenance-graph,
-      report-lineage, lifecycle, and governance-change-impact growth in
-      app/services/evidence_provenance_exports.py plus semantic pass
-      lifecycle, review persistence, active-pass read, registry-preview
-      regrowth in app/services/semantics.py, direct session or storage wiring
-      plus parser-body or JSON-render scaffolding in app/cli.py, and the
-      compact agent-task schema compatibility-facade hooks for
-      app/schemas/agent_tasks.py. The oversized-test closeout extracted common
-      hunk and support logic into app/hotspot_prevention_classifier_support.py,
-      and the search compatibility-facade closeout added direct blocking rules
-      for harness-registry, retrieval-primitive, and metadata-supplement
-      regrowth in app/services/search.py, leaving the primary classifier at
-      1002 lines.
+    current_value: 360.0
+    measurement_window: 2026-05-16 local hotspot-prevention packet closeout
+    notes: The current local state keeps the primary classifier at
+      360 lines / 1 private helper, routes source-family rules through
+      app/hotspot_prevention_classifier_service_rules.py at 384 / 0,
+      routes boundary or wrapper rules through
+      app/hotspot_prevention_classifier_boundary_rules.py at 209 / 0,
+      keeps claim-support routes in
+      app/hotspot_prevention_claim_support_rules.py at 436 / 1,
+      and keeps shared support helpers in
+      app/hotspot_prevention_classifier_support.py at 571 / 1.
+      `uv run pytest -q tests/unit/test_hotspot_prevention.py
+      tests/unit/test_hotspot_prevention_family_rules.py
+      tests/unit/test_hotspot_prevention_wrapper_rules.py`
+      passes at 40 passed, and the owner case is retirement-ready pending an
+      atomic closeout commit.
   created_at: '2026-05-13T00:00:00+00:00'
-  updated_at: '2026-05-15T05:27:55Z'
+  updated_at: '2026-05-16T23:19:57Z'
+- case_id: IC-15F6E41A9C77
+  title: 'Architecture hotspot: tests/unit/test_hotspot_prevention.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: The hotspot-prevention family packet now reduces
+    tests/unit/test_hotspot_prevention.py to 595 lines and moves the blocked
+    family and wrapper-allowance coverage into
+    tests/unit/test_hotspot_prevention_family_rules.py at 318 lines,
+    tests/unit/test_hotspot_prevention_wrapper_rules.py at 296 lines, and
+    tests/unit/hotspot_prevention_test_support.py at 50 lines. The companion
+    test owner family is now locally retirement-ready pending an atomic
+    hotspot-prevention closeout commit.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:tests/unit/test_hotspot_prevention.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=tests/unit/test_hotspot_prevention.py;
+      verification_command=uv run docling-system-architecture-quality-report;
+      stop_condition=Hotspot risk decreases or the surface has a narrower
+      owner contract. Refreshed during Milestone 3 of
+      docs/hotspot_prevention_family_boundary_milestone_plan.md after the
+      root test dropped below the 800-line architecture-probe threshold and
+      the focused sibling test owners all landed below the default 600-line
+      budget.
+  artifact:
+    artifact_type: test
+    target_path: tests/unit/test_hotspot_prevention.py
+    description: Ready-to-close hotspot-prevention family test owner packet.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check app/hotspot_prevention_classifier.py
+      app/hotspot_prevention_classifier_service_rules.py
+      app/hotspot_prevention_classifier_boundary_rules.py
+      app/hotspot_prevention_claim_support_rules.py
+      app/hotspot_prevention_classifier_support.py
+      tests/unit/test_hotspot_prevention.py
+      tests/unit/test_hotspot_prevention_family_rules.py
+      tests/unit/test_hotspot_prevention_wrapper_rules.py
+      tests/unit/hotspot_prevention_test_support.py
+    - uv run pytest -q tests/unit/test_hotspot_prevention.py
+      tests/unit/test_hotspot_prevention_family_rules.py
+      tests/unit/test_hotspot_prevention_wrapper_rules.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    - uv run docling-system-improvement-case-validate
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - tests/unit/test_hotspot_prevention.py remains at 595 lines / 0 private
+      helpers below the architecture-probe 800-line threshold.
+    - tests/unit/test_hotspot_prevention_family_rules.py,
+      tests/unit/test_hotspot_prevention_wrapper_rules.py, and
+      tests/unit/hotspot_prevention_test_support.py remain governed at or
+      below their same-milestone exact ratchets without weakening negative-path
+      or controlled-violation coverage.
+    - The classifier and companion tests remain aligned under the same bounded
+      hotspot-prevention family packet.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: >-
+      Milestone 0 of docs/boring_change_architecture_milestone_plan.md
+      promoted docs/hotspot_prevention_family_boundary_milestone_plan.md as
+      the current active bounded follow-on, and this case provided the first
+      dedicated registry routing for the oversized hotspot-prevention
+      companion test. The hotspot-prevention family packet now resolves the
+      test split locally in the current checkout: the root test is 595 / 0,
+      the blocked-family coverage lives in
+      tests/unit/test_hotspot_prevention_family_rules.py at 318 / 0, the
+      wrapper-allowance coverage lives in
+      tests/unit/test_hotspot_prevention_wrapper_rules.py at 296 / 0, and the
+      shared test support lives in
+      tests/unit/hotspot_prevention_test_support.py at 50 / 2. The owner case
+      is retirement-ready pending an atomic closeout commit.
+  measurement:
+    metric_name: test_hotspot_prevention_line_count
+    current_value: 595.0
+    measurement_window: 2026-05-16 local hotspot-prevention packet closeout
+    notes: The current local state keeps tests/unit/test_hotspot_prevention.py
+      at 595 lines / 0 private helpers, moves blocked-family coverage into
+      tests/unit/test_hotspot_prevention_family_rules.py at 318 / 0, moves
+      wrapper and allowance coverage into
+      tests/unit/test_hotspot_prevention_wrapper_rules.py at 296 / 0, and
+      keeps shared test support in
+      tests/unit/hotspot_prevention_test_support.py at 50 / 2. The companion
+      classifier remains at 360 lines / 1 private helper under
+      IC-6C1B516A3F92, and the focused hotspot-prevention suite remains green
+      at 40 passed. The owner case is retirement-ready pending an atomic
+      closeout commit.
+  created_at: '2026-05-16T08:10:00Z'
+  updated_at: '2026-05-16T23:19:57Z'
 - case_id: IC-9812A0B138D9
   title: 'Architecture hotspot: app/cli.py'
   status: open
@@ -893,24 +1052,185 @@ cases:
       The semantics service-boundary split is verified locally in the
       worktree. app/services/semantics.py is now a narrow compatibility facade
       that forwards into app/services/semantic_pass_lifecycle.py,
-      app/services/semantic_pass_reads.py, and
-      app/services/semantic_registry_preview.py. The case remains open and
-      reduced because the extracted lifecycle and read owners still exceed the
-      default 600-line budget even though the architecture probe no longer
-      lists app/services/semantics.py among the top twelve churn hotspots.
+      app/services/semantic_pass_artifacts.py,
+      app/services/semantic_pass_reviews.py,
+      app/services/semantic_pass_reads.py,
+      app/services/semantic_pass_source_records.py, and
+      app/services/semantic_registry_preview.py. Milestones 0 through 5 of
+      docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md routed
+      the remaining extracted lifecycle and read owners into IC-8304248AB64C
+      and IC-ADCFFF108626, with lifecycle artifact ownership now split into
+      app/services/semantic_pass_artifacts.py, lifecycle review/projection
+      ownership split into app/services/semantic_pass_reviews.py, and
+      Milestone 3 now splits read source-materialization and record-shaping
+      ownership into app/services/semantic_pass_source_records.py while
+      reducing app/services/semantic_pass_reads.py under budget. Milestone 4
+      then refreshed the read-family closeout baseline, confirmed the new
+      source-record owner stayed bounded, and preserved focused reads, route,
+      and backfill coverage. Milestone 5 then reran the full selected
+      verification stack, closed the full DB-backed suite at 2037 passed, and
+      left the broader semantics compatibility case locally retirement-ready
+      pending an atomic milestone commit rather than still being the active
+      residual implementation blocker.
   measurement:
     metric_name: semantics_hotspot_line_count
     current_value: 54.0
-    measurement_window: 2026-05-13 local post-split verification refresh
+    measurement_window: 2026-05-16 local post-Milestone-5 verification refresh
     notes: >-
       The scoped service-boundary knot is resolved locally: the compatibility
       facade now measures 54 lines / 0 private helpers, semantic pass
-      lifecycle ownership measures 961 lines / 10 private helpers, active-pass
-      read ownership measures 762 lines / 13 private helpers, and registry
-      preview ownership measures 558 lines / 5 private helpers. The broader
-      semantic owner-family modules still remain outside this scoped packet.
+      lifecycle ownership now measures 529 lines / 3 private helpers, artifact
+      ownership now also lives in app/services/semantic_pass_artifacts.py at
+      150 lines / 0 private helpers, review and projection ownership now also
+      lives in app/services/semantic_pass_reviews.py at 369 lines / 4 private
+      helpers, active-pass read ownership now measures 372 lines / 3 private
+      helpers, read source-materialization and record-shaping ownership now
+      lives in app/services/semantic_pass_source_records.py at 415 lines / 4
+      private helpers, and registry preview ownership measures 558 lines / 5
+      private helpers. The broader semantic owner-family residuals are now
+      directly routed through IC-8304248AB64C and IC-ADCFFF108626 instead of
+      being carried only by the semantics facade owner case.
   created_at: '2026-05-13T20:30:00Z'
-  updated_at: '2026-05-14T03:20:00Z'
+  updated_at: '2026-05-16T06:23:44Z'
+- case_id: IC-8304248AB64C
+  title: 'Architecture hotspot: app/services/semantic_pass_lifecycle.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/semantic_pass_lifecycle.py was the selected
+    lifecycle hygiene residual, and the current checkout now reduces the root
+    to 529 lines while moving artifact ownership into
+    app/services/semantic_pass_artifacts.py at 150 lines and keeping review or
+    projection ownership in app/services/semantic_pass_reviews.py at 369
+    lines. The lifecycle owner is now locally retirement-ready pending an
+    atomic milestone closeout commit.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/services/semantic_pass_lifecycle.py
+    notes: Refreshed during Milestone 5 of
+      docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md after the
+      final closeout sweep reconfirmed semantic_pass_lifecycle.py at 529
+      lines / 3 private helpers, semantic_pass_artifacts.py at 150 lines /
+      0 private helpers, and semantic_pass_reviews.py at 369 lines / 4 private
+      helpers while the live architecture probe still reported a
+      three-component Python cycle baseline overall.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/semantic_pass_lifecycle.py
+    description: Ready-to-close lifecycle owner packet that reduces the
+      lifecycle root below the default budget in the local checkout.
+  verification:
+    commands:
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - app/services/semantic_pass_lifecycle.py is reduced under the configured
+      budget or split into focused owner modules without weakening route,
+      backfill, or worker contracts.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: >-
+      Milestones 0 through 5 of
+      docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md establish
+      dedicated lifecycle-owner routing, hygiene ownership, handoff or
+      broader-plan alignment, the first lifecycle execution or
+      review-projection split, the lifecycle artifact closeout split, and the
+      read-family closeout sweep that leaves the selected lifecycle owner
+      family unchanged but keeps the packet aligned. Milestone 5 then closed
+      the full selected verification stack, so the lifecycle root is now under
+      budget locally and the owner case is retirement-ready pending an atomic
+      closeout commit.
+  measurement:
+    metric_name: semantic_pass_lifecycle_owner_line_count
+    current_value: 529.0
+    measurement_window: 2026-05-16 local Milestone 5 lifecycle or read closeout
+    notes: >-
+      The current local state keeps app/services/semantic_pass_lifecycle.py at
+      529 lines / 3 private helpers, moves semantic artifact payload and
+      persistence ownership into app/services/semantic_pass_artifacts.py at
+      150 lines / 0 private helpers, and keeps review or projection ownership
+      in app/services/semantic_pass_reviews.py at 369 lines / 4 private
+      helpers. The public semantics facade remains at 54 lines and
+      semantic_governance.py is already reduced to 39 lines. The selected
+      lifecycle root is now under the default budget, the focused semantic
+      unit gate remains green at 108 passed, the focused semantic integration
+      slice remains green at 8 passed, and the full DB-backed suite closes at
+      2037 passed. The owner case is retirement-ready pending an atomic
+      closeout commit.
+  created_at: '2026-05-15T18:10:00Z'
+  updated_at: '2026-05-16T06:23:44Z'
+- case_id: IC-ADCFFF108626
+  title: 'Architecture hotspot: app/services/semantic_pass_reads.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/semantic_pass_reads.py was the selected
+    read-owner hygiene residual, and the current checkout now reduces the root
+    to 372 lines while moving source materialization and record shaping into
+    app/services/semantic_pass_source_records.py at 415 lines. The read owner
+    is now locally retirement-ready pending an atomic milestone closeout
+    commit.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/services/semantic_pass_reads.py
+    notes: Refreshed during Milestone 5 of
+      docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md after the
+      final closeout sweep reconfirmed semantic_pass_reads.py at 372 lines /
+      3 private helpers and semantic_pass_source_records.py at 415 lines /
+      4 private helpers while the live architecture probe still reported a
+      three-component Python cycle baseline overall.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/semantic_pass_reads.py
+    description: Semantic pass reads residual owner surface.
+  verification:
+    commands:
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - app/services/semantic_pass_reads.py is reduced under the configured
+      budget or split into focused owner modules without weakening route,
+      continuity, or backfill contracts.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: >-
+      Milestones 0 through 5 of
+      docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md establish
+      dedicated read-owner routing, hygiene ownership, handoff or
+      broader-plan alignment, the read materialization or record-shaping
+      split, and the read closeout or retirement sweep. Milestone 5 then
+      closed the full selected verification stack, so the read root is now
+      under budget locally and the owner case is retirement-ready pending an
+      atomic closeout commit.
+  measurement:
+    metric_name: semantic_pass_reads_owner_line_count
+    current_value: 372.0
+    measurement_window: 2026-05-16 local Milestone 5 read closeout sweep
+    notes: >-
+      The current local state keeps app/services/semantic_pass_reads.py at 372
+      lines / 3 private helpers, moves source materialization and record
+      shaping into app/services/semantic_pass_source_records.py at 415 lines /
+      4 private helpers, and leaves the public semantics facade at 54 lines
+      while semantic_registry_preview.py remains under budget at 558 lines /
+      5 private helpers. The selected read root is now under the default
+      budget, the focused semantic unit gate remains green at 108 passed, the
+      focused semantic integration slice remains green at 8 passed, and the
+      full DB-backed suite closes at 2037 passed. The owner case is
+      retirement-ready pending an atomic closeout commit.
+  created_at: '2026-05-15T18:10:00Z'
+  updated_at: '2026-05-16T06:23:44Z'
 - case_id: IC-4098E8370B88
   title: 'Architecture hotspot: app/services/agent_tasks.py'
   status: open
@@ -2377,9 +2697,9 @@ cases:
   source:
     source_type: hygiene_finding
     source_ref: hygiene:file-budget:app/services/semantic_governance.py
-    notes: Refreshed during the hygiene owner-case routing Milestone 1
-      bootstrap after the live residual file-budget set remained
-      milestone-owned.
+    notes: Refreshed during the app large owner modules resolution Milestone 0
+      baseline lock after the live residual file-budget set remained
+      owner-routed and above budget.
   artifact:
     artifact_type: contract
     target_path: app/services/semantic_governance.py
@@ -2400,14 +2720,445 @@ cases:
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
-    notes: Created during the hygiene owner-case routing Milestone 1 bootstrap.
-      The residual semantic-governance owner remains open until the oversized
-      governance surface is reduced under explicit owner routing.
+    notes: >-
+      App large owner modules closeout reduced app/services/semantic_governance.py to a 39-line compatibility facade over semantic_governance_core.py, semantic_governance_events.py, semantic_governance_context.py, and semantic_governance_audit.py. No extracted governance owner exceeds the default 600-line budget, so the selected governance hotspot is resolved in the working tree.
   measurement:
     metric_name: semantic_governance_owner_line_count
-    current_value: 1157.0
-    measurement_window: 2026-05-14 hygiene owner-case routing Milestone 1 bootstrap
-    notes: app/services/semantic_governance.py measures 1157 lines after the
-      Milestone 0 refresh and still exceeds the default 600-line budget.
+    current_value: 39.0
+    measurement_window: 2026-05-15 app large owner modules closeout refresh
+    notes: >-
+      app/services/semantic_governance.py now measures 39 lines. The extracted governance owners measure 201, 229, 340, and 456 lines respectively, so the selected root surface is resolved without creating a new over-budget governance residual.
   created_at: '2026-05-14T16:09:02Z'
-  updated_at: '2026-05-14T16:09:02Z'
+  updated_at: '2026-05-15T15:30:00Z'
+- case_id: IC-9A0332D41F79
+  title: 'Architecture hotspot: app/services/docling_parser.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/docling_parser.py remains a large parser owner
+    at 1555 lines, so converter selection, rescue policy, supplement registry
+    loading, normalization, table merge logic, figure recovery, and artifact
+    payload assembly still live in one hotspot.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/services/docling_parser.py
+    notes: Created during the app large owner modules resolution Milestone 0
+      live baseline lock after the selected parser owner remained above the
+      large-file threshold.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/docling_parser.py
+    description: Docling parser residual owner surface.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check app/services/docling_parser.py tests/unit/test_docling_parser.py
+    - uv run pytest -q tests/unit/test_docling_parser.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_postgres_roundtrip.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - app/services/docling_parser.py is reduced under the selected large-owner
+      threshold or split into focused parser owner modules without weakening
+      supplement overlays, figure or table provenance, or artifact payload
+      contracts.
+    - No new parser-family owner module exceeds the current milestone ceiling,
+      and any new 601-800 line owner is routed in the same milestone.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: >-
+      App large owner modules closeout reduced app/services/docling_parser.py to a 199-line compatibility facade over docling_parser_types.py, docling_parser_conversion.py, docling_parser_normalization.py, and docling_parser_tables.py while preserving converter-wrapper, supplement-overlay, and root monkeypatch compatibility seams used by the parser tests.
+  measurement:
+    metric_name: docling_parser_owner_line_count
+    current_value: 199.0
+    measurement_window: 2026-05-15 app large owner modules closeout refresh
+    notes: >-
+      app/services/docling_parser.py now measures 199 lines. The extracted parser owners measure 194, 277, 474, and 584 lines respectively, so the selected parser hotspot is resolved without introducing a new 601-800 line parser residual.
+  created_at: '2026-05-15T13:22:18Z'
+  updated_at: '2026-05-15T15:30:00Z'
+- case_id: IC-33B4990DC366
+  title: 'Architecture hotspot: app/services/quality.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/quality.py remains a large quality owner at
+    1444 lines, so evaluation status reads, candidate scanning and resolution,
+    and trend reporting still move together inside one service hotspot.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/services/quality.py
+    notes: Created during the app large owner modules resolution Milestone 0
+      live baseline lock after the selected quality owner remained above the
+      large-file threshold.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/quality.py
+    description: Quality residual owner surface.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check app/services/quality.py app/schemas/quality.py
+      tests/unit/test_quality_service.py tests/unit/test_quality_api.py
+      tests/integration/test_quality_roundtrip.py
+    - uv run pytest -q tests/unit/test_quality_service.py
+      tests/unit/test_quality_api.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_quality_roundtrip.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - app/services/quality.py is reduced under the selected large-owner
+      threshold or split into focused quality owner modules without weakening
+      response shapes, candidate resolution, or trend calculations.
+    - No quality logic spills back into app/services/evaluations.py, and any
+      new 601-800 line owner is routed in the same milestone.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: >-
+      App large owner modules closeout reduced app/services/quality.py to a 15-line compatibility facade over quality_summary.py, quality_candidate_core.py, quality_candidate_memory.py, quality_candidate_sql.py, and quality_trends.py while preserving the public quality service entrypoints.
+  measurement:
+    metric_name: quality_owner_line_count
+    current_value: 15.0
+    measurement_window: 2026-05-15 app large owner modules closeout refresh
+    notes: >-
+      app/services/quality.py now measures 15 lines. The extracted quality owners measure 311, 326, 319, 353, and 214 lines respectively, so the selected quality hotspot is resolved without leaving a routed 601-800 line residual.
+  created_at: '2026-05-15T13:22:18Z'
+  updated_at: '2026-05-15T15:30:00Z'
+- case_id: IC-8AFAD4A415CA
+  title: 'Architecture hotspot: app/services/runs.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/runs.py remains a large run-processing owner
+    at 1026 lines after runtime-health and release-gate closeout work, so
+    claim, persistence, promotion, retry, and worker-loop ownership are still
+    coupled inside one hotspot.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/services/runs.py
+    notes: Created during the app large owner modules resolution Milestone 0
+      live baseline lock after the selected run-processing owner remained above
+      the large-file threshold.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/runs.py
+    description: Run-processing residual owner surface.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check app/services/runs.py app/services/runtime.py
+      app/services/validation.py app/services/run_failure_artifacts.py
+      tests/unit/test_run_logic.py tests/integration/test_postgres_roundtrip.py
+    - uv run pytest -q tests/unit/test_run_logic.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_postgres_roundtrip.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - app/services/runs.py is reduced under the selected large-owner threshold
+      or split into focused run owner modules without weakening claim, retry,
+      validation, promotion, failure-artifact, or heartbeat behavior.
+    - No new run-family owner module exceeds the current milestone ceiling, and
+      any new 601-800 line owner is routed in the same milestone.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: >-
+      App large owner modules closeout reduced app/services/runs.py to a 404-line compatibility-oriented root service over run_leases.py, run_persistence.py, and run_post_promotion.py while keeping the root monkeypatch seams for evaluation and post-promotion semantic execution intact.
+  measurement:
+    metric_name: runs_owner_line_count
+    current_value: 404.0
+    measurement_window: 2026-05-15 app large owner modules closeout refresh
+    notes: >-
+      app/services/runs.py now measures 404 lines. The extracted run owners measure 163, 399, and 171 lines respectively, so the selected run-processing hotspot is resolved without creating a new over-budget run owner.
+  created_at: '2026-05-15T13:22:18Z'
+  updated_at: '2026-05-15T15:30:00Z'
+- case_id: IC-865AB8419D55
+  title: 'Architecture hotspot: app/services/semantic_graph.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/semantic_graph.py remains a large semantic
+    graph owner at 1847 lines, so graph payload construction, evaluation and
+    triage, draft verification, promotion, persistence, and memory projection
+    still move together inside one hotspot.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/services/semantic_graph.py
+    notes: Created during the app large owner modules resolution Milestone 0
+      live baseline lock after the selected semantic-graph owner remained above
+      the large-file threshold.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/semantic_graph.py
+    description: Semantic-graph residual owner surface.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check app/services/semantic_graph.py app/services/semantics.py
+      app/api/routers/semantics.py tests/unit/test_semantic_graph.py
+      tests/unit/test_documents_api_semantics.py
+      tests/integration/test_semantic_graph_roundtrip.py
+    - uv run pytest -q tests/unit/test_semantic_graph.py
+      tests/unit/test_documents_api_semantics.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_semantic_graph_roundtrip.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - app/services/semantic_graph.py is reduced under the selected large-owner
+      threshold or split into focused graph owner modules without weakening the
+      public snapshot, draft, verify, apply, or memory entrypoints.
+    - The architecture probe cycle count does not exceed the Milestone 0
+      baseline, and any new 601-800 line owner is routed in the same
+      milestone.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: >-
+      App large owner modules closeout reduced app/services/semantic_graph.py to a 185-line compatibility facade over semantic_graph_core.py, semantic_graph_build.py, semantic_graph_evaluation.py, semantic_graph_promotions.py, and semantic_graph_memory.py while preserving the root ontology and semantic-pass seams patched by the graph unit tests. Follow-on residual owner case IC-C8D41A2F77BE now tracks semantic_graph_core.py at 697 lines and semantic_graph_promotions.py at 718 lines.
+  measurement:
+    metric_name: semantic_graph_owner_line_count
+    current_value: 185.0
+    measurement_window: 2026-05-15 app large owner modules closeout refresh
+    notes: >-
+      app/services/semantic_graph.py now measures 185 lines. The extracted graph owners measure 697, 89, 327, 718, and 81 lines respectively. The selected root surface is resolved, and the remaining over-default graph owners are routed under IC-C8D41A2F77BE.
+  created_at: '2026-05-15T13:22:18Z'
+  updated_at: '2026-05-15T15:30:00Z'
+- case_id: IC-649D7B4E3AB5
+  title: 'Architecture hotspot: app/services/semantic_candidates.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/semantic_candidates.py remains a large
+    semantic candidate owner at 1357 lines, so extractor execution,
+    materialization, corpus export, evaluation, disagreement triage, and shadow
+    candidate preparation still live inside one hotspot.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/services/semantic_candidates.py
+    notes: Created during the app large owner modules resolution Milestone 0
+      live baseline lock after the selected semantic-candidate owner remained
+      above the large-file threshold.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/semantic_candidates.py
+    description: Semantic-candidate residual owner surface.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check app/services/semantic_candidates.py
+      tests/unit/test_semantic_candidates.py
+      tests/unit/test_semantic_orchestration.py
+    - uv run pytest -q tests/unit/test_semantic_candidates.py
+      tests/unit/test_semantic_orchestration.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_semantic_generation_roundtrip.py
+      tests/integration/test_semantic_graph_roundtrip.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - app/services/semantic_candidates.py is reduced under the selected
+      large-owner threshold or split into focused candidate owner modules
+      without weakening extractor evaluation, shadow-candidate, or operator
+      entrypoints.
+    - No candidate-family owner module exceeds the current milestone ceiling,
+      and any new 601-800 line owner is routed in the same milestone.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: >-
+      App large owner modules closeout reduced app/services/semantic_candidates.py to a 120-line compatibility facade over semantic_candidate_core.py, semantic_candidate_export.py, semantic_candidate_evaluation.py, and semantic_candidate_triage.py while preserving the patched root dependency seams used by candidate, generation, and orchestration tests.
+  measurement:
+    metric_name: semantic_candidates_owner_line_count
+    current_value: 120.0
+    measurement_window: 2026-05-15 app large owner modules closeout refresh
+    notes: >-
+      app/services/semantic_candidates.py now measures 120 lines. The extracted candidate owners measure 550, 291, 327, and 233 lines respectively, so the selected candidate hotspot is resolved without leaving a routed 601-800 line residual.
+  created_at: '2026-05-15T13:22:18Z'
+  updated_at: '2026-05-15T15:30:00Z'
+- case_id: IC-A92BA42C6D18
+  title: 'Architecture hotspot: app/services/semantic_generation.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/semantic_generation.py remains a large
+    semantic generation owner at 1259 lines, so brief preparation, drafting,
+    verification, and support summarization still move together inside one
+    hotspot.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/services/semantic_generation.py
+    notes: Created during the app large owner modules resolution Milestone 0
+      live baseline lock after the selected semantic-generation owner remained
+      above the large-file threshold.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/semantic_generation.py
+    description: Semantic-generation residual owner surface.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check app/services/semantic_generation.py
+      tests/unit/test_semantic_generation.py
+      tests/integration/test_semantic_generation_roundtrip.py
+    - uv run pytest -q tests/unit/test_semantic_generation.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_semantic_generation_roundtrip.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - app/services/semantic_generation.py is reduced under the selected
+      large-owner threshold or split into focused generation owner modules
+      without weakening public preparation, drafting, or verification
+      entrypoints.
+    - No generation debt is moved into semantic_graph.py,
+      semantic_candidates.py, or semantic_governance.py, and any new 601-800
+      line owner is routed in the same milestone.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: >-
+      App large owner modules closeout reduced app/services/semantic_generation.py to a 91-line compatibility facade over semantic_generation_shared.py, semantic_generation_brief.py, semantic_generation_draft.py, and semantic_generation_verify.py while preserving the root dependency seams patched by the generation unit tests. Follow-on residual owner case IC-6F4E2B5A91C3 now tracks semantic_generation_brief.py at 644 lines.
+  measurement:
+    metric_name: semantic_generation_owner_line_count
+    current_value: 91.0
+    measurement_window: 2026-05-15 app large owner modules closeout refresh
+    notes: >-
+      app/services/semantic_generation.py now measures 91 lines. The extracted generation owners measure 199, 644, 208, and 243 lines respectively. The selected root surface is resolved, and the only remaining over-default owner is semantic_generation_brief.py under IC-6F4E2B5A91C3.
+  created_at: '2026-05-15T13:22:18Z'
+  updated_at: '2026-05-15T15:30:00Z'
+- case_id: IC-6F4E2B5A91C3
+  title: 'Architecture hotspot: semantic generation owner-family modules'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/semantic_generation.py is now a 91-line facade,
+    but semantic_generation_brief.py remains at 644 lines, so the generation
+    owner family still has an extracted module above the default 600-line
+    budget.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/services/semantic_generation_brief.py
+    notes: Created during the app large owner modules closeout after the
+      semantic generation root facade landed and the extracted brief owner
+      remained above the default budget.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/semantic_generation_brief.py
+    description: Largest remaining semantic-generation owner-family module after
+      the root facade split.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check app/services/semantic_generation.py
+      app/services/semantic_generation_*.py tests/unit/test_semantic_generation.py
+      tests/integration/test_semantic_generation_roundtrip.py
+    - uv run pytest -q tests/unit/test_semantic_generation.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_semantic_generation_roundtrip.py
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    acceptance_conditions:
+    - Semantic generation owner-family modules are reduced until each governed
+      owner surface is within the configured budget.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: Created during the app large owner modules closeout to route the
+      extracted semantic generation brief residual after the root facade split.
+  measurement:
+    metric_name: semantic_generation_owner_family_max_line_count
+    current_value: 644.0
+    measurement_window: 2026-05-15 app large owner modules closeout refresh
+    notes: semantic_generation_brief.py measures 644 lines after the root
+      semantic generation facade was reduced to 91 lines.
+  created_at: '2026-05-15T15:30:00Z'
+  updated_at: '2026-05-15T15:30:00Z'
+- case_id: IC-C8D41A2F77BE
+  title: 'Architecture hotspot: semantic graph owner-family modules'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/semantic_graph.py is now a 185-line facade,
+    but semantic_graph_core.py and semantic_graph_promotions.py remain at 697
+    and 718 lines, so the graph owner family still has extracted modules above
+    the default 600-line budget.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/services/semantic_graph_promotions.py
+    notes: Created during the app large owner modules closeout after the
+      semantic graph root facade landed and the extracted core and promotion
+      owners remained above the default budget.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/semantic_graph_promotions.py
+    description: Largest remaining semantic-graph owner-family module after the
+      root facade split.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check app/services/semantic_graph.py app/services/semantic_graph_*.py
+      tests/unit/test_semantic_graph.py tests/unit/test_documents_api_semantics.py
+      tests/integration/test_semantic_graph_roundtrip.py
+    - uv run pytest -q tests/unit/test_semantic_graph.py
+      tests/unit/test_documents_api_semantics.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_semantic_graph_roundtrip.py
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    acceptance_conditions:
+    - Semantic graph owner-family modules are reduced until each governed owner
+      surface is within the configured budget.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: Created during the app large owner modules closeout to route the
+      extracted semantic graph core and promotion residuals after the root
+      facade split.
+  measurement:
+    metric_name: semantic_graph_owner_family_max_line_count
+    current_value: 718.0
+    measurement_window: 2026-05-15 app large owner modules closeout refresh
+    notes: semantic_graph_promotions.py measures 718 lines and
+      semantic_graph_core.py measures 697 lines after the root semantic graph
+      facade was reduced to 185 lines.
+  created_at: '2026-05-15T15:30:00Z'
+  updated_at: '2026-05-15T15:30:00Z'

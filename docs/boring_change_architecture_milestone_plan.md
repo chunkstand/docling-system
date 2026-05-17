@@ -1,684 +1,671 @@
 # Boring Change Architecture Milestone Plan
 
-Date: 2026-05-13 local / 2026-05-13 UTC
-Status: drafted on 2026-05-13 as a stacked follow-on after
-`docs/search_execution_orchestration_boundary_milestone_plan.md`,
-`docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
-`docs/evaluations_service_boundary_milestone_plan.md`,
-`docs/evidence_provenance_exports_boundary_milestone_plan.md`,
-`docs/semantics_service_boundary_milestone_plan.md`,
-`docs/runtime_health_orchestration_milestone_plan.md`, and
-`docs/ci_release_gate_parity_milestone_plan.md`; do not start implementation
-until those prior packets close locally
-Owner context: queued follow-on coordination packet for the remaining
-expensive-change architecture gap across `SYSTEM_PLAN.md`,
-`config/improvement_cases.yaml`, `config/hygiene_policy.yaml`,
-`config/hotspot_prevention.yaml`, the remaining post-stack large-file owners in
-`app/` and `tests/`, the current Python cycle components, and the checked-in
-architecture/release workflows. This packet does not replace the already-open
-owner cases for search, claim-support, evaluations, evidence, retrieval
-learning, or data-model work. Milestone 0 must refresh live system state and
-either bind this plan to the still-open owner cases plus any missing cycle/test
-cases, or create the missing owner cases before code moves.
+Date: 2026-05-16 local / 2026-05-16 UTC
+Status: drafted originally on 2026-05-13 and refreshed on 2026-05-16 to the
+current system state after the search, claim-support, evaluations,
+evidence-provenance, semantics, runtime-health, and CI parity closeouts, and
+after the app large owner modules closeout and the narrower standalone
+evidence-owner follow-on closed locally through the Milestone 7 selected-owner
+closeout, then through the manifest-trace, manifest-owner, replay-alert, and
+semantic lifecycle/read follow-ons. Milestones 0 and 1 are now resolved
+locally in the current checkout, `docs/hotspot_prevention_family_boundary_milestone_plan.md`
+is now the latest resolved bounded implementation brief, and this broader
+coordination brief must now activate the next fresh bounded packet from the
+refreshed post-closeout backlog.
+Owner context: broader coordination brief for the remaining "expensive to
+change" backlog across live `>800`-line code files, the remaining Python cycle
+components, stale routing risk around already-shrunk compatibility facades, and
+the checked-in gates that must keep those conditions from regrowing. This plan
+is now the active coordination brief while the next narrow packet is selected.
 
 ## Purpose
 
-Resolve the current "not yet boring to change" gap identified in the system
-review.
+Resolve the remaining "not yet boring to change" gap without collapsing the
+post-closeout backlog back into one vague cleanup packet.
 
-The scoped problem is not only that the repo still has some architecture debt.
-The deeper issue is that the remaining change-cost burden is now split across
-three different kinds of drift:
+The current problem is different from the earlier 2026-05-15 pre-closeout
+snapshot. Several large service packets that this plan originally waited on are
+now closed locally, the app-side large-owner packet is resolved locally in the
+working tree, and the immediate next execution choice is narrower again. The
+remaining boring-change gap is now split across four different risks:
 
-- source-of-truth docs still name several old hotspots that are already reduced
-  to small compatibility facades
-- the live architecture probe still reports non-zero Python cycle components
-  outside the already-closed architecture-governance slice
-- the live architecture probe still reports code files above 800 lines,
-  including both production code and test monoliths
+- future sessions can reopen already-closed facade packets if routing drifts
+- `27` code files still exceed the `800`-line architecture-probe threshold
+- `3` Python cycle components still remain outside the closed
+  architecture-governance slice
+- the architecture-quality hotspot list still contains some now-small facades,
+  which makes stale hotspot routing especially dangerous
 
-This plan resolves that scoped gap end to end by refreshing stale routing,
-re-baselining the post-stack offender list from live measurements, finishing
-the remaining app and test large-file backlog one owner at a time, removing the
-remaining Python cycles, and landing a durable boring-change gate so future
-work cannot silently drift back into broad files and cycle-heavy seams.
+This refreshed plan coordinates the remaining work by preserving the locally
+closed app-side packet, routing the remaining test, UI, and nonselected app
+backlog through narrower follow-on packets, eliminating the three live cycle
+components, and finishing with a checked-in boring-change gate that fails on
+both cycles and oversized code files.
 
 ## Current Evidence
 
-Live repo evidence refreshed from the current local checkout on 2026-05-13
-local / 2026-05-13 UTC:
+Live routing evidence refreshed from the current local checkout on 2026-05-16
+local / 2026-05-16 UTC during the Milestone 0 rebaseline:
 
 ```text
 git status -sb
-  ## main...origin/main [ahead 8]
-   M app/hotspot_prevention_classifier.py
-   M app/services/search.py
-   M config/hotspot_prevention.yaml
+  ## main...origin/main [ahead 16]
+   M app/services/evidence_claim_support_replay_alerts.py
+   M app/services/evidence_audit_views.py
+   M app/services/evidence_manifests.py
+   M app/services/evidence_manifest_traces.py
+   M app/services/evidence_semantic_trace.py
    M config/hygiene_policy.yaml
+   M config/improvement_cases.yaml
    M docs/SESSION_HANDOFF.md
    M docs/agentic_architecture_index.md
-   M tests/unit/test_hotspot_prevention.py
-  ?? app/services/search_execution_orchestration.py
-  ?? docs/ci_release_gate_parity_milestone_plan.md
-  ?? docs/claim_support_policy_impacts_boundary_milestone_plan.md
-  ?? docs/evaluations_service_boundary_milestone_plan.md
-  ?? docs/evidence_provenance_exports_boundary_milestone_plan.md
-  ?? docs/runtime_health_orchestration_milestone_plan.md
-  ?? docs/search_execution_orchestration_boundary_milestone_plan.md
-  ?? docs/semantics_service_boundary_milestone_plan.md
-  ?? tests/unit/test_search_execution_orchestration.py
-
-wc -l app/db/models.py app/services/evidence.py app/services/claim_support_policy_impacts.py app/services/retrieval_learning.py app/services/search.py app/services/semantics.py app/services/evaluations.py tests/db_model_contract.py tests/unit/test_agent_task_context.py tests/integration/test_retrieval_learning_ledger.py tests/unit/test_evaluation_service.py tests/integration/test_technical_report_harness_roundtrip.py tests/unit/test_search_service.py
-     159 app/db/models.py
-     141 app/services/evidence.py
-    2011 app/services/claim_support_policy_impacts.py
-     143 app/services/retrieval_learning.py
-    1592 app/services/search.py
-    2309 app/services/semantics.py
-    2159 app/services/evaluations.py
-    3700 tests/db_model_contract.py
-    2972 tests/unit/test_agent_task_context.py
-    2339 tests/integration/test_retrieval_learning_ledger.py
-    2237 tests/unit/test_evaluation_service.py
-    2030 tests/integration/test_technical_report_harness_roundtrip.py
-    1845 tests/unit/test_search_service.py
+   M docs/boring_change_architecture_milestone_plan.md
+   M docs/evidence_residual_owner_family_milestone_plan.md
+  ?? app/services/evidence_audit_views_bundle.py
+  ?? app/services/evidence_audit_views_context.py
+  ?? app/services/evidence_audit_views_payloads.py
+  ?? app/services/evidence_audit_views_release_readiness.py
+  ?? app/services/evidence_claim_support_replay_alert_corpus.py
+  ?? app/services/evidence_manifest_payloads.py
+  ?? app/services/evidence_manifest_trace_assembly.py
+  ?? app/services/evidence_manifest_trace_graph.py
+  ?? app/services/evidence_manifest_trace_replay.py
+  ?? app/services/evidence_semantic_trace_integrity.py
+  ?? app/services/evidence_semantic_trace_payloads.py
+  ?? app/services/evidence_semantic_trace_provenance.py
+  ?? app/services/evidence_semantic_trace_source_records.py
+  ?? docs/app_large_owner_modules_resolution_milestone_plan.md
+  ?? docs/evidence_claim_support_replay_alerts_boundary_milestone_plan.md
+  ?? docs/evidence_manifest_owner_boundary_milestone_plan.md
+  ?? docs/evidence_manifest_trace_graph_boundary_milestone_plan.md
+  ?? docs/semantic_residual_owner_family_milestone_plan.md
 
 uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
   hotspot_count=10
-  max_hotspot_risk_score=531.06
+  max_hotspot_risk_score=496.06
   top_hotspot_paths=[
     app/db/models.py,
-    app/services/agent_task_actions.py,
     app/cli.py,
-    app/schemas/agent_tasks.py,
-    app/services/evidence.py
+    app/services/agent_task_actions.py,
+    app/services/evidence.py,
+    app/schemas/agent_tasks.py
   ]
 
 python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20
-  Code files: 576
-  Python cycles: 3
-  Suggested gate: --fail-on-cycles
-  Suggested gate: --max-file-lines 800
-  Large-file count above 800 lines: 52
-  Largest files include:
-    tests/db_model_contract.py = 3700
-    tests/unit/test_agent_task_context.py = 2972
-    app/services/semantics.py = 2309
-    tests/unit/test_evaluation_service.py = 2237
-    app/services/evaluations.py = 2159
-    app/services/claim_support_policy_impacts.py = 2011
-    tests/integration/test_technical_report_harness_roundtrip.py = 2030
-    tests/unit/test_search_service.py = 1845
-    app/services/search.py = 1592
+  27 code files exceed 800 lines
+  largest code files include:
+    tests/unit/test_evaluation_fixtures.py = 1506
+    app/ui/modules/agents.js = 1300
+    tests/integration/test_agent_task_triage_roundtrip.py = 1279
+    tests/unit/test_agent_task_verifications.py = 1197
+    tests/integration/test_postgres_roundtrip.py = 1132
+    app/services/agent_task_context_semantic_governance.py = 1126
+    app/services/semantic_orchestration.py = 1092
+    tests/unit/test_docling_parser.py = 1080
+    app/services/agent_actions/search_harness.py = 1078
+    app/services/technical_reports.py = 1075
+    app/db/model_domains/audit_and_evidence.py = 1053
+    tests/unit/test_agent_tasks.py = 1011
+    app/db/model_domains/semantic_memory.py = 979
+    app/services/evaluation_fixtures.py = 966
+    app/services/eval_workbench.py = 952
+    app/services/agent_actions/semantic_governance_actions.py = 943
+    app/ui/modules/shared.js = 930
+    app/services/audit_bundle_training_runs.py = 917
+    app/services/evaluation_scoring.py = 897
+    app/services/improvement_cases.py = 876
+  top hotspots include:
+    app/services/agent_tasks.py = 30264
+    tests/integration/test_agent_task_triage_roundtrip.py = 26859
+    app/cli.py = 21375
+    tests/integration/test_postgres_roundtrip.py = 18112
+    app/services/technical_reports.py = 17200
   Python cycle components:
-    app.architecture_decisions, app.architecture_inspection,
-    app.architecture_inspection_rules, app.hygiene,
-    app.services.improvement_case_intake
-    app.services.chat, app.services.search,
+    app.services.search,
     app.services.search_execution_persistence,
-    app.services.search_hydration
+    app.services.search_harnesses,
+    app.services.search_hydration,
+    app.services.search_metadata_supplement,
+    app.services.search_retrieval_primitives
+    app.services.evidence_provenance_export_graph_core,
+    app.services.evidence_provenance_export_graph_report
     app.services.evidence_search_packages,
     app.services.evidence_search_trace_store
 
-python large-file distribution (repo code only, >800 lines)
-  app = 37
-  tests = 15
+uv run docling-system-hygiene-check
+  new hygiene regressions: none
+  inherited budget debt still includes:
+    app/services/semantic_generation_brief.py = 644 lines under IC-6F4E2B5A91C3
+    app/services/semantic_graph_core.py = 697 lines under IC-C8D41A2F77BE
+    app/services/semantic_graph_promotions.py = 718 lines under IC-C8D41A2F77BE
+    app/services/agent_actions/search_harness.py = 1078 lines under IC-A1E186A34097
+    app/services/agent_task_context_semantic_governance.py = 1126 lines under IC-E52B6C7B22FD
+  hotspot-prevention family no longer appears in inherited budget debt after
+  the Milestone 1 closeout; the root and focused sibling owners are now all
+  exact-ratcheted under IC-6C1B516A3F92 and IC-15F6E41A9C77
+  no evidence owner-family module remains in inherited budget debt after the
+  replay-alert follow-on; broader `IC-65AF4A6D8B1E` routing now remains open
+  only as a locally retirement-ready evidence-family record while the broader
+  coordination brief now needs one fresh next bounded packet
+
+uv run docling-system-improvement-case-summary
+  case_count=49
+  status_counts.open=33
+  status_counts.deployed=15
+  status_counts.measured=1
 ```
 
 Repo-current structural evidence:
 
-- `SYSTEM_PLAN.md` still names `app/db/models.py`, `app/services/evidence.py`,
-  and `app/services/retrieval_learning.py` as inherited hotspot debt, but the
-  live line counts are now `159`, `141`, and `143`. Those files are no longer
-  the main large-file blockers, although some remain fan-in-heavy compatibility
-  surfaces and governed owner cases.
-- The live large-file burden has shifted toward the still-open search,
-  claim-support, evaluations, evidence-provenance, and semantics lanes, plus
-  broader semantic/support services and several large test files.
-- The current worktree already contains drafted stacked plans for:
-  search orchestration, claim-support policy impacts, evaluations service
-  boundary, evidence provenance exports, semantics service boundary, runtime
-  health orchestration, and CI release-gate parity. This boring-change packet
-  must therefore begin with a post-stack refresh rather than assuming those
-  lanes stay static.
-- `config/improvement_cases.yaml` already routes the main historical hotspot
-  owners for:
-  `app/db/models.py`,
-  `app/services/search.py`,
-  `app/services/claim_support_policy_impacts.py`,
-  `app/services/evidence.py`,
-  and `app/services/retrieval_learning.py`.
-  The remaining live cycle components and many of the large test files still do
-  not have a single clearly discoverable coordination packet that closes them as
-  one boring-change program, but the former architecture-control cycle is now
-  owned and closed by
-  `docs/architecture_governance_cycle_boundary_milestone_plan.md` and should
-  not be reopened here.
-- The current checked-in architecture workflow does not yet enforce the probe's
-  suggested `--fail-on-cycles` and `--max-file-lines 800` gates, so the repo can
-  still drift back toward broad files and cycles even when architecture
-  inspection remains green.
+- `docs/SESSION_HANDOFF.md` now names this file as the active coordination
+  brief, `docs/hotspot_prevention_family_boundary_milestone_plan.md` as the
+  latest resolved bounded implementation brief, and the semantic lifecycle/read
+  packet as the prior resolved semantic follow-on. Immediate follow-on
+  planning should therefore remeasure the refreshed backlog and activate one
+  new bounded packet instead of reopening the just-closed hotspot-prevention
+  family.
+- `docs/agentic_architecture_index.md` already records the search,
+  claim-support, evaluations, evidence-provenance, semantics, runtime-health,
+  and CI parity packets as closed locally. This plan must not reopen those
+  packets just because their historical hotspot names still appear in older
+  narratives.
+- Milestone 1 now resolves the hotspot-prevention family locally: the
+  classifier root is `360 / 1`, the companion test root is `595 / 0`, the
+  family no longer appears in the `>800`-line backlog, and the broader brief
+  can now choose the next packet from a cleaner baseline.
+- The app-side large-owner service packet in
+  `docs/app_large_owner_modules_resolution_milestone_plan.md`:
+  `semantic_graph.py`, `docling_parser.py`, `quality.py`,
+  `semantic_candidates.py`, `semantic_generation.py`,
+  `semantic_governance.py`, and `runs.py` is now resolved locally in the
+  working tree and should be treated as an earlier resolved app-side packet,
+  not as the next immediate routing target or the latest resolved bounded
+  follow-on.
+- `docs/semantic_residual_owner_family_milestone_plan.md` is no longer an
+  honest ready-to-execute packet because it predates the app large owner
+  closeout that reduced `semantic_governance.py` to `39` lines. The resolved
+  lifecycle/read follow-on now lives in
+  `docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md`, so the old
+  three-owner draft is historical context only.
+- The broader backlog still includes remaining nonselected code-file offenders
+  that should not be forgotten after the current hotspot-prevention family
+  packet closes,
+  including
+  `app/ui/modules/agents.js` at `1300` lines,
+  `app/services/agent_task_context_semantic_governance.py` at `1126`,
+  `app/services/semantic_orchestration.py` at `1092`,
+  `app/services/agent_actions/search_harness.py` at `1078`,
+  `app/services/technical_reports.py` at `1075`, and
+  `app/db/model_domains/audit_and_evidence.py` at `1053`, plus the test
+  monolith backlog.
+- The current hotspot summary still routes
+  `app/db/models.py`, `app/services/agent_task_actions.py`, `app/cli.py`,
+  `app/schemas/agent_tasks.py`, and `app/services/evidence.py`, but those are
+  now small compatibility facades or already-routed owner families rather than
+  the primary `>800`-line blockers. That makes them routing traps, not the
+  first files to reopen.
+- The three live cycle components are now the search compatibility family
+  centered on `app/services/chat.py` plus the search helper owners, the
+  evidence-provenance export graph family, and the evidence-search
+  packages/trace-store family. The earlier architecture-governance cycle is
+  already closed locally and should stay out of scope.
 
 ## Goal
 
-Resolve the scoped boring-change gap so that:
+Resolve the remaining boring-change gap so that:
 
-- source-of-truth docs and routing artifacts reflect the live residual debt
-  rather than historical hotspot names
-- every post-stack code file in `app/` and `tests/` is at or below 800 lines
-- the architecture probe reports 0 Python cycle components
-- already-reduced compatibility facades such as `app/db/models.py`,
-  `app/services/evidence.py`, and `app/services/retrieval_learning.py` stay
-  small and do not re-accumulate implementation ownership
-- the zero-cycle / max-800-lines boring-change gate is executable in checked-in
-  CI and in local closeout
+- the active bounded packet routing stays aligned with the live backlog
+- the app-side large-owner packet is closed or explicitly superseded by a
+  fresher narrow packet
+- every remaining `>800`-line code file is either resolved or governed by a
+  narrow, durable owner packet instead of this umbrella brief
+- the architecture probe reports `0` Python cycle components
+- already-reduced compatibility facades stay small and do not re-accumulate
+  moved implementation ownership
+- the final checked-in boring-change gate fails on both code files above `800`
+  lines and on Python cycles
 
-The finish line for this plan is not "fewer big files than before." The finish
-line is that the repo becomes mechanically boring on these axes:
-no code file over 800 lines, no Python import cycle components, and no stale
-source-of-truth routing that points future work at already-closed debt.
+The finish line for this plan is not "the backlog feels smaller." The finish
+line is a repo where current routing is accurate, code-file size and cycle debt
+are mechanically gated, and future sessions no longer have an excuse to reopen
+the wrong files.
 
 ## Non-Goals
 
 - No microservice extraction or platform rewrite.
-- No attempt to solve all architecture hotspots by score alone; fan-in-heavy
-  small compatibility facades may remain hot by measurement while still being
-  acceptable if they stay small and behavior-stable.
-- No threshold increase above 800 lines.
-- No test weakening, skip broadening, xfail broadening, or fixture deletion as
-  a shortcut to reduce file size.
-- No hiding cycle debt behind ad hoc local imports, dynamic imports, or runtime
-  side effects.
-- No broad product-feature work outside the owner surfaces chosen from the live
-  post-stack offender list.
-- No parallel rewrite of the already-drafted stacked plans this packet depends
-  on.
+- No reopening of the closed search, claim-support, evaluations,
+  evidence-provenance, semantics, runtime-health, or CI parity packets unless a
+  fresh baseline proves real regrowth inside one of those exact owner surfaces.
+- No threshold increase above the current architecture-probe `800`-line gate.
+- No repo-wide forced move to the default `600`-line hygiene budget in this
+  sequence.
+- No test weakening, skip broadening, xfail broadening, fixture deletion, or
+  assertion loosening to make size reduction or cycle cleanup appear green.
+- No hiding cycle debt behind local-import tricks, dynamic imports, or other
+  patterns that evade the static graph while preserving the same coupling.
+- No using this broad plan as permission to mix unrelated app, test, UI, and
+  workflow work into one giant implementation milestone.
 
 ## Scope
 
 In scope:
 
-- Milestone 0 post-stack refresh and stale-source correction
-- live re-baselining of every `app/` and `tests/` file above 800 lines after the
-  currently stacked packets close
-- explicit routing for every remaining large-file and cycle owner case
-- one-owner-at-a-time reduction of the remaining app backlog above 800 lines
-- one-owner-at-a-time reduction of the remaining test backlog above 800 lines
-- removal of all remaining Python cycle components
-- addition of a checked-in boring-change gate based on the architecture probe's
-  `--fail-on-cycles` and `--max-file-lines 800` checks
-- `SYSTEM_PLAN.md`, architecture index, handoff, workflow, and plan closeout
-  updates in the same final milestone sequence
+- Milestone 0 live freshness and routing rebaseline
+- preserving the locally resolved state of
+  `docs/app_large_owner_modules_resolution_milestone_plan.md`
+- continued use and eventual closeout of the current active next packet,
+  `docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md`, or a
+  fresher narrow replacement if a later rebaseline changes the routing
+- new or updated bounded routing for the remaining nonselected app, UI, and
+  test large-owner backlog
+- elimination of the three live Python cycle components
+- a checked-in boring-change gate around
+  `architecture_probe.py --fail-on-cycles --max-file-lines 800`
+- final source-of-truth alignment across the active plan, handoff, index, and
+  any workflow or gate docs touched by the closeout
 
 Out of scope:
 
-- remote deployment work beyond consuming the runtime-health and CI parity
-  contracts from the stacked plans
-- changes to canonical JSON/YAML source-of-truth rules
-- redesign of public API path contracts unless a live owner split requires
-  focused compatibility coverage
-- generic "clean up everything" sweeps with no owner-case routing
+- product-feature work unrelated to the selected owner families
+- redoing already-closed facade splits just because their historical owner case
+  stays visible in old docs
+- pushing all inherited `601-800`-line owner files under the default `600`
+  hygiene budget during this sequence
+- broad UI redesign work beyond the specific large-file reduction needed for
+  `app/ui/modules/agents.js` if it still remains above `800`
 
 ## Owner Surfaces
 
-- stale source-of-truth and routing:
-  `SYSTEM_PLAN.md`,
-  `docs/agentic_architecture_index.md`,
+- coordination and routing docs:
+  `docs/boring_change_architecture_milestone_plan.md`,
+  `docs/app_large_owner_modules_resolution_milestone_plan.md`,
+  `docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md`,
+  `docs/evidence_claim_support_replay_alerts_boundary_milestone_plan.md`,
+  `docs/evidence_residual_owner_family_milestone_plan.md`,
+  `docs/semantic_residual_owner_family_milestone_plan.md`,
   `docs/SESSION_HANDOFF.md`,
-  and this plan
-- architecture governance and durable ratchets:
+  `docs/agentic_architecture_index.md`,
+  and any new narrower follow-on plan created from Milestone 0 evidence
+- gate and owner routing artifacts:
   `config/improvement_cases.yaml`,
   `config/hygiene_policy.yaml`,
   `config/hotspot_prevention.yaml`,
-  `config/architecture_inspection.yaml`,
   `.github/workflows/architecture-governance.yml`,
-  `.github/workflows/release-gate-parity.yml`
-- already-reduced facades that must stay small:
-  `app/db/models.py`,
-  `app/services/evidence.py`,
-  `app/services/retrieval_learning.py`
-- current queued owner lanes that this plan depends on:
-  `app/services/search.py`,
-  `app/services/claim_support_policy_impacts.py`,
-  `app/services/evaluations.py`,
-  `app/services/evidence_provenance_exports.py`,
-  `app/services/semantics.py`
-- remaining cycle-owner families selected from live Milestone 0 evidence:
-  `app.architecture_decisions`,
-  `app.architecture_inspection`,
-  `app.architecture_inspection_rules`,
-  `app.hygiene`,
-  `app.services.improvement_case_intake`,
-  `app.services.chat`,
-  `app.services.search_execution_persistence`,
-  `app.services.search_hydration`,
-  `app.services.evidence_search_packages`,
-  `app.services.evidence_search_trace_store`
-- remaining large app owners selected from live Milestone 0 evidence, starting
-  from the current top surfaces:
-  `app/cli.py`,
-  `app/services/semantics.py`,
+  `.github/workflows/release-gate-parity.yml`,
+  and any repo-owned wrapper command used to run the final boring-change gate
+- current active next packet candidate:
+  `app/hotspot_prevention_classifier.py`,
+  `app/hotspot_prevention_classifier_support.py`,
+  `tests/unit/test_hotspot_prevention.py`,
+  and `config/hotspot_prevention.yaml`
+- latest locally resolved packet that must stay closed:
+  `app/services/semantic_pass_lifecycle.py`,
+  `app/services/semantic_pass_artifacts.py`,
+  `app/services/semantic_pass_reviews.py`,
+  `app/services/semantic_pass_reads.py`,
+  `app/services/semantic_pass_source_records.py`,
+  and `app/services/semantic_registry_preview.py`
+- earlier locally resolved packet that must stay closed:
   `app/services/semantic_graph.py`,
+  `app/services/docling_parser.py`,
+  `app/services/quality.py`,
   `app/services/semantic_candidates.py`,
   `app/services/semantic_generation.py`,
+  `app/services/semantic_governance.py`,
+  and `app/services/runs.py`
+- remaining nonselected code-file backlog that must be re-measured after the
+  hotspot-prevention family packet closes:
+  `app/ui/modules/agents.js`,
+  `app/services/agent_task_context_semantic_governance.py`,
   `app/services/semantic_orchestration.py`,
-  `app/services/claim_support_replay_alert_promotions.py`,
-  `app/services/claim_support_evaluations.py`,
+  `app/services/agent_actions/search_harness.py`,
   `app/services/technical_reports.py`,
-  `app/services/quality.py`,
-  `app/services/documents.py`,
-  `app/services/docling_parser.py`,
-  `app/services/improvement_case_intake.py`,
-  `app/services/improvement_cases.py`,
-  and any other post-stack live offenders still above 800
-- remaining large test owners selected from live Milestone 0 evidence, starting
-  from the current top surfaces:
-  `tests/db_model_contract.py`,
-  `tests/unit/test_agent_task_context.py`,
-  `tests/unit/test_evaluation_service.py`,
-  `tests/unit/test_search_service.py`,
-  `tests/unit/test_agent_tasks_api.py`,
-  `tests/integration/test_retrieval_learning_ledger.py`,
-  `tests/integration/test_technical_report_harness_roundtrip.py`,
-  `tests/integration/test_postgres_roundtrip.py`,
-  `tests/unit/test_docling_parser.py`,
-  `tests/unit/test_agent_tasks.py`,
+  `app/db/model_domains/audit_and_evidence.py`,
+  and any other code file still above `800` on a fresh post-milestone baseline
+- remaining test-monolith backlog after the active hotspot-prevention packet:
+  `tests/unit/test_evaluation_fixtures.py`,
+  `tests/integration/test_agent_task_triage_roundtrip.py`,
   `tests/unit/test_agent_task_verifications.py`,
-  and any other post-stack live offenders still above 800
-
-## Placement Rules
-
-- Keep public compatibility facades stable while shrinking implementation owners
-  behind them.
-- Do not solve one large-file problem by moving code into another file that is
-  already over 800 lines.
-- New test coverage belongs in focused owner files, not back inside the current
-  broad test monoliths.
-- Do not "break" cycles through local-import tricks that make the dependency
-  graph harder to reason about. Break cycles by moving shared types, read
-  helpers, or orchestration seams into clearer owner modules.
-- When live Milestone 0 evidence changes the offender list, route the live
-  offender list rather than forcing today's names into the implementation.
-- If a file is already reduced below 800, keep it there by ratchet; do not
-  reopen it as a general-purpose landing zone just because callers already
-  import it.
-- `SYSTEM_PLAN.md` and the architecture index must name only live residuals, not
-  historical hotspot names that were already retired.
-
-## Weak-Point Prevention Contract
-
-Freshness check: Milestone 0 must rerun live routing, architecture, and
-large-file commands after the currently stacked packets close. This plan is
-invalid if the prior packets remain uncommitted or if they materially change
-the post-stack offender list.
-
-| Weak point forecast | Owner surface | Prevention gate | Fail threshold | Controlled violation | Future-Codex misuse scenario |
-| --- | --- | --- | --- | --- | --- |
-| Stale source-of-truth docs keep pointing future work at already-closed hotspots | `SYSTEM_PLAN.md`, `docs/agentic_architecture_index.md`, `docs/SESSION_HANDOFF.md`, this plan | Milestone 0 refresh plus closeout doc readback | Docs still name `app/db/models.py`, `app/services/evidence.py`, or `app/services/retrieval_learning.py` as the primary large-file blockers after live evidence shows they are small facades | Leave the old hotspot sentence unchanged after refreshing live `wc -l` output and confirm the alignment review rejects the closeout | A later session plans new work around dead hotspot names and misses the real remaining files |
-| Large-file count falls only by shifting code into another broad file | live post-stack `app/` and `tests/` owners, hygiene policy, hotspot prevention | architecture probe `--max-file-lines 800`, hygiene, and focused owner tests | One file drops below 800 while another already-large file grows or a new >800 offender appears without routing | Move logic from one broad module into another already-large sibling and confirm the max-file-lines gate still fails | A future split "solves" one monolith by hiding the same responsibility in another monolith |
-| Cycles disappear only because imports were hidden, not because ownership improved | cycle-owner modules and focused import tests | architecture probe `--fail-on-cycles` plus architecture inspection | Static cycle count hits zero only through opaque local-import patterns or undocumented runtime dependency tricks | Replace a top-level import with a local function import and confirm review rejects the fake cycle fix | A later session optimizes for the green gate instead of clearer ownership |
-| Broad test files shrink by deleting assertions or narrowing coverage | focused test owners, integration suites, release gate parity runner | targeted unit/integration suites plus full `DOCLING_SYSTEM_RUN_INTEGRATION=1` closeout | A split reduces file size but coverage meaningfully narrows, or a deleted assertion is not replaced by equivalent or broader focused tests | Remove a broad test block without moving its assertions into focused files and confirm targeted/full suites fail or closeout review blocks the change | A future session treats file-size reduction as more important than preserving behavior coverage |
-| Already-reduced compatibility facades regrow because they are convenient import hubs | `app/db/models.py`, `app/services/evidence.py`, `app/services/retrieval_learning.py`, hotspot prevention | `uv run docling-system-hotspot-prevention-check --strict` plus focused facade tests | New implementation ownership lands back in a small compatibility facade | Add a new helper or implementation branch back into one reduced facade and confirm hotspot prevention flags it | A future session uses the stable facade as the default place for "one more helper" |
-| The boring-change gate is never made durable in checked-in CI | `.github/workflows/architecture-governance.yml`, `.github/workflows/release-gate-parity.yml`, architecture probe command docs | workflow readback plus local runner invocation | Local closeout can prove zero cycles / zero >800, but checked-in CI still never runs those gates | Leave the probe gate local-only and confirm the workflow diff is incomplete | A future session reintroduces a cycle or monolith because only humans remember to run the final gate |
-
-## Milestone Sequence
-
-### Milestone 0 - Refresh the stacked packet and correct the stale baseline
-
-Outcome label: `reduced`
-
-Purpose: refresh this plan to current system state after the currently stacked
-search, claim-support, evaluations, evidence-provenance, semantics,
-runtime-health, and CI-parity packets close locally, and correct the stale
-source-of-truth hotspot baseline before code changes begin.
-
-Implementation:
-
-- Re-run:
-  `git status -sb`,
-  `sed -n '96,132p' SYSTEM_PLAN.md`,
-  `sed -n '1,220p' docs/SESSION_HANDOFF.md`,
-  `sed -n '1,220p' docs/agentic_architecture_index.md`,
-  `uv run docling-system-architecture-quality-report --summary`,
-  `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 30`,
-  targeted `wc -l` commands for the live residual surfaces, and a repo-local
-  count of all `app/` and `tests/` files above 800 lines.
-- Confirm the prior stacked packets are committed and update this plan's
-  dependency list if the queue changed.
-- Replace this plan's draft-time offender list with the live post-stack list.
-- Explicitly record which surfaces from the stale `SYSTEM_PLAN.md` paragraph are
-  no longer large-file blockers.
-- Bind every remaining >800 file and every remaining cycle component to an
-  existing owner case or create the missing owner cases for the live residuals.
-
-Acceptance:
-
-- This plan reflects live post-stack repo state rather than the review's older
-  hotspot paragraph.
-- Every remaining >800 file and every remaining cycle component has explicit
-  owner routing.
-- The plan says which earlier hotspot names were stale and what replaced them as
-  the real remaining offenders.
-
-Stop conditions:
-
-- Any prior stacked packet remains uncommitted.
-- The post-stack offender list differs so much that this draft's routing no
-  longer matches live repo state.
-- Missing owner cases cannot be created or reconciled cleanly from the
-  refreshed evidence.
-
-### Milestone 1 - Encode the boring-change finish line in docs and routing
-
-Outcome label: `reduced`
-
-Purpose: turn "boring to change" from review prose into a repo-owned contract
-before the remaining refactors start.
-
-Implementation:
-
-- Update `SYSTEM_PLAN.md` so the architecture-residual paragraph reflects the
-  live state from Milestone 0 instead of the older hotspot list.
-- Update `docs/agentic_architecture_index.md` and `docs/SESSION_HANDOFF.md` so
-  the next work is routed against the refreshed offender list.
-- Add or refresh improvement-case and hygiene routing for every newly selected
-  app, test, and cycle owner.
-- Record the final boring-change closeout command explicitly in this plan:
-  architecture probe with `--fail-on-cycles --max-file-lines 800`, plus the
-  repo's release/verification gate.
-
-Acceptance:
-
-- The source-of-truth docs no longer point at already-reduced large-file
-  surfaces as if they were still the main blockers.
-- Every live offender is discoverable through the routing docs and the owner
-  registry.
-- The final boring-change gate is explicit, not implied.
-
-Stop conditions:
-
-- The docs cannot be aligned because the post-stack queue is still changing.
-- Any new routing would weaken existing owner-case or hygiene guarantees.
-
-### Milestone 2 - Finish the post-stack app-code backlog one owner at a time
-
-Outcome label: `reduced`
-
-Purpose: reduce every remaining `app/` code file above 800 lines to a focused
-owner surface at or below the boring-change threshold.
-
-Implementation:
-
-- Starting from the Milestone 0 rebaseline, select the current largest `app/`
-  offender still above 800 lines and split it behind stable compatibility seams.
-- Land one owner split per atomic commit. After each owner closes, update this
-  plan, the owner case, the hygiene ratchet, and the handoff before starting the
-  next offender.
-- Begin with the live top post-stack app offenders unless the refresh changes
-  the order:
-  `app/cli.py`,
-  `app/services/semantics.py`,
-  `app/services/semantic_graph.py`,
-  `app/services/semantic_candidates.py`,
-  `app/services/semantic_generation.py`,
-  `app/services/semantic_orchestration.py`,
-  `app/services/claim_support_replay_alert_promotions.py`,
-  `app/services/claim_support_evaluations.py`,
-  `app/services/technical_reports.py`,
-  `app/services/quality.py`,
-  `app/services/documents.py`,
-  `app/services/docling_parser.py`,
-  `app/services/improvement_case_intake.py`,
-  `app/services/improvement_cases.py`,
-  and any other live post-stack offenders.
-- Keep `app/db/models.py`, `app/services/evidence.py`, and
-  `app/services/retrieval_learning.py` small by ratchet instead of reopening
-  them as implementation owners.
-
-Acceptance:
-
-- No `app/` code file remains above 800 lines.
-- Each moved concern has focused owner tests and preserved facade compatibility.
-- No already-reduced compatibility facade regrows during the backlog sweep.
-
-Stop conditions:
-
-- A split would force substantial new responsibility into another already-large
-  app file.
-- An owner cannot be reduced without first changing public contracts beyond the
-  scoped compatibility envelope.
-
-### Milestone 3 - Finish the post-stack test backlog one owner at a time
-
-Outcome label: `reduced`
-
-Purpose: reduce every remaining `tests/` code file above 800 lines without
-throwing away behavior coverage.
-
-Implementation:
-
-- Starting from the Milestone 0 rebaseline, select the current largest test
-  offender still above 800 lines and split it by owner concern, behavior slice,
-  or route family.
-- Land one test-owner split per atomic commit. Replace or broaden every moved
-  assertion in focused files before deleting it from the broad file.
-- Begin with the live top post-stack test offenders unless the refresh changes
-  the order:
-  `tests/db_model_contract.py`,
-  `tests/unit/test_agent_task_context.py`,
-  `tests/unit/test_evaluation_service.py`,
-  `tests/unit/test_search_service.py`,
-  `tests/unit/test_agent_tasks_api.py`,
-  `tests/integration/test_retrieval_learning_ledger.py`,
-  `tests/integration/test_technical_report_harness_roundtrip.py`,
   `tests/integration/test_postgres_roundtrip.py`,
-  `tests/unit/test_docling_parser.py`,
   `tests/unit/test_agent_tasks.py`,
-  `tests/unit/test_agent_task_verifications.py`,
-  and any other live post-stack offenders.
-- Do not move the burden into giant `conftest.py` helpers or new omnibus
-  fixture modules.
-
-Acceptance:
-
-- No `tests/` code file remains above 800 lines.
-- Coverage is preserved or broadened through focused owner tests.
-- The broad-file count goes down without creating new broad fixture or helper
-  monoliths.
-
-Stop conditions:
-
-- The only way to reduce a test file would weaken real assertion coverage.
-- Shared helpers start becoming the next ungoverned broad-file problem.
-
-### Milestone 4 - Break every remaining Python cycle component
-
-Outcome label: `reduced`
-
-Purpose: remove the last static import-cycle components so module ownership is
-locally understandable and safer to refactor.
-
-Implementation:
-
-- Consume the dedicated closeout from
-  `docs/architecture_governance_cycle_boundary_milestone_plan.md` for the
-  former architecture-control cycle involving
-  `app.architecture_decisions`,
-  `app.architecture_inspection`,
-  `app.architecture_inspection_rules`,
-  `app.hygiene`, and
-  `app.services.improvement_case_intake`; do not reopen that slice here after
-  the dedicated packet lands.
-- Break the search-family cycle involving:
+  `tests/unit/test_docling_parser.py`,
+  and any fresh `>800` test file still present after Milestone 1
+- live cycle-owner families:
   `app.services.chat`,
   `app.services.search`,
   `app.services.search_execution_persistence`,
-  `app.services.search_hydration`.
-- Break the evidence-search cycle involving:
-  `app.services.evidence_search_packages` and
-  `app.services.evidence_search_trace_store`.
-- Use extracted shared value modules, narrower read/write helpers, or
-  orchestration seams. Do not use local-import masking as the primary solution.
-- Add focused import and behavior coverage for every cycle break.
+  `app.services.search_harnesses`,
+  `app.services.search_hydration`,
+  `app.services.search_metadata_supplement`,
+  `app.services.search_retrieval_primitives`,
+  `app.services.evidence_provenance_export_graph_core`,
+  `app.services.evidence_provenance_export_graph_report`,
+  `app.services.evidence_search_packages`,
+  and `app.services.evidence_search_trace_store`
 
-Acceptance:
+## Placement Rules
 
-- The architecture probe reports 0 Python cycle components.
-- Cycle breaks improve ownership clarity instead of just hiding imports.
-- No new cycle component appears while closing the listed ones.
+- Treat this document as a coordination brief, not a license to code directly
+  against every surface named here. New implementation should land in the
+  narrow packet that actually owns the chosen slice.
+- Do not regrow already-shrunk compatibility facades:
+  `app/db/models.py`,
+  `app/services/evidence.py`,
+  `app/services/retrieval_learning.py`,
+  `app/services/search.py`,
+  `app/services/claim_support_policy_impacts.py`,
+  `app/services/evaluations.py`,
+  and `app/services/semantics.py`.
+- New code extracted from the current app-side packet belongs in focused owner
+  siblings near the touched family, not in already-large adjacent files such as
+  `semantic_orchestration.py`, `technical_reports.py`, or `agents.js` unless
+  one of those files is the explicitly selected owner for its own packet.
+- New code extracted from large tests belongs in focused helper fixtures,
+  support modules, or smaller sibling tests. Do not "solve" one test monolith
+  by moving broad setup logic into another already-large test file.
+- Cycle elimination must prefer explicit contract, lookup, or data-shaping
+  seams over import tricks that only hide the same coupling.
+- If a new owner module closes between `601` and `800` lines, route it in
+  `config/improvement_cases.yaml` and `config/hygiene_policy.yaml` in the same
+  milestone instead of leaving it as unowned inherited debt.
+- Reuse the checked-in architecture and release-gate workflows instead of
+  creating parallel one-off CI paths for this closeout.
 
-Stop conditions:
+## Weak-Point Prevention Contract
 
-- A proposed break only hides imports and does not clarify ownership.
-- A cycle can be broken only by broad public-contract redesign outside the
-  scoped owner surfaces.
+| Weak point forecast | Owner surface | Prevention gate | Fail threshold | Controlled violation | Future-Codex misuse scenario |
+| --- | --- | --- | --- | --- | --- |
+| Routing stays stale and future work reopens closed facade packets. | this plan, `docs/SESSION_HANDOFF.md`, `docs/agentic_architecture_index.md` | milestone-start review against `git status -sb`, handoff, index, architecture probe, and improvement-case summary | Any active follow-on in the handoff disagrees with the index or this plan, or a closed packet is routed as active work again | Intentionally point Milestone 0 back at `search.py` or `claim_support_policy_impacts.py` and confirm review rejects the stale route | A future session sees old hotspot prose and starts coding in a now-small facade |
+| This umbrella brief swallows the narrower active packet and turns into another giant mixed-scope implementation. | this plan, `docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md`, `docs/evidence_claim_support_replay_alerts_boundary_milestone_plan.md`, and any new follow-on plan | staged diff review, milestone packet lint, owner-case review in `config/improvement_cases.yaml` | A milestone touches unrelated app, test, UI, and cycle families without a narrower owner packet | Intentionally add both test-monolith and semantic lifecycle/read implementation to the same milestone and confirm closeout blocks it | A future session uses the umbrella plan as permission to fix "whatever looks large" |
+| Size reduction just moves debt into another already-large sibling. | touched owner files, `config/hygiene_policy.yaml`, architecture probe, hotspot prevention config | `python .../architecture_probe.py --format markdown --top 20`, `--max-file-lines 800`, `uv run docling-system-hygiene-check`, and focused `wc -l` review | Any touched sibling grows above its recorded ceiling or a new `>800` file appears without explicit routing | Temporarily move code from `semantic_generation.py` into `semantic_orchestration.py` or from one large test into another and confirm the milestone would fail | A future session minimizes the primary file by overflowing a nearby owner |
+| Cycle cleanup passes only because imports were disguised, not because coupling was removed. | cycle-owner families and architecture gate workflows | `python .../architecture_probe.py --fail-on-cycles`, route-contract checks, focused import-boundary tests | The cycle disappears only by using local imports, import-time side effects, or circular runtime calls that the static graph no longer sees | Replace a direct import with a function-local import and confirm review rejects the fake fix | A future session hides the dependency instead of creating a real seam |
+| Test-monolith reduction weakens behavioral coverage. | selected test packet, focused source tests, integration suite | focused `pytest` slices, DB-backed integration where required, and final `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` closeout | Assertions, fixtures, or negative coverage get weaker than the pre-split contract | Remove a key failure-path assertion while shrinking a large test and confirm coverage review blocks the change | A future session optimizes for fewer lines instead of preserving the contract |
+| Final boring-change gate drifts from the repo's actual workflows. | architecture workflow, release-gate workflow, repo-owned wrapper commands, docs | `uv run docling-system-architecture-quality-report --summary`, `uv run docling-system-improvement-case-validate`, workflow review, and final gate run | Local closeout relies on a command or threshold not represented in checked-in workflows or docs | Add a local-only final command without updating workflows/docs and confirm closeout rejects the mismatch | A future session claims the repo is "boring to change" but CI does not enforce the same rule |
 
-### Milestone 5 - Make the boring-change gate durable in checked-in CI
+## Milestone Sequence
 
-Outcome label: `reduced`
+### Milestone 0 - Freshness And Routing Lock
 
-Purpose: ensure the repo cannot silently drift back above the large-file or
-cycle thresholds after the backlog is closed.
+Outcome label: reduced
 
-Implementation:
+Refresh the live baseline and lock the immediate next packet before any new
+implementation starts. Local status: resolved locally in the current checkout;
+the refreshed baseline now promotes
+`docs/hotspot_prevention_family_boundary_milestone_plan.md` as the immediate
+next bounded packet and treats the semantic lifecycle/read packet as the latest
+resolved bounded implementation brief.
 
-- After the stacked CI parity packet lands, add the boring-change probe gate to
-  the checked-in workflow set using the same local command recorded in this
-  plan.
-- Require the architecture probe to run with:
-  `--fail-on-cycles --max-file-lines 800`.
-- Keep the existing architecture inspection, capability, hygiene, hotspot
-  prevention, and release-parity signals in place; this gate is additive.
-- Update workflow docs and closeout notes so future sessions know where the
-  boring-change gate runs and what it proves.
+Required work:
 
-Acceptance:
+- rerun `git status -sb`
+- rerun `uv run docling-system-architecture-quality-report --summary`
+- rerun `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`
+- rerun `uv run docling-system-hygiene-check`
+- rerun `uv run docling-system-improvement-case-summary`
+- rerun `uv run docling-system-improvement-case-validate`
+- confirm that `docs/app_large_owner_modules_resolution_milestone_plan.md`
+  remains a closed local packet and that
+  `docs/hotspot_prevention_family_boundary_milestone_plan.md` is the
+  immediate next packet
+- mark any older draft that is no longer current, including
+  `docs/semantic_residual_owner_family_milestone_plan.md`, as needing
+  explicit supersession before use
+- refresh this plan, `docs/SESSION_HANDOFF.md`, and
+  `docs/agentic_architecture_index.md` if the routing changed
+- enumerate every remaining `>800`-line code file and every cycle component
+  into one of three buckets:
+  closed and no longer active, already owned by a narrower packet, or needing a
+  new narrower packet
 
-- Reintroducing a >800 file or a Python cycle fails checked-in CI.
-- The local boring-change gate and the checked-in CI gate use the same command
-  contract.
-- The gate does not depend on human memory or review prose alone.
+Acceptance criteria:
 
-Stop conditions:
+- the handoff, architecture index, and this plan all name the same immediate
+  next bounded packet
+- every remaining `>800` code file and every cycle component has explicit owner
+  routing
+- no closed search, claim-support, evaluations, semantics, runtime-health, or
+  CI parity packet is reopened by stale prose alone
 
-- The CI parity dependency is not yet landed and no equivalent checked-in
-  runner exists.
-- The gate can only be made green by excluding files or raising thresholds.
+### Milestone 1 - Hotspot Prevention Family Boundary
 
-### Milestone 6 - Prove the repo is boring on the selected axes and close out
+Outcome label: reduced
 
-Outcome label: `resolved` for the scoped boring-change architecture issue
+Close the current hotspot-prevention family packet or replace it with a
+strictly fresher equivalent if the Milestone 0 baseline changed.
+Local status: resolved locally in the current checkout.
 
-Purpose: prove the repo has reached the selected boringness finish line and
-close the program with the required docs, handoff, and local atomic commit
-discipline.
+Required work:
 
-Implementation:
+- implement `docs/hotspot_prevention_family_boundary_milestone_plan.md`
+- keep its classifier/test owner-case routing, support-family seams, and final
+  verification intact
+- rerun the freshness commands from Milestone 0 after the packet closes
+- refresh this coordination brief to remove any files that the standalone
+  packet resolved and to highlight the next remaining large-file or cycle slice
 
-- Run the full required verification stack, including the final boring-change
-  probe gate and the repo's release gate.
-- Update `SYSTEM_PLAN.md`, `docs/agentic_architecture_index.md`,
-  `docs/SESSION_HANDOFF.md`, and this plan with the final counts, closeout
-  commit hashes, residual risks, and any remaining follow-up that is outside
-  this scoped gap.
-- Close or reduce the owner cases with refreshed live evidence only. If a case
-  remains hot by fan-in while the facade is already small and stable, record
-  that explicitly instead of pretending the system is still broad on file-size
-  grounds.
+Acceptance criteria:
 
-Acceptance:
+- the hotspot-prevention family packet and its adjacent broader routing are
+  resolved or honestly rerouted according to that plan's own acceptance
+  criteria or are rerouted through a fresher narrow packet with equal or
+  stronger gates
+- the architecture probe does not report more than the current baseline of `3`
+  cycle components after the packet closes
+- no newly created owner file exceeds `800` lines without same-milestone owner
+  routing
 
-- The architecture probe reports 0 Python cycle components.
-- The architecture probe reports 0 code files above 800 lines.
-- Source-of-truth docs no longer list already-reduced facades as the main live
-  blockers.
-- The boring-change gate is checked in and part of durable closeout.
-- Full verification passes without weakening tests or narrowing coverage.
-- The milestone closes through atomic commits that update code, tests, docs,
-  routing, and handoff together.
+### Milestone 2 - Remaining Large-Owner Routing And Reduction
 
-Stop conditions:
+Outcome label: reduced
 
-- The final probe still reports any code file above 800 lines or any Python
-  cycle component.
-- Docs, routing, and live measurements disagree on what remains open.
+Reduce the remaining code-file backlog one narrow owner packet at a time after
+the hotspot-prevention family packet lands.
+
+Required work:
+
+- draft and execute the next narrow packet for whichever live backlog remains
+  highest leverage after Milestone 1
+- expect the first candidates to be:
+  - a test-large-owner packet covering
+    `tests/unit/test_evaluation_fixtures.py`,
+    `tests/integration/test_agent_task_triage_roundtrip.py`,
+    `tests/unit/test_hotspot_prevention.py`,
+    `tests/unit/test_agent_task_verifications.py`,
+    `tests/integration/test_postgres_roundtrip.py`,
+    `tests/unit/test_docling_parser.py`, and any fresh `>800` test siblings
+  - an app or UI residual packet covering
+    `app/ui/modules/agents.js`,
+    `app/services/agent_task_context_semantic_governance.py`,
+    `app/services/semantic_orchestration.py`,
+    `app/services/agent_actions/search_harness.py`,
+    `app/services/technical_reports.py`,
+    `app/db/model_domains/audit_and_evidence.py`, and any fresh nonselected app
+    owners still above `800`
+- keep only one narrow packet active at a time unless two packets have clearly
+  disjoint owner surfaces and verification stacks
+
+Acceptance criteria:
+
+- every post-Milestone-1 `>800` code file belongs to a closed or active bounded
+  packet with durable owner routing
+- the count of `>800` code files never increases relative to the fresh baseline
+  at the start of the selected packet
+- no packet widens itself just to absorb leftover debt from unrelated owner
+  families
+
+### Milestone 3 - Cycle Backlog Elimination
+
+Outcome label: reduced
+
+Close the three remaining Python cycle components without hiding the same
+coupling behind import tricks.
+
+Required work:
+
+- remove the search compatibility-family cycle spanning:
+  `chat`, `search`, `search_execution_persistence`, `search_harnesses`,
+  `search_hydration`, `search_metadata_supplement`, and
+  `search_retrieval_primitives`
+- remove the evidence-provenance export graph cycle spanning
+  `evidence_provenance_export_graph_core` and
+  `evidence_provenance_export_graph_report`
+- remove the evidence-search packages / trace-store cycle spanning
+  `evidence_search_packages` and `evidence_search_trace_store`
+- route cycle work through any still-open narrower packet if a cycle member is
+  already actively owned elsewhere
+
+Acceptance criteria:
+
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles` reports `0` cycle components
+- no new `>800` code file or hotspot-prevention regression is introduced while
+  cutting the cycles
+- the closeout proves the cycle was removed by an explicit seam, not by a
+  function-local import workaround
+
+### Milestone 4 - Durable Boring-Change Gate And Source-Of-Truth Closeout
+
+Outcome label: resolved
+
+Finish the boring-change sequence by making the final state mechanically
+enforced and durably documented.
+
+Required work:
+
+- wire a repo-owned final gate around
+  `architecture_probe.py --fail-on-cycles --max-file-lines 800`
+- align the gate with the checked-in architecture and release workflows instead
+  of inventing a separate local-only closeout path
+- update this plan, `docs/SESSION_HANDOFF.md`,
+  `docs/agentic_architecture_index.md`, and any touched workflow or gate docs
+  so the final routed backlog matches live repo state
+
+Acceptance criteria:
+
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles --max-file-lines 800` passes
+- `uv run docling-system-hygiene-check` reports `new hygiene regressions: none`
+- `uv run docling-system-improvement-case-validate` returns `valid=true`
+- `uv run docling-system-architecture-quality-report --summary` remains green
+  and does not show a new hotspot path created by the closeout itself
+- this plan can be marked resolved because there are no remaining Python cycle
+  components, no code files above `800` lines, and no stale routing pointing at
+  already-closed packets
 
 ## Required Implementation Artifacts
 
-- updated `SYSTEM_PLAN.md`
-- updated `config/improvement_cases.yaml`
-- updated `config/hygiene_policy.yaml`
-- updated `config/hotspot_prevention.yaml` if new ratchets or follow-up rules
-  are required
-- updated `config/architecture_inspection.yaml` if the final gate needs a
-  durable repo-owned home there
-- reduced live post-stack owner modules in `app/`
-- reduced live post-stack test files in `tests/`
-- any new focused owner modules and focused owner tests created by the splits
-- updated `.github/workflows/architecture-governance.yml`
-- updated `.github/workflows/release-gate-parity.yml`
-- updated `docs/agentic_architecture_index.md`
-- updated `docs/SESSION_HANDOFF.md`
-- this plan
+- refreshed `docs/boring_change_architecture_milestone_plan.md`
+- active bounded packet docs, starting with
+  `docs/hotspot_prevention_family_boundary_milestone_plan.md`
+- the latest resolved bounded packet record,
+  `docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md`, so the
+  selected semantic closeout does not drift back into the active queue
+- the latest locally resolved packet record,
+  `docs/app_large_owner_modules_resolution_milestone_plan.md`, so its closed
+  state does not drift back into the active queue
+- any new narrow follow-on plan created from Milestone 0 evidence, such as a
+  test-large-owner packet or cycle-specific packet
+- same-milestone updates to `config/improvement_cases.yaml`,
+  `config/hygiene_policy.yaml`, and `config/hotspot_prevention.yaml` whenever a
+  new owner is introduced or rerouted
+- focused source, test, and support-module changes for each narrow packet
+- checked-in workflow or wrapper updates needed to enforce the final
+  boring-change gate
 
 ## Required Documentation And Handoff Updates
 
-- `SYSTEM_PLAN.md`
-- `docs/agentic_architecture_index.md`
-- `docs/SESSION_HANDOFF.md`
-- this plan
-- `config/improvement_cases.yaml` when owner routing or status changes
+- update this plan whenever Milestone 0 changes the active routed backlog
+- update `docs/SESSION_HANDOFF.md` at the closeout of every bounded packet that
+  changes the next active routing
+- update `docs/agentic_architecture_index.md` whenever a packet becomes closed,
+  a new narrower packet is drafted, or a residual route changes
+- update `SYSTEM_PLAN.md` or other durable overview docs only if the final
+  closeout leaves them materially stale against the live routed backlog or the
+  enforced gate commands
 
 ## Required Verification Gates
 
-- `git diff --check`
-- `uv run ruff check app tests`
-- `uv run docling-system-hotspot-prevention-check --strict`
-- `uv run docling-system-improvement-case-validate`
-- `uv run docling-system-hygiene-check`
-- `uv run docling-system-architecture-inspect`
-- `uv run docling-system-capability-contracts`
-- `uv run docling-system-architecture-quality-report --summary`
-- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles --max-file-lines 800 --top 20`
-- `uv run docling-system-release-gate-parity`
-- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run --extra dev python -m pytest -q -rs`
-
-If the CI parity runner is not yet available when Milestone 0 refresh occurs,
-record the exact fallback release-gate command stack in
-`docs/SESSION_HANDOFF.md` and update this plan before any implementation starts.
+- docs-only Milestone 0 refresh:
+  `git diff --check`
+- every routing refresh:
+  `uv run docling-system-architecture-quality-report --summary`
+- every routing refresh:
+  `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`
+- every packet closeout:
+  `uv run docling-system-hygiene-check`
+- every packet closeout:
+  `uv run docling-system-improvement-case-summary`
+- every packet closeout:
+  `uv run docling-system-improvement-case-validate`
+- every packet that touches hotspot-prevention policy:
+  `uv run pytest -q tests/unit/test_hotspot_prevention.py`
+- every cycle milestone:
+  `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles`
+- final plan closeout:
+  `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles --max-file-lines 800`
+- every app, parser, runtime, or DB-backed implementation milestone:
+  focused `ruff`, focused unit tests, and
+  `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` according to the
+  narrower packet's repo-specific verification rules
 
 ## Acceptance Criteria
 
-- The plan begins with Milestone 0 freshness because the selected review text is
-  already partially stale against the live checkout.
-- The stale `SYSTEM_PLAN.md` hotspot paragraph is corrected to live state.
-- Every post-stack code file above 800 lines is reduced below the threshold.
-- Every remaining Python cycle component is removed.
-- Small compatibility facades stay small and do not reacquire implementation
-  ownership.
-- The boring-change gate is checked in and runs both locally and in CI.
-- No tests, skips, xfails, or verification gates are weakened to achieve the
-  outcome; replacement coverage must be equivalent or broader.
-- The milestone closes only after docs, handoff, and the final atomic closeout
-  commits all exist.
+- the current repo docs agree that
+  `docs/hotspot_prevention_family_boundary_milestone_plan.md` is the latest
+  resolved bounded packet, this document is the active coordination brief, and
+  the next bounded packet must be selected from a fresh post-closeout baseline
+- every live `>800`-line code file is either resolved or owned by a closed or
+  active bounded packet with explicit improvement-case routing
+- every live Python cycle component is either eliminated or, before final
+  closeout, owned by a bounded packet that is actively being executed next
+- already-closed facades such as `app/services/search.py`,
+  `app/services/claim_support_policy_impacts.py`,
+  `app/services/evaluations.py`, `app/services/semantics.py`,
+  `app/services/evidence.py`, and `app/db/models.py` do not reacquire broad
+  implementation ownership
+- the final boring-change gate passes with zero cycle components and zero code
+  files above `800` lines
 
 ## Stop Conditions
 
-- The prior stacked plans are not yet closed and committed.
-- Live Milestone 0 evidence shows materially different remaining offenders and
-  this draft is not refreshed before implementation.
-- Any implementation slice would require broad contract redesign outside the
-  selected owner surfaces.
-- The final boring-change gate cannot be made durable in checked-in CI.
-- Unrelated worktree changes cannot be separated from the boring-change slices.
+- Stop and rerun Milestone 0 if a just-closed bounded packet materially changes
+  the largest-file or cycle baseline.
+- Stop and draft a new narrower plan if the next slice does not have a clear
+  single-family owner boundary.
+- Stop if a proposed reduction depends on test weakening, threshold increases,
+  local-import cycle hiding, or moving debt into another already-large file.
+- Stop and split out a dedicated gate packet if enforcing the final boring
+  change gate would otherwise require broad unrelated workflow rewrites.
 
 ## Local Commit Closeout Policy
 
-- Stage only the verified boring-change slice for the current owner or cycle
-  milestone.
-- For Milestones 2 and 3, land one owner split per atomic commit and update
-  this plan, routing docs, and handoff before starting the next offender.
-- Do not close the overall plan until the final probe reports zero Python
-  cycles and zero code files above 800 lines.
+- Milestone 0 is a docs-and-routing refresh. If committed, stage only the plan,
+  handoff, index, and any directly affected routing docs.
+- Every implementation milestone after Milestone 0 must close as an atomic
+  commit from the narrower bounded packet, including code, tests, owner routing,
+  generated artifacts, and docs or handoff updates for that milestone only.
+- This umbrella brief is not complete just because a narrower packet is green.
+  It is complete only when the final boring-change gate, the routing docs, and
+  the relevant bounded packets all close together under the final resolved
+  state.
+
+## Residual Risks And Next Milestone Routing
+
+- The hotspot-prevention family packet is now closed locally.
+- Remeasure the live backlog and activate exactly one next bounded packet. The
+  current evidence now favors a dedicated residual test-large-owner packet
+  before a fresh post-hotspot-prevention app-code packet, because the family
+  just removed from the queue was the last mixed app-plus-test hotspot and the
+  remaining `>800` backlog is more clearly test-heavy.
+- The remaining routing traps after the current refresh are small but still
+  high-churn facades such as `app/db/models.py`, `app/services/evidence.py`,
+  `app/cli.py`, `app/schemas/agent_tasks.py`, and `app/services/agent_tasks.py`.
+  They should stay governed by their existing owner cases unless live regrowth
+  appears.
+- `app/ui/modules/agents.js`,
+  `app/services/agent_task_context_semantic_governance.py`,
+  `app/services/agent_actions/search_harness.py`,
+  `app/services/technical_reports.py`,
+  `app/db/model_domains/audit_and_evidence.py` remain likely post-Milestone-1
+  backlog surfaces. Re-measure them after each bounded packet closeout instead
+  of assuming the current ordering will hold.
