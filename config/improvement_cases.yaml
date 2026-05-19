@@ -625,14 +625,18 @@ cases:
       app/services/agent_task_context_search_harness*.py
       app/services/agent_task_context_semantic_governance*.py
       app/services/agent_task_context_semantic_analysis.py
+      app/services/agent_task_context_semantic_analysis_graph.py
       app/services/agent_task_context_semantic_drafting.py
       app/services/agent_task_context_semantic_verification.py
       app/services/agent_task_context_technical_reports.py
+      app/services/agent_task_context_technical_reports_claim_support.py
       tests/unit/test_agent_action_contracts.py
       tests/unit/test_agent_task_actions.py
       tests/unit/test_agent_task_actions_search_harness*.py
       tests/unit/test_agent_task_context.py
+      tests/unit/test_agent_task_context_semantic_analysis.py
       tests/unit/test_agent_task_context_semantic.py
+      tests/unit/test_agent_task_context_technical_reports.py
       tests/unit/test_agent_task_context_semantic_governance*.py
       tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks*.py
       tests/unit/test_agent_task_worker.py tests/unit/test_agent_tasks_api.py
@@ -647,7 +651,9 @@ cases:
       tests/unit/test_agent_task_actions_search_harness_drafting.py
       tests/unit/test_agent_task_actions_search_harness_apply.py
       tests/unit/test_agent_task_context.py
+      tests/unit/test_agent_task_context_semantic_analysis.py
       tests/unit/test_agent_task_context_semantic.py
+      tests/unit/test_agent_task_context_technical_reports.py
       tests/unit/test_agent_task_context_semantic_governance.py
       tests/unit/test_agent_task_context_semantic_governance_ontology.py
       tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py
@@ -2129,14 +2135,18 @@ cases:
       app/services/agent_task_context_search_harness*.py
       app/services/agent_task_context_semantic_governance*.py
       app/services/agent_task_context_semantic_analysis.py
+      app/services/agent_task_context_semantic_analysis_graph.py
       app/services/agent_task_context_semantic_drafting.py
       app/services/agent_task_context_semantic_verification.py
       app/services/agent_task_context_technical_reports.py
+      app/services/agent_task_context_technical_reports_claim_support.py
       tests/unit/test_agent_action_contracts.py
       tests/unit/test_agent_task_actions.py
       tests/unit/test_agent_task_actions_search_harness*.py
       tests/unit/test_agent_task_context.py
+      tests/unit/test_agent_task_context_semantic_analysis.py
       tests/unit/test_agent_task_context_semantic.py
+      tests/unit/test_agent_task_context_technical_reports.py
       tests/unit/test_agent_task_context_semantic_governance*.py
       tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks*.py
       tests/unit/test_agent_task_worker.py tests/unit/test_agent_tasks_api.py
@@ -2151,7 +2161,9 @@ cases:
       tests/unit/test_agent_task_actions_search_harness_drafting.py
       tests/unit/test_agent_task_actions_search_harness_apply.py
       tests/unit/test_agent_task_context.py
+      tests/unit/test_agent_task_context_semantic_analysis.py
       tests/unit/test_agent_task_context_semantic.py
+      tests/unit/test_agent_task_context_technical_reports.py
       tests/unit/test_agent_task_context_semantic_governance.py
       tests/unit/test_agent_task_context_semantic_governance_ontology.py
       tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py
@@ -2185,6 +2197,9 @@ cases:
     - Family-owned context builders remain in app/services/agent_task_context_*.py
       while hotspot prevention, lookup identity, and context artifact contracts
       stay stable.
+    - No inherited over-budget context owner remains under IC-E52B6C7B22FD;
+      semantic-analysis and technical-report context owners close at or below
+      the default 600-line budget in family-local modules.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
@@ -2201,9 +2216,13 @@ cases:
       app/services/agent_task_context_search_harness.py to 263 lines with
       focused drafting and triage builders at 468 and 172 lines plus
       app/services/agent_task_context_semantic_governance.py to 397 lines with
-      focused ontology and graph builders at 405 and 367 lines. The remaining
-      inherited over-budget context ratchets under IC-E52B6C7B22FD are now
-      limited to semantic analysis and technical-reports context owners.
+      focused ontology and graph builders at 405 and 367 lines. The later
+      residual context-owner closeout then reduces
+      app/services/agent_task_context_semantic_analysis.py to 436 lines with a
+      373-line graph-memory sibling and reduces
+      app/services/agent_task_context_technical_reports.py to 570 lines with a
+      112-line claim-support sibling, so no inherited over-budget context owner
+      remains under IC-E52B6C7B22FD.
   measurement:
     metric_name: agent_task_context_hotspot_line_count
     current_value: 121.0
@@ -2219,10 +2238,17 @@ cases:
       app/services/agent_task_context_search_harness_triage.py,
       app/services/agent_task_context_semantic_governance_ontology.py, and
       app/services/agent_task_context_semantic_governance_graph.py
-      respectively. Only semantic_analysis and technical_reports remain as
-      inherited over-budget context owners under this deployed facade case.
+      respectively. The later residual context-owner closeout now also leaves
+      semantic-analysis and technical-report context ownership at 436, 373,
+      570, and 112 lines across
+      app/services/agent_task_context_semantic_analysis.py,
+      app/services/agent_task_context_semantic_analysis_graph.py,
+      app/services/agent_task_context_technical_reports.py, and
+      app/services/agent_task_context_technical_reports_claim_support.py, so no
+      inherited over-budget context owner remains under this deployed facade
+      case.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-18T00:00:00+00:00'
+  updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-DCEE88C7CA97
   title: 'Architecture hotspot: app/schemas/search.py'
   status: deployed

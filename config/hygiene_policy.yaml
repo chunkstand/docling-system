@@ -471,9 +471,16 @@ file_budgets:
       max_private_helpers: 0
       owner_case_id: IC-E52B6C7B22FD
     app/services/agent_task_context_semantic_analysis.py:
-      max_lines: 600
-      ratchet_max_lines: 771
-      max_private_helpers: 10
+      max_lines: 436
+      ratchet_max_lines: 436
+      max_private_helpers: 6
+      ratchet_max_private_helpers: 6
+      owner_case_id: IC-E52B6C7B22FD
+    app/services/agent_task_context_semantic_analysis_graph.py:
+      max_lines: 373
+      ratchet_max_lines: 373
+      max_private_helpers: 4
+      ratchet_max_private_helpers: 4
       owner_case_id: IC-E52B6C7B22FD
     app/services/agent_task_context_semantic_drafting.py:
       max_lines: 324
@@ -484,9 +491,16 @@ file_budgets:
       max_private_helpers: 2
       owner_case_id: IC-E52B6C7B22FD
     app/services/agent_task_context_technical_reports.py:
-      max_lines: 600
-      ratchet_max_lines: 646
-      max_private_helpers: 7
+      max_lines: 570
+      ratchet_max_lines: 570
+      max_private_helpers: 6
+      ratchet_max_private_helpers: 6
+      owner_case_id: IC-E52B6C7B22FD
+    app/services/agent_task_context_technical_reports_claim_support.py:
+      max_lines: 112
+      ratchet_max_lines: 112
+      max_private_helpers: 1
+      ratchet_max_private_helpers: 1
       owner_case_id: IC-E52B6C7B22FD
     app/services/agent_task_context_search_harness.py:
       max_lines: 263

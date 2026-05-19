@@ -1,9 +1,12 @@
 # Agent-Task Residual Owner Family Milestone Plan
 
 Date: 2026-05-18 local / 2026-05-18 UTC
-Status: resolved through the 2026-05-18 durable closeout.
-Milestones 0 through 4 are complete, verification is complete, and the broader
-queue now returns to `docs/boring_change_architecture_milestone_plan.md`.
+Status: resolved through the 2026-05-18 durable closeout, with the later
+2026-05-19 inherited context-owner closeout now removing the last over-budget
+`IC-E52B6C7B22FD` modules. Milestones 0 through 4 are complete, the later
+context-owner hardening follow-on is complete, verification is complete, and
+the broader queue now returns to
+`docs/boring_change_architecture_milestone_plan.md`.
 Owner context: selected bounded follow-on for open hotspot
 `IC-4098E8370B88` / `app/services/agent_tasks.py`, the inherited
 search-harness and semantic-governance owner families still ratcheted under
@@ -56,6 +59,13 @@ Milestones 0 through 4 are now resolved locally in the current checkout.
   `565` lines, `app/services/agent_task_context_semantic_governance.py` at
   `397`, and the focused ontology or graph owners now live at `281`, `251`,
   `405`, and `367` lines.
+- The later inherited context-owner closeout reduces
+  `app/services/agent_task_context_semantic_analysis.py` to `436` lines with a
+  focused graph-memory sibling at
+  `app/services/agent_task_context_semantic_analysis_graph.py` / `373`, and
+  reduces `app/services/agent_task_context_technical_reports.py` to `570`
+  lines with a focused claim-support sibling at
+  `app/services/agent_task_context_technical_reports_claim_support.py` / `112`.
 - The residual root tests now close at `12` lines for
   `tests/unit/test_agent_tasks.py`, `10` lines for
   `tests/unit/test_agent_task_actions_search_harness.py`, `97` lines for
@@ -82,6 +92,11 @@ Verified local closeout state:
   `blocked=0`.
 - `uv run docling-system-hygiene-check` reported
   `new hygiene regressions: none`.
+- The later inherited context-owner closeout passes the focused context slice
+  at `135 passed`, the DB-backed context integration slice at `8 passed`, and
+  `uv run docling-system-hygiene-check` now reports
+  `inherited budget debt: none`.
+- The final DB-backed suite later passed again at `2115 passed`.
 - `uv run docling-system-improvement-case-summary` now reports
   `case_count=52`, `status_counts.open=36`, `status_counts.deployed=15`, and
   `measured_case_count=48`.

@@ -339,7 +339,9 @@ known_hotspots:
         - app/services/agent_task_context_search_harness.py
         - app/services/agent_task_context_semantic_governance.py
         - app/services/agent_task_context_semantic_analysis.py
+        - app/services/agent_task_context_semantic_analysis_graph.py
         - app/services/agent_task_context_technical_reports.py
+        - app/services/agent_task_context_technical_reports_claim_support.py
       route_to_plan_paths:
         - docs/agent_task_orchestration_boundary_milestone_plan.md
         - docs/agent_task_residual_owner_family_milestone_plan.md

@@ -41,6 +41,14 @@ Local Milestone 5 snapshot:
   under-budget owner modules to exact verified ceilings while preserving
   inherited ratchets only for the oversized extracted modules at 1078, 945,
   868, 1127, 771, and 646 lines
+- the later inherited context-owner closeout now removes the final two
+  oversized extracted context modules by reducing
+  `app/services/agent_task_context_semantic_analysis.py` to `436` with
+  `app/services/agent_task_context_semantic_analysis_graph.py` at `373`, and
+  reducing `app/services/agent_task_context_technical_reports.py` to `570`
+  with `app/services/agent_task_context_technical_reports_claim_support.py` at
+  `112`, so `IC-E52B6C7B22FD` no longer carries inherited over-budget context
+  owners
 - `config/improvement_cases.yaml` now transitions `IC-A1E186A34097` and
   `IC-E52B6C7B22FD` to deployed locally under the narrowed compatibility
   contract, and `docs/architecture_boundaries.md`,
@@ -58,6 +66,9 @@ Local Milestone 5 snapshot:
 - `uv run docling-system-hotspot-prevention-check --strict`:
   `known_hotspots=7`, `changed_hotspots=2`, `blocked=0`, `exceptions=0`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- later inherited context-owner follow-on focused verification:
+  `135 passed` for the unit slice, `8 passed` for the DB-backed context
+  integration slice, and `inherited budget debt: none`
 - `uv run docling-system-architecture-inspect`:
   `valid=true`, `violation_count=0`
 - `uv run docling-system-architecture-quality-report --summary`:

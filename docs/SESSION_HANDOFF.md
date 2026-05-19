@@ -252,6 +252,21 @@ The broader coordination brief still remains
 `docs/boring_change_architecture_milestone_plan.md`; treat this queue block
 plus `docs/agentic_architecture_index.md` as the durable routing truth for the
 current repo state.
+The later 2026-05-19 inherited context-owner closeout for `IC-E52B6C7B22FD`
+now removes the final hygiene debt left under the deployed
+`app/services/agent_task_context.py` facade by reducing
+`app/services/agent_task_context_semantic_analysis.py` to `436` lines with a
+`373`-line graph-memory sibling and reducing
+`app/services/agent_task_context_technical_reports.py` to `570` lines with a
+`112`-line claim-support sibling. The focused agent-task context unit slice
+passed at `135 passed`, the DB-backed context integration slice passed at
+`8 passed`, `uv run docling-system-hotspot-prevention-check --strict` stayed
+at `blocked=0`, `uv run docling-system-hygiene-check` now reports
+`inherited budget debt: none`, `uv run docling-system-capability-contracts`
+and `uv run docling-system-architecture-inspect` remained valid, and the
+fresh architecture probe still reports `0` Python cycles while dropping both
+former over-budget context owners out of the top-20 largest-file list. The
+final DB-backed suite later passed again at `2115 passed`.
 The 2026-05-18 durable architecture closeout now records the governance
 self-hosting, documents-service, cross-cutting verification, semantic/report
 residual, evaluation residual, UI residual, residual-large-file,
