@@ -300,6 +300,16 @@ def _surface_legibility_score(
     }
 
 
+def _meets_legibility_stop_condition(criteria: dict[str, bool]) -> bool:
+    if criteria["bounded_surface"]:
+        return True
+    return all(
+        value
+        for key, value in criteria.items()
+        if key != "bounded_surface"
+    )
+
+
 def _build_hotspots(
     *,
     file_metrics: dict[str, dict[str, int | str]],
@@ -364,10 +374,8 @@ def _legibility_quality_candidates(
 ) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     for surface in legibility:
-        if (
-            surface["score"] >= AGENT_LEGIBILITY_LOW_SCORE_THRESHOLD
-            and surface["criteria"]["bounded_surface"] is True
-        ):
+        criteria = dict(surface["criteria"])
+        if _meets_legibility_stop_condition(criteria):
             continue
         module_path = f"{str(surface['module']).replace('.', '/')}.py"
         candidates.append(
@@ -484,6 +492,7 @@ def build_architecture_quality_report(
             "broad_facade_count": sum(
                 1 for row in legibility if row["criteria"]["bounded_surface"] is False
             ),
+            "legibility_gap_count": len(legibility_candidates),
         },
     }
 
@@ -512,6 +521,7 @@ def build_architecture_quality_summary(
             "agent_legibility_average_score"
         ],
         "broad_facade_count": report["summary"]["broad_facade_count"],
+        "legibility_gap_count": report["summary"]["legibility_gap_count"],
     }
 
 

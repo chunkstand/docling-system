@@ -33,6 +33,7 @@ ARCHITECTURE_MEASUREMENT_FIELDS = (
     "max_hotspot_risk_score",
     "agent_legibility_average_score",
     "broad_facade_count",
+    "legibility_gap_count",
 )
 ARCHITECTURE_MEASUREMENT_DELTA_FIELDS = (
     "non_ignored_violation_count",
@@ -45,6 +46,7 @@ ARCHITECTURE_MEASUREMENT_DELTA_FIELDS = (
     "max_hotspot_risk_score",
     "agent_legibility_average_score",
     "broad_facade_count",
+    "legibility_gap_count",
     "rule_violation_counts",
     "contract_violation_counts",
 )

@@ -88,6 +88,54 @@ def test_architecture_quality_report_ranks_hotspots(
     assert surface["criteria"]["has_decision_rationale"] is True
 
 
+def test_architecture_quality_report_skips_governed_broad_facades(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "app").mkdir()
+    (tmp_path / "app" / "small.py").write_text("def ok():\n    return 1\n")
+    (tmp_path / "tests" / "unit").mkdir(parents=True)
+    (tmp_path / "tests" / "unit" / "test_search_api.py").write_text("def test_ok(): pass\n")
+    (tmp_path / "tests" / "unit" / "test_search_service.py").write_text("def test_ok(): pass\n")
+    (tmp_path / "tests" / "unit" / "test_search_history.py").write_text("def test_ok(): pass\n")
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "retrieval_repair_loop.md").write_text("Retrieval examples.\n")
+    (tmp_path / "config").mkdir()
+
+    monkeypatch.setattr(
+        "app.architecture_quality.build_capability_contract_map",
+        lambda _root: {
+            "facades": [
+                {
+                    "name": "retrieval",
+                    "module": "app.services.capabilities.retrieval",
+                    "function_count": 42,
+                    "owner_modules": ["app.services.search"],
+                    "exported_instance": "retrieval",
+                    "protocol_source": "app/services/capabilities/retrieval_contract.py",
+                    "implementation_source": "app/services/capabilities/retrieval_services.py",
+                    "contract_sources": ["app/services/capabilities/retrieval_contract.py"],
+                }
+            ]
+        },
+    )
+    monkeypatch.setattr("app.architecture_quality.collect_git_churn_metrics", lambda _root: {})
+    monkeypatch.setattr(
+        "app.architecture_quality._open_improvement_cases_by_path",
+        lambda _root: {},
+    )
+
+    report = build_architecture_quality_report(
+        tmp_path,
+        inspection_report=_inspection_report(),
+        include_hygiene=False,
+    )
+
+    assert report["summary"]["broad_facade_count"] == 1
+    assert report["summary"]["legibility_gap_count"] == 0
+    assert report["improvement_case_candidates"] == []
+
+
 def test_architecture_quality_summary_is_compact(monkeypatch, tmp_path: Path) -> None:
     (tmp_path / "app").mkdir()
     (tmp_path / "app" / "small.py").write_text("def ok():\n    return 1\n")
@@ -112,6 +160,7 @@ def test_architecture_quality_summary_is_compact(monkeypatch, tmp_path: Path) ->
     assert "top_routed_hotspot_paths" in summary
     assert "routing_trap_paths" in summary
     assert "stale_facade_hotspot_count" in summary
+    assert "legibility_gap_count" in summary
     assert "hotspots" not in summary
 
 
@@ -134,14 +183,15 @@ def test_architecture_quality_summary_uses_extended_hotspot_window(
             "summary": {
                 "top_hotspot_paths": [],
                 "top_routed_hotspot_paths": ["tests/unit/test_search_api.py"],
-                "routing_trap_paths": ["tests/unit/test_hotspot_prevention.py"],
-                "stale_facade_hotspot_count": 1,
-                "max_hotspot_risk_score": 1.0,
-                "agent_legibility_average_score": 100.0,
-                "broad_facade_count": 0,
-            },
-            "hotspot_count": 1,
-        }
+            "routing_trap_paths": ["tests/unit/test_hotspot_prevention.py"],
+            "stale_facade_hotspot_count": 1,
+            "max_hotspot_risk_score": 1.0,
+            "agent_legibility_average_score": 100.0,
+            "broad_facade_count": 0,
+            "legibility_gap_count": 0,
+        },
+        "hotspot_count": 1,
+    }
 
     monkeypatch.setattr(
         "app.architecture_quality.build_architecture_quality_report",

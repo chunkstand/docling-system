@@ -34,4 +34,5 @@ ARCHITECTURE_QUALITY_SUMMARY_FIELDS = (
     "max_hotspot_risk_score",
     "agent_legibility_average_score",
     "broad_facade_count",
+    "legibility_gap_count",
 )

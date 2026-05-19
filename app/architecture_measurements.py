@@ -77,6 +77,7 @@ def record_architecture_measurement(
         "max_hotspot_risk_score",
         "agent_legibility_average_score",
         "broad_facade_count",
+        "legibility_gap_count",
     ):
         if key in quality_summary:
             measurement_payload[key] = quality_summary[key]
@@ -253,6 +254,7 @@ def summarize_architecture_measurements(
                 "agent_legibility_average_score",
             ),
             "broad_facade_count": _delta(latest, previous, "broad_facade_count"),
+            "legibility_gap_count": _delta(latest, previous, "legibility_gap_count"),
             "rule_violation_counts": _mapping_delta(
                 latest,
                 previous,

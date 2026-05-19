@@ -195,6 +195,7 @@
         "max_hotspot_risk_score",
         "agent_legibility_average_score",
         "broad_facade_count",
+        "legibility_gap_count",
         "rule_violation_counts",
         "contract_violation_counts"
       ],
@@ -217,7 +218,8 @@
         "stale_facade_hotspot_count",
         "max_hotspot_risk_score",
         "agent_legibility_average_score",
-        "broad_facade_count"
+        "broad_facade_count",
+        "legibility_gap_count"
       ],
       "measurement_schema_name": "architecture_inspection_measurement",
       "name": "architecture_measurement_history",
@@ -293,7 +295,8 @@
         "stale_facade_hotspot_count",
         "max_hotspot_risk_score",
         "agent_legibility_average_score",
-        "broad_facade_count"
+        "broad_facade_count",
+        "legibility_gap_count"
       ],
       "summary_schema_name": "architecture_quality_summary"
     }

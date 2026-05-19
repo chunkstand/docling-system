@@ -213,7 +213,10 @@ list to `10` paths by also capturing
 `app/services/agent_tasks.py`. The full report also preserves
 `raw_improvement_case_candidates` for auditability while
 `improvement_case_candidates` now reflects the routed owner queue used by the
-improvement-case import surface. The routed-hotspot interpretation closeout and
+improvement-case import surface. `broad_facade_count` remains a raw measure of
+capability breadth, while `legibility_gap_count` identifies the broad facades
+that still fail the explicit tests/examples/trace/decision stop condition and
+therefore remain active debt. The routed-hotspot interpretation closeout and
 the later open-owner closeout are now both resolved locally, so future
 reselection should start from `top_routed_hotspot_paths` rather than from the
 raw facade list.

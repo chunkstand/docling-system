@@ -77,6 +77,7 @@ def test_architecture_measurement_records_routed_hotspot_fields(
             "max_hotspot_risk_score": 496.06,
             "agent_legibility_average_score": 90.0,
             "broad_facade_count": 2,
+            "legibility_gap_count": 0,
         },
     )
 
@@ -92,6 +93,7 @@ def test_architecture_measurement_records_routed_hotspot_fields(
     ]
     assert record["measurement"]["routing_trap_paths"] == ["app/db/models.py"]
     assert record["measurement"]["stale_facade_hotspot_count"] == 1
+    assert record["measurement"]["legibility_gap_count"] == 0
 
 
 def test_architecture_measurement_summary_reports_latest_and_deltas(
