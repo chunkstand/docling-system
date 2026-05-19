@@ -1,10 +1,10 @@
 # Search API Route Surface Boundary Milestone Plan
 
 Date: 2026-05-18 local / 2026-05-19 UTC
-Status: resolved locally in the current checkout through the search API
-route-surface follow-on that reduces the residual root test, moves the
-remaining request-history and evidence-package coverage into focused sibling
-tests, and routes the reduced root out of the active hotspot queue.
+Status: resolved locally through closeout commit `f1f296d`, which reduces the
+residual root test, moves the remaining request-history and evidence-package
+coverage into focused sibling tests, and routes the reduced root out of the
+active hotspot queue.
 Owner context: routed architecture-governance follow-on for
 `IC-03D7EFA03213` after the hotspot-prevention companion-test closeout moved
 the queue back to `tests/unit/test_search_api.py`. The root file was already

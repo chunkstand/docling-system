@@ -1535,7 +1535,7 @@ cases:
   updated_at: '2026-05-18T00:00:00+00:00'
 - case_id: IC-03D7EFA03213
   title: 'Architecture hotspot: tests/unit/test_search_api.py'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: tests/unit/test_search_api.py now measures 161 lines and
     remains the reduced search-route smoke surface over focused
@@ -1591,15 +1591,17 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "0701121"
-    notes: Verified local High Value Technical Paydown Milestone 4 moved replay
+    deployed_ref: "f1f296d"
+    notes: >-
+      Verified local High Value Technical Paydown Milestone 4 moved replay
       coverage into tests/unit/test_search_api_replays.py, harness and release
       coverage into tests/unit/test_search_api_harnesses.py, and
       learning/audit error coverage into
       tests/unit/test_search_api_learning_audit.py while
       tests/unit/test_search_api.py remained the core search-route surface.
-      The 2026-05-18 local follow-on now reduces the root to 161 lines and
-      moves request-history plus evidence-package coverage into
+      Closeout commit f1f296d now records the 2026-05-18 route-surface
+      follow-on: the root is reduced to 161 lines and request-history plus
+      evidence-package coverage move into
       tests/unit/test_search_api_request_history.py at 152 lines and
       tests/unit/test_search_api_evidence.py at 137 lines without adding new
       coverage to the inherited 764-line harness owner.

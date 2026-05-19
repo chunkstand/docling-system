@@ -129,10 +129,10 @@ the same broader under-budget reselect after the next agent-tasks API packet, or
 any fresher narrow replacement selected by the routed queue
 Previous resolved bounded implementation brief:
 `docs/hotspot_prevention_family_boundary_milestone_plan.md`
-The 2026-05-18 search API route-surface follow-on is now resolved locally in
-the current checkout, and
+The 2026-05-18 search API route-surface follow-on is now durably recorded
+through closeout commit `f1f296d`, and
 `config/improvement_cases.yaml` now reports
-`status_counts={"measured":1,"deployed":18,"open":26,"verified":14}` with
+`status_counts={"measured":1,"deployed":19,"open":26,"verified":13}` with
 `oldest_open_case_id=IC-FD18EE2D3309`; `tests/unit/test_hotspot_prevention.py`
 remains closed at `343` lines and the search API root now closes at `161`
 lines while request-history coverage lives in
