@@ -1,11 +1,11 @@
 # Cross-Cutting Large File Residual Milestone Plan
 
 Date: 2026-05-18 local / 2026-05-18 UTC
-Status: resolved locally in the current checkout through the 2026-05-18
-cross-cutting closeout. The live >800 backlog is now gone, the stale
-shared-verification branch is explicitly historical, and the governance
-self-hosting follow-on is now also resolved locally, so the live queue now
-returns to the broader under-budget reselect step.
+Status: resolved through durable closeout commit `b9b3e46`. The live >800
+backlog is now gone, the stale shared-verification branch is explicitly
+historical, and the governance self-hosting follow-on is now also durably
+closed, so the live queue now returns to the broader under-budget reselect
+step.
 Owner context: follow-on packet for the remaining large document-service and
 verification roots that do not belong to the narrower evaluation, UI, or
 semantic/report packets. The adjacent architecture-governance self-hosting
@@ -23,7 +23,7 @@ everything back into one vague cleanup change.
 
 ## 2026-05-18 Closeout Update
 
-This parent packet is now resolved locally in the current checkout.
+This parent packet is now durably closed through commit `b9b3e46`.
 
 - `app/services/documents.py` now measures `49` lines as a compatibility
   facade after ingest ownership moved into

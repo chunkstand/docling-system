@@ -13,6 +13,8 @@ DB Models Residual Owner Family closeout checkpoint:
 `b9b3e46`
 Architecture Inspection Test Surface implementation checkpoint:
 `d7ddc23`
+Architecture Inspection Test Surface closeout checkpoint:
+`fa2cd34`
 Search Schema Facade Boundary implementation checkpoint:
 `8b04845`
 Search Schema Facade Boundary closeout checkpoint:
@@ -142,9 +144,11 @@ The 2026-05-18 DB-model residual owner-family packet is now durably recorded
 through closeout commit `b9b3e46` for `IC-46C5B38A1D2E`,
 `IC-7D8AE7C83B8F`, and `IC-62C75B82F0AA`, and
 `config/improvement_cases.yaml` now reports
-`status_counts={"measured":1,"deployed":26,"open":21,"verified":12}` with
-`oldest_open_case_id=IC-FD18EE2D3309`; the extracted DB-model owners now close
-at `31`, `53`, and `31` lines in
+`status_counts={"measured":1,"deployed":28,"open":21,"verified":10}` with
+`oldest_open_case_id=IC-FD18EE2D3309`. The same durable closeout now also
+records `IC-6C3E1A7B9D52` and `IC-08C078FD4F45` as deployed instead of
+leaving them in stale verified-only state; the extracted DB-model owners now
+close at `31`, `53`, and `31` lines in
 `app/db/model_domains/audit_and_evidence.py`,
 `app/db/model_domains/semantic_memory.py`, and
 `app/db/model_domains/claim_support.py`, while the shared unit and integration
@@ -209,7 +213,8 @@ across `app/services/improvement_case_architecture_quality.py`,
 `tests/unit/test_improvement_case_intake_reports.py`. The local
 `app.services.improvement_case_observations` /
 `app.services.improvement_cases` cycle remains removed, `IC-08C078FD4F45` is
-now locally verified in `config/improvement_cases.yaml`,
+now deployed in `config/improvement_cases.yaml` through closeout commit
+`b9b3e46`,
 `config/hygiene_policy.yaml` exact-ratchets the full post-split family, the
 focused governance unit packet passed at `80 passed`, `git diff --check`
 passed, the packet-local Ruff gate passed, and the architecture probe still

@@ -1,9 +1,8 @@
 # Improvement Case Governance Self-Hosting Milestone Plan
 
 Date: 2026-05-18 local / 2026-05-18 UTC
-Status: resolved locally in the current checkout through the 2026-05-18
-governance self-hosting closeout. The governed roots now close at `370`,
-`514`, `552`, `82`, and `218` lines, the local
+Status: resolved through durable closeout commit `b9b3e46`. The governed
+roots now close at `370`, `514`, `552`, `82`, and `218` lines, the local
 `app.services.improvement_case_observations` /
 `app.services.improvement_cases` cycle remains removed, and the family-local
 siblings are now exact-ratcheted under `IC-08C078FD4F45`.
@@ -48,7 +47,8 @@ owners and stronger bounded tests.
   `tests/unit/test_improvement_case_intake_contracts.py`, and
   `tests/unit/test_improvement_case_intake_reports.py`.
 - `config/improvement_cases.yaml` now records `IC-08C078FD4F45` as
-  locally `verified` with a refreshed family max of `552`, while
+  `deployed` through durable closeout commit `b9b3e46` with a refreshed family
+  max of `552`, while
   `config/hygiene_policy.yaml` exact-ratchets the governed roots and the new
   siblings so the split cannot silently regrow.
 - The live architecture probe still reports `0` Python cycle components and
@@ -59,8 +59,8 @@ owners and stronger bounded tests.
 
 - `uv run docling-system-improvement-case-summary` still reports
   `case_count=59` and `cause_class_counts.unclear_ownership=57`, while the
-  routed governance owner case now advances from `open` to locally `verified`
-  in `config/improvement_cases.yaml`.
+  routed governance owner case now advances from `open` to `deployed`
+  in `config/improvement_cases.yaml` through closeout commit `b9b3e46`.
 - Live `wc -l` in the current dirty checkout measures
   `app/architecture_inspection.py` at `370`,
   `app/architecture_inspection_rules.py` at `514`,

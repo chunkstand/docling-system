@@ -1,11 +1,10 @@
 # Cross-Cutting Verification Roots Milestone Plan
 
 Date: 2026-05-18 local / 2026-05-18 UTC
-Status: resolved locally in the current checkout through the 2026-05-18
-verification-root closeout. The parent packet and documents-service sink are
-already resolved locally, and this packet now closes the remaining
-cross-cutting verification roots to the default `<=600` budget without
-creating a new support sink.
+Status: resolved through durable closeout commit `b9b3e46`. The parent packet
+and documents-service sink are already durably closed, and this packet closes
+the remaining cross-cutting verification roots to the default `<=600` budget
+without creating a new support sink.
 Owner context: narrower verification-boundary packet for the remaining
 cross-cutting large or high-cost verification roots under `IC-6C3E1A7B9D52`.
 The parent cross-cutting packet is already resolved locally, and the adjacent

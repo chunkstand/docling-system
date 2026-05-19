@@ -2800,7 +2800,7 @@ cases:
   updated_at: '2026-05-14T00:00:00+00:00'
 - case_id: IC-08C078FD4F45
   title: 'Architecture hotspot: app/architecture_inspection.py'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/architecture_inspection.py and the broader
     architecture-governance residual family previously exceeded the configured
@@ -2866,17 +2866,17 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: b9b3e46
     notes: Created during the hygiene owner-case routing Milestone 1 bootstrap.
       Architecture-governance checkpoint 4338d4e removed the targeted import
       cycle, architecture-governance closeout commit 7a4c5b0 resolved the
-      scoped packet locally, and the 2026-05-18 governance self-hosting
-      closeout reduced the governed roots to 370/514/552/82/218 while keeping
-      the improvement-case observation cycle removed. Family-local siblings now
-      close at 122/184/475/279/277/101/122/551 with exact hygiene ratchets,
-      focused governance verification stayed green, and the packet is locally
-      verified. Atomic closeout commit still pending because the worktree is
-      broadly dirty.
+      scoped packet locally, and durable closeout commit b9b3e46 records the
+      2026-05-18 governance self-hosting packet as deployed. The governed
+      roots close at 370/514/552/82/218 while the improvement-case observation
+      cycle remains removed, family-local siblings close at
+      122/184/475/279/277/101/122/551 with exact hygiene ratchets, and the
+      live routed queue no longer treats this residual family as an active
+      unresolved packet.
   measurement:
     metric_name: architecture_governance_family_max_line_count
     current_value: 552.0
@@ -2897,7 +2897,7 @@ cases:
       tests/unit/test_improvement_case_intake_reports.py 551 with exact
       hygiene ratchets.
   created_at: '2026-05-14T16:09:02Z'
-  updated_at: '2026-05-18T00:00:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-B847B0E36C52
   title: 'Architecture hotspot: tests/unit/test_architecture_inspection.py'
   status: deployed
@@ -4283,7 +4283,7 @@ cases:
   updated_at: '2026-05-18T21:13:23Z'
 - case_id: IC-6C3E1A7B9D52
   title: 'Architecture hotspot: cross-cutting service and verification residual family'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: The live >800 cross-cutting service and verification
     backlog is removed locally, the documents-service sink is now closed to a
@@ -4400,17 +4400,15 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: The parent cross-cutting large-file packet, the documents-service
-      boundary packet, and the cross-cutting verification packet are all
-      resolved locally in the current checkout. The document owner quartet now
-      closes at 49/233/324/276, the selected verification roots now close at
-      324/331/540/269/439, the new family-local siblings and support are
-      exact-ratcheted in hygiene, and the governance self-hosting packet under
-      IC-08C078FD4F45 is now also resolved locally. The next routed follow-on
-      must be reselected from docs/boring_change_architecture_milestone_plan.md.
-      Atomic closeout commit still pending because the worktree is broadly
-      dirty.
+    deployed_ref: b9b3e46
+    notes: Durable closeout commit b9b3e46 records the parent cross-cutting
+      large-file packet, the documents-service boundary packet, and the
+      cross-cutting verification packet as deployed. The document owner quartet
+      closes at 49/233/324/276, the selected verification roots close at
+      324/331/540/269/439, the new family-local siblings and support remain
+      exact-ratcheted in hygiene, and the adjacent governance self-hosting
+      family stays separately routed under IC-08C078FD4F45 without reopening
+      this parent packet.
   measurement:
     metric_name: cross_cutting_large_file_family_max_line_count
     current_value: 567.0
@@ -4429,4 +4427,4 @@ cases:
       readiness, and claim-support waiver scenarios into family-local siblings
       and support without creating a new >400 support sink.
   created_at: '2026-05-18T00:00:00Z'
-  updated_at: '2026-05-18T23:59:00Z'
+  updated_at: '2026-05-19T00:00:00Z'

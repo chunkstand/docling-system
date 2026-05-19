@@ -1,8 +1,8 @@
 # Architecture Inspection Test Surface Boundary Milestone Plan
 
 Date: 2026-05-19 local / 2026-05-19 UTC
-Status: resolved through implementation commit `d7ddc23` and the current
-durable closeout pass.
+Status: resolved through implementation commit `d7ddc23` plus durable closeout
+commit `fa2cd34`.
 
 Owner context: this packet was the first honest routed owner after the
 2026-05-19 queue-honesty refresh. The raw architecture-quality report surfaced

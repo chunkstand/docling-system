@@ -22,7 +22,8 @@ the now-resolved closeout-state and stale-queue alignment packet
 `docs/closeout_state_queue_alignment_milestone_plan.md` and now returns the
 now-resolved cross-cutting verification packet recorded in
 `docs/cross_cutting_verification_roots_milestone_plan.md`; the
-governance self-hosting packet is now likewise resolved locally, the later
+governance self-hosting packet is now likewise resolved through the durable
+closeout, the later
 hotspot-interpretation, open-owner, and claim-support residual follow-ons are
 now also resolved locally, and the resolved documents-service packet remains
 recorded in `docs/documents_service_boundary_milestone_plan.md`.
@@ -83,8 +84,8 @@ remaining boring-change gap is now split across four different risks:
   with no governed evaluation or UI root above the default `600`-line budget,
   the large-file backlog later falls to `0` code files above `800`, the
   documents-service sink is then retired to a 49-line facade, the
-  cross-cutting verification packet is now also resolved locally, the
-  governance self-hosting packet is now also resolved locally, and the later
+  cross-cutting verification packet is now also durably resolved, the
+  governance self-hosting packet is now also durably resolved, and the later
   hotspot-interpretation plus open-owner packets are now also resolved
   locally
 - the routed claim-support residual test packet is now also resolved locally:
@@ -786,7 +787,7 @@ Acceptance criteria:
   evaluation, UI, semantic/report, cross-cutting, and queue-alignment packets
   resolved locally. The documents-service packet, the cross-cutting
   verification packet, and the governance self-hosting packet are now also
-  resolved locally, and the next active code-owning packet must now be
+  durably resolved, and the next active code-owning packet must now be
   reselected from this broader brief rather than from the cleared large-file
   queue.
 - The current routed hotspot after the DB-model residual closeout still
