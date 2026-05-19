@@ -1599,12 +1599,16 @@ cases:
       learning/audit error coverage into
       tests/unit/test_search_api_learning_audit.py while
       tests/unit/test_search_api.py remained the core search-route surface.
-      Closeout commit f1f296d now records the 2026-05-18 route-surface
+      Implementation commit f1f296d records the 2026-05-18 route-surface
       follow-on: the root is reduced to 161 lines and request-history plus
       evidence-package coverage move into
       tests/unit/test_search_api_request_history.py at 152 lines and
       tests/unit/test_search_api_evidence.py at 137 lines without adding new
-      coverage to the inherited 764-line harness owner.
+      coverage to the inherited 764-line harness owner. Durable
+      docs-and-registry closeout commit 8d7d316 then records the deployed
+      routed-facade state and confirms the routed queue now advances to
+      tests/unit/test_agent_tasks_api.py instead of drifting back into the
+      reduced search root.
   measurement:
     metric_name: test_search_api_hotspot_line_count
     current_value: 161.0

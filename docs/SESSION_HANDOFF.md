@@ -130,7 +130,8 @@ any fresher narrow replacement selected by the routed queue
 Previous resolved bounded implementation brief:
 `docs/hotspot_prevention_family_boundary_milestone_plan.md`
 The 2026-05-18 search API route-surface follow-on is now durably recorded
-through closeout commit `f1f296d`, and
+through implementation commit `f1f296d` plus docs-and-registry closeout commit
+`8d7d316`, and
 `config/improvement_cases.yaml` now reports
 `status_counts={"measured":1,"deployed":19,"open":26,"verified":13}` with
 `oldest_open_case_id=IC-FD18EE2D3309`; `tests/unit/test_hotspot_prevention.py`
@@ -142,12 +143,12 @@ replay coverage remains in `tests/unit/test_search_api_replays.py` at `248`,
 the inherited harness owner remains unchanged at `764`, and learning/audit
 coverage remains in `tests/unit/test_search_api_learning_audit.py` at `228`.
 `git diff --check` passed, the focused search API plus policy contract slice
-passed at `43 passed`, `uv run docling-system-hotspot-prevention-check --strict`
-reported `changed_hotspots=1`, `blocked=0`, and `allowed=1` for the deletion-only
-root reduction, `uv run docling-system-hygiene-check`
-reported `new hygiene regressions: none`, `uv run docling-system-improvement-case-validate`
-returned `valid=true`, `uv run docling-system-architecture-quality-report --summary`
-still reports `agent_legibility_average_score=90.0`,
+passed at `43 passed`, the post-closeout governance recheck now reports
+`changed_hotspots=0`, `blocked=0`, and `allowed=0`,
+`uv run docling-system-hygiene-check` reported `new hygiene regressions: none`,
+`uv run docling-system-improvement-case-validate` returned `valid=true`, and
+`uv run docling-system-architecture-quality-report --summary` still reports
+`agent_legibility_average_score=90.0`,
 `broad_facade_count=2`, `hotspot_count=20`, and
 `max_hotspot_risk_score=486.06`, while the routed queue now reports
 `top_routed_hotspot_paths=["tests/unit/test_agent_tasks_api.py"]` with

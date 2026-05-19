@@ -101,12 +101,13 @@ remaining boring-change gap is now split across four different risks:
   and the routed queue now returns to `IC-03D7EFA03213` /
   `tests/unit/test_search_api.py`
 - the routed search API route-surface follow-on is now also resolved locally:
-  the residual root closes at `161` lines, request-history coverage now lives
-  in a `152`-line sibling, evidence-package and trace coverage now live in a
-  `137`-line sibling, replay and learning/audit siblings remain at `248` and
-  `228`, the inherited harness owner remains unchanged at `764`, and the
-  routed queue now advances to `IC-D9A84C20546B` /
-  `tests/unit/test_agent_tasks_api.py`
+  implementation commit `f1f296d` reduces the residual root to `161` lines,
+  request-history coverage now lives in a `152`-line sibling,
+  evidence-package and trace coverage now live in a `137`-line sibling,
+  replay and learning/audit siblings remain at `248` and `228`, the inherited
+  harness owner remains unchanged at `764`, durable docs-and-registry
+  closeout commit `8d7d316` records the deployed routed-facade state, and the routed
+  queue now advances to `IC-D9A84C20546B` / `tests/unit/test_agent_tasks_api.py`
 
 This refreshed plan coordinates the remaining work by preserving the locally
 closed app-side packet, routing the remaining test, UI, and nonselected app

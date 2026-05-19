@@ -1,10 +1,11 @@
 # Search API Route Surface Boundary Milestone Plan
 
 Date: 2026-05-18 local / 2026-05-19 UTC
-Status: resolved locally through closeout commit `f1f296d`, which reduces the
-residual root test, moves the remaining request-history and evidence-package
-coverage into focused sibling tests, and routes the reduced root out of the
-active hotspot queue.
+Status: resolved locally through implementation commit `f1f296d` and durable
+docs-and-registry closeout commit `8d7d316`, which reduce the residual root
+test, move the remaining request-history and evidence-package coverage into
+focused sibling tests, and route the reduced root out of the active hotspot
+queue.
 Owner context: routed architecture-governance follow-on for
 `IC-03D7EFA03213` after the hotspot-prevention companion-test closeout moved
 the queue back to `tests/unit/test_search_api.py`. The root file was already
@@ -120,6 +121,41 @@ uv run docling-system-architecture-quality-report --summary
 python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20
   0 Python cycle components
   0 code files above 800 lines
+```
+
+Closeout-state recheck after the durable docs-and-registry alignment commit
+`8d7d316`:
+
+```text
+uv run docling-system-hotspot-prevention-check --strict
+  known_hotspots=35
+  changed_hotspots=0
+  blocked=0
+  allowed=0
+
+uv run docling-system-hygiene-check
+  new hygiene regressions: none
+
+uv run docling-system-improvement-case-summary
+  status_counts={"measured":1,"deployed":19,"open":26,"verified":13}
+
+uv run docling-system-improvement-case-validate
+  valid=true
+
+uv run docling-system-architecture-quality-report --summary
+  top_routed_hotspot_paths=[
+    "tests/unit/test_agent_tasks_api.py",
+    "app/schemas/search.py",
+    "app/api/main.py",
+    "tests/unit/test_db_model_import_compatibility.py",
+    "tests/unit/test_architecture_inspection.py"
+  ]
+  stale_facade_hotspot_count=13
+
+python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20
+  largest search-family inherited owner remains
+  tests/unit/test_search_api_harnesses.py at 764 lines
+  0 Python cycle components
 ```
 
 ## Current Structural Evidence
