@@ -11,6 +11,8 @@ Search Compatibility Facade Boundary closeout checkpoint:
 `fd9dd2a`
 Search Schema Facade Boundary implementation checkpoint:
 `8b04845`
+Search Schema Facade Boundary closeout checkpoint:
+`d85a3f4`
 Claim Support Policy Impacts Boundary Milestone 4 checkpoint: `3d7d090`
 Evaluations Service Boundary Milestone 1 checkpoint: `9e3a8e4`
 Evaluations Service Boundary Milestone 2 checkpoint: `3817659`
@@ -134,8 +136,8 @@ queue
 Previous resolved bounded implementation brief:
 `docs/agent_tasks_api_lifecycle_boundary_milestone_plan.md`
 The 2026-05-18 search-schema facade follow-on is now durably recorded through
-implementation commit `8b04845` plus the current docs-and-registry closeout
-for `IC-DCEE88C7CA97`, and
+implementation commit `8b04845` plus docs-and-registry closeout commit
+`d85a3f4` for `IC-DCEE88C7CA97`, and
 `config/improvement_cases.yaml` now reports
 `status_counts={"measured":1,"deployed":21,"open":24,"verified":13}` with
 `oldest_open_case_id=IC-FD18EE2D3309`; `app/schemas/search.py` now closes at

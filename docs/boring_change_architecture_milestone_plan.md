@@ -120,7 +120,7 @@ remaining boring-change gap is now split across four different risks:
   `IC-DCEE88C7CA97` / `app/schemas/search.py`
 - the routed search-schema facade follow-on is now also resolved locally
   through implementation commit `8b04845` plus durable docs-and-registry
-  closeout in the current checkout for `IC-DCEE88C7CA97`:
+  closeout commit `d85a3f4` for `IC-DCEE88C7CA97`:
   `app/schemas/search.py` now closes at `36` lines over focused core, history,
   explanations, replay, harness, and learning owners at `83`, `77`, `77`,
   `100`, `220`, and `280` lines, `50` app importers intentionally remain on

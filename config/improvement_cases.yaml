@@ -2314,7 +2314,7 @@ cases:
       search_replays owner modules, exact-ratchets the focused owner family
       including search_harness.py and search_learning.py, routes the reduced
       root as a deferred reduced facade, and is now durably recorded through
-      the current docs-and-registry closeout.
+      docs-and-registry closeout commit d85a3f4.
   measurement:
     metric_name: search_schema_facade_line_count
     current_value: 36.0

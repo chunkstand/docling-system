@@ -2,7 +2,7 @@
 
 Date: 2026-05-18 local / 2026-05-19 UTC
 Status: resolved locally through implementation commit `8b04845` plus durable
-docs-and-registry closeout in the current checkout for `IC-DCEE88C7CA97`;
+docs-and-registry closeout commit `d85a3f4` for `IC-DCEE88C7CA97`;
 `app/schemas/search.py` is now a narrow compatibility facade, the concrete
 schema definitions now live in focused owner modules, and the routed queue now
 advances to the next under-budget packet instead of reopening the facade.
@@ -193,7 +193,8 @@ python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/arch
   app.schemas.search imported by 75 local modules
 ```
 
-Closeout-state recheck after the durable docs-and-registry alignment:
+Closeout-state recheck after durable docs-and-registry closeout commit
+`d85a3f4`:
 
 ```text
 uv run docling-system-hotspot-prevention-check --strict
