@@ -811,7 +811,7 @@ cases:
   updated_at: '2026-05-14T05:45:46Z'
 - case_id: IC-D9A84C20546B
   title: 'Architecture hotspot: tests/unit/test_agent_tasks_api.py'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: tests/unit/test_agent_tasks_api.py now measures 92 lines and
     remains the reduced compatibility surface over focused claim-support,
@@ -862,21 +862,23 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "790fa2d"
     notes: The earlier oversized-test hotspot closeout reduced the residual
       compatibility file to 92 lines and moved the route families into
       tests/unit/test_agent_tasks_api_claim_support.py,
       tests/unit/test_agent_tasks_api_artifacts.py,
       tests/unit/test_agent_tasks_api_lifecycle.py, and
       tests/unit/test_agent_tasks_api_auth.py. The 2026-05-18 local
-      lifecycle-family follow-on now reduces
+      lifecycle-family follow-on implemented in commit 790fa2d now reduces
       tests/unit/test_agent_tasks_api_lifecycle.py to 360 lines, moves
       analytics and trace-export coverage into
       tests/unit/test_agent_tasks_api_analytics.py at 360 lines, moves
       artifact list/detail and failure-artifact success coverage into
       tests/unit/test_agent_tasks_api_artifacts.py at 566 lines, and exact-ratchets
       the focused family without creating a new generic support sink. The
-      atomic closeout commit is still pending.
+      durable docs-and-registry closeout now records the reduced root as a
+      deferred reduced facade and advances the routed queue to
+      app/schemas/search.py.
   measurement:
     metric_name: test_agent_tasks_api_hotspot_line_count
     current_value: 92.0

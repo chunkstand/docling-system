@@ -1,10 +1,10 @@
 # Agent Tasks API Lifecycle Boundary Milestone Plan
 
 Date: 2026-05-18 local / 2026-05-19 UTC
-Status: resolved locally in the current checkout through the 2026-05-18
-agent-tasks API lifecycle-family follow-on, which retires the last oversized
-focused sibling under `IC-D9A84C20546B`, keeps the root API smoke file small,
-and routes future growth back into focused agent-task API owner files.
+Status: resolved locally through implementation commit `790fa2d`, which
+retires the last oversized focused sibling under `IC-D9A84C20546B`, keeps the
+root API smoke file small, and routes future growth back into focused
+agent-task API owner files.
 Owner context: routed architecture-governance follow-on for
 `IC-D9A84C20546B` after the search API route-surface closeout returned the
 queue to `tests/unit/test_agent_tasks_api.py`. The root file was already down
@@ -116,6 +116,35 @@ uv run docling-system-architecture-quality-report --summary
 python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20
   0 Python cycle components
   0 code files above 800 lines
+```
+
+Closeout-state recheck after the durable docs-and-registry alignment:
+
+```text
+uv run docling-system-hotspot-prevention-check --strict
+  known_hotspots=35
+  changed_hotspots=0
+  blocked=0
+  allowed=0
+
+uv run docling-system-hygiene-check
+  new hygiene regressions: none
+
+uv run docling-system-improvement-case-summary
+  status_counts={"measured":1,"deployed":20,"open":25,"verified":13}
+
+uv run docling-system-improvement-case-validate
+  valid=true
+
+uv run docling-system-architecture-quality-report --summary
+  top_routed_hotspot_paths=[
+    "app/schemas/search.py",
+    "app/api/main.py",
+    "tests/unit/test_db_model_import_compatibility.py",
+    "tests/unit/test_architecture_inspection.py",
+    "app/api/routers/agent_tasks.py"
+  ]
+  stale_facade_hotspot_count=14
 ```
 
 ## Current Structural Evidence
