@@ -132,16 +132,16 @@ reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
-`docs/search_service_residual_ranking_split_milestone_plan.md`
+`docs/queue_exhaustion_honesty_sweep_milestone_plan.md`
 Next routed bounded implementation brief:
-Packet E final queue exhaustion and honesty sweep in
-`docs/remaining_packet_queue_resolution_milestone_plan.md`, with the live
-`top_routed_hotspot_paths` queue still empty
+None. The live `top_routed_hotspot_paths=[]` queue is exhausted, so future
+architecture work must start from a fresh broader Milestone 0 rebaseline
+rather than a queued packet.
 Queued standalone follow-on:
-Packet E final queue exhaustion or rebaseline as recorded in
-`docs/remaining_packet_queue_resolution_milestone_plan.md`
+None. `docs/remaining_packet_queue_resolution_milestone_plan.md` is now
+resolved through the Packet E queue-exhaustion closeout.
 Previous resolved bounded implementation brief:
-`docs/agent_task_context_residual_successor_split_milestone_plan.md`
+`docs/search_service_residual_ranking_split_milestone_plan.md`
 Post-Packet A/B alignment audit from the current 2026-05-19 checkout:
 `uv run docling-system-improvement-case-summary` now reports
 `status_counts={"measured":1,"deployed":58,"open":2}`,
@@ -186,6 +186,17 @@ The later 2026-05-19 Packet D alignment sweep then updates
 wording from the current-state index and owner-family summaries, and keeps the
 governance gates green with `blocked=0`, `exceptions=0`, and
 `status_counts={"measured":1,"deployed":60}`.
+The later 2026-05-19 Packet E closeout now resolves
+`docs/remaining_packet_queue_resolution_milestone_plan.md` through
+`docs/queue_exhaustion_honesty_sweep_milestone_plan.md`: the live improvement
+case summary still reads `status_counts={"measured":1,"deployed":60}` with
+`open_unconverted_count=0` and `verified_undeployed_count=0`, hotspot
+prevention stays at `blocked=0` and `exceptions=0`, hygiene still reports no
+regressions or inherited debt, architecture inspection remains
+`violation_count=0`, architecture quality keeps
+`top_routed_hotspot_paths=[]`, and the architecture probe still reports no
+Python cycles. No new queued packet is needed, so future architecture work now
+requires a fresh broader Milestone 0 rebaseline rather than a queued Packet F.
 The 2026-05-18 DB-model residual owner-family packet is now durably recorded
 through closeout commit `b9b3e46` for `IC-46C5B38A1D2E`,
 `IC-7D8AE7C83B8F`, and `IC-62C75B82F0AA`, and

@@ -85,7 +85,12 @@ The later 2026-05-19 Packet D residual-ranking closeout then deploys
 the reduced search-service root as a deferred facade, moves the live counts to
 `open=0`, `verified=0`, and `deployed=60`, and leaves Packet E as the only
 remaining queued follow-on while `top_routed_hotspot_paths=[]` remains
-unchanged.
+unchanged. The later 2026-05-19 Packet E queue-exhaustion closeout then proves
+those counts stayed closed, keeps `top_routed_hotspot_paths=[]`,
+`blocked=0`, `exceptions=0`, and `violation_count=0`, and retires the
+remaining packet queue with no new queued follow-on. Future work from this
+broader brief now requires a fresh broader rebaseline rather than another
+queued packet.
 
 ## Purpose
 

@@ -3,7 +3,8 @@
 Date: 2026-05-19 local / 2026-05-19 UTC
 Status: resolved through the 2026-05-19 Packet D residual ranking split.
 `IC-25C1F7B9E4DA` is now deployed, the reduced search-service root is routed as
-a deferred facade, and Packet E is now the next queued packet.
+a deferred facade, and the later Packet E queue-exhaustion sweep retires the
+remaining queue without creating a new follow-on packet.
 Owner context: code-owning closeout for the last over-budget focused successor
 left behind by the earlier `tests/unit/test_search_service.py` family split.
 
@@ -72,7 +73,9 @@ the reduced root.
 The later Packet D alignment sweep updates the owner-case deployment ref to
 `4fa696a`, confirms the live registry stays at `open=0`, `verified=0`, and
 `deployed=60`, and removes stale "Packet D remains open" wording from the
-current-state adjacent summaries.
+current-state adjacent summaries. The later Packet E queue-exhaustion sweep
+then retires the queue plan itself, so this Packet D closeout no longer stands
+as a "next packet" handoff surface.
 
 ## Weak-Point Prevention Contract
 
@@ -102,15 +105,17 @@ current-state adjacent summaries.
   `600` lines.
 - Live counts move from `open=1`, `verified=0`, `deployed=59` to
   `open=0`, `verified=0`, `deployed=60`.
-- Packet E becomes the next queued packet in the queue plan, handoff, and
-  architecture index.
+- At the Packet D checkpoint, Packet E becomes the next queued packet in the
+  queue plan, handoff, and architecture index until the later Packet E sweep
+  exhausts the queue.
 
 ## Stop Conditions
 
 - Stop if either focused ranking owner regrows above `600` lines.
 - Stop if the strict hotspot-prevention gate still blocks Packet D after the
   reduced-root routing is in place.
-- Stop if the queue docs disagree about Packet E being the next packet.
+- Stop if the queue docs disagree about Packet E being the next packet at the
+  Packet D checkpoint.
 
 ## Local Commit Closeout Policy
 
