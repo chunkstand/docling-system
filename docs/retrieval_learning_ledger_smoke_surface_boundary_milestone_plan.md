@@ -4,8 +4,10 @@ Date: 2026-05-19 local / 2026-05-19 UTC
 Status: resolved locally in the current checkout after the prior
 `65c0c67` oversized-test split and the current governance closeout routed the
 residual smoke root and family-local support module off the active queue,
-exact-ratcheted the focused sibling files, and aligned the deployed owner case
-with the live architecture-quality report.
+exact-ratcheted the focused sibling files, aligned the deployed owner case
+with the live architecture-quality report, and the later packet-hardening
+follow-on added focused hotspot-prevention route coverage without regrowing the
+governed hotspot test roots.
 Owner context: routed architecture-governance follow-on after
 `docs/agent_tasks_route_surface_boundary_milestone_plan.md` advanced the live
 queue to `tests/integration/test_retrieval_learning_ledger.py`.
@@ -84,11 +86,17 @@ surfaces:
 - the focused sibling files now have exact hygiene ratchets, so the queue
   closeout does not merely hide growth in new ungoverned sinks
 - the deployed improvement case now records this routed residual state
+- focused hotspot-prevention route-behavior coverage now lives in
+  `tests/unit/test_hotspot_prevention_retrieval_learning_routes.py` at `69`
+  lines, while `tests/unit/test_hotspot_prevention.py` and
+  `tests/unit/test_hotspot_prevention_policy_contracts.py` remain `341` and
+  `344` lines instead of absorbing the new guardrails
 
 Live verification in the local checkout:
 
 ```text
 uv run ruff check tests/unit/test_hotspot_prevention_policy_contracts.py \
+  tests/unit/test_hotspot_prevention_retrieval_learning_routes.py \
   tests/integration/test_retrieval_learning_ledger.py \
   tests/integration/test_retrieval_learning_ledger_datasets.py \
   tests/integration/test_retrieval_learning_ledger_candidates.py \
@@ -101,11 +109,12 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs \
   tests/integration/test_retrieval_learning_ledger_datasets.py \
   tests/integration/test_retrieval_learning_ledger_candidates.py \
   tests/integration/test_retrieval_learning_ledger_integrity.py \
-  tests/unit/test_hotspot_prevention_policy_contracts.py
-  20 passed
+  tests/unit/test_hotspot_prevention_policy_contracts.py \
+  tests/unit/test_hotspot_prevention_retrieval_learning_routes.py
+  24 passed
 
 DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
-  2109 passed
+  2113 passed
 
 git diff --check
   pass
@@ -153,6 +162,11 @@ uv run docling-system-architecture-quality-report --summary
 - `config/hotspot_prevention.yaml` now routes the reduced smoke root away from
   future dataset, candidate, integrity, and replay-alert scenario growth and
   routes the support module as an accepted residual boundary.
+- Focused hotspot-prevention route-behavior coverage now lives in
+  `tests/unit/test_hotspot_prevention_retrieval_learning_routes.py` at `69`
+  lines, so the residual routing is enforced behaviorally without regrowing the
+  governed `tests/unit/test_hotspot_prevention.py` root or bloating the
+  policy-contract suite.
 - `config/improvement_cases.yaml` now records the same routed residual state in
   the deployed owner case instead of leaving the active queue to rediscover the
   already-closed family.

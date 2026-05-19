@@ -170,9 +170,13 @@ remaining boring-change gap is now split across four different risks:
   `tests/integration/test_retrieval_learning_ledger.py` as a deferred reduced
   facade, routes `tests/integration/retrieval_learning_ledger_support.py` as
   an accepted residual boundary, exact-ratchets the focused dataset,
-  candidate, and integrity siblings at `413`, `597`, and `599`, and leaves the
-  live `top_routed_hotspot_paths` queue empty instead of pretending the
-  already-split retrieval-learning family is still the next code-owning packet
+  candidate, and integrity siblings at `413`, `597`, and `599`, adds focused
+  hotspot-prevention route coverage in
+  `tests/unit/test_hotspot_prevention_retrieval_learning_routes.py` at `69`
+  lines so the guardrail does not regrow the governed hotspot test roots, and
+  leaves the live `top_routed_hotspot_paths` queue empty instead of pretending
+  the already-split retrieval-learning family is still the next code-owning
+  packet
 
 This refreshed plan coordinates the remaining work by preserving the locally
 closed app-side packet, routing the remaining test, UI, and nonselected app

@@ -2716,10 +2716,14 @@ cases:
       tests/integration/test_retrieval_learning_ledger_candidates.py
       tests/integration/test_retrieval_learning_ledger_integrity.py
       tests/integration/retrieval_learning_ledger_support.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
+      tests/unit/test_hotspot_prevention_retrieval_learning_routes.py
     - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_retrieval_learning_ledger.py
       tests/integration/test_retrieval_learning_ledger_datasets.py
       tests/integration/test_retrieval_learning_ledger_candidates.py
       tests/integration/test_retrieval_learning_ledger_integrity.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
+      tests/unit/test_hotspot_prevention_retrieval_learning_routes.py
     - uv run docling-system-hotspot-prevention-check --strict
     - uv run docling-system-hygiene-check
     - uv run docling-system-improvement-case-summary
@@ -2736,6 +2740,9 @@ cases:
       focused sibling files instead of reopening the reduced root by default.
     - The focused dataset, candidate, and integrity files have exact verified
       hygiene ratchets and remain at or below the default 600-line budget.
+    - Focused hotspot-prevention regression coverage guards the retrieval-learning
+      smoke root and support module without regrowing the governed hotspot test
+      roots.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
@@ -2748,7 +2755,11 @@ cases:
       governance closeout then routed the reduced root as a deferred facade,
       routed the support module as an accepted residual boundary, exact-ratcheted
       the focused sibling files, and advanced the live queue away from the
-      retrieval-learning family without reopening the already-split surface.
+      retrieval-learning family without reopening the already-split surface. The
+      later packet-hardening follow-on added focused hotspot-prevention route
+      regression coverage in tests/unit/test_hotspot_prevention_retrieval_learning_routes.py
+      so the routed residual state is enforced behaviorally instead of only by
+      static policy-contract assertions.
   measurement:
     metric_name: test_retrieval_learning_ledger_hotspot_line_count
     current_value: 428.0
@@ -2756,8 +2767,10 @@ cases:
     notes: The retrieval-learning ledger family now closes with a 428-line
       smoke file, a 362-line support module, and focused scenario files at
       413, 597, and 599 lines. The family stays within the packet budgets, the
-      focused siblings now have exact hygiene ratchets, and the residual root
-      plus support module are explicitly routed away from the active queue.
+      focused siblings now have exact hygiene ratchets, the residual root plus
+      support module are explicitly routed away from the active queue, and the
+      routed residual state now has focused hotspot-prevention regression
+      coverage outside the governed hotspot test roots.
   created_at: '2026-05-14T00:00:00+00:00'
   updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-25C1F7B9E4DA

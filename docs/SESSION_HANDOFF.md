@@ -234,6 +234,20 @@ retrieval-learning plus policy slice at `20 passed`; passes the full DB-backed
 suite again at `2109 passed`; and leaves the live
 `top_routed_hotspot_paths=[]`, so the next code-owning packet now requires a
 fresh broader reselect rather than another stale residual-root follow-on.
+The later 2026-05-19 packet-hardening follow-on for the same owner case adds
+focused hotspot-prevention route-behavior coverage in
+`tests/unit/test_hotspot_prevention_retrieval_learning_routes.py` at `69`
+lines, keeps `tests/unit/test_hotspot_prevention.py` and
+`tests/unit/test_hotspot_prevention_policy_contracts.py` at `341` and `344`
+lines instead of shifting the guardrail debt into those existing suites,
+passes the focused retrieval-learning plus hotspot-prevention slice at
+`24 passed`, keeps `uv run docling-system-hotspot-prevention-check --strict`,
+`uv run docling-system-hygiene-check`,
+`uv run docling-system-improvement-case-validate`,
+`uv run docling-system-architecture-inspect`, and
+`uv run docling-system-architecture-quality-report --summary` green with the
+live queue still empty, and passes the full DB-backed suite again at
+`2113 passed`.
 The broader coordination brief still remains
 `docs/boring_change_architecture_milestone_plan.md`; treat this queue block
 plus `docs/agentic_architecture_index.md` as the durable routing truth for the
