@@ -7,7 +7,9 @@ later 2026-05-18 technical-report harness residual gap-close now deploys
 `IC-D49E037D5657` through the 2026-05-19 verified-to-deployed registry
 closeout, and the later 2026-05-18 agent-tasks API lifecycle-family
 closeout now also deploys `IC-D9A84C20546B` through implementation commit
-`790fa2d` plus durable docs-and-registry closeout commit `8ce05b7`
+`790fa2d` plus durable docs-and-registry closeout commit `8ce05b7`, while the
+later 2026-05-19 Packet C residual-successor split now also deploys
+`IC-3B4C9F2A76E1`
 Owner context: closeout under `IC-5F0E1C8B0D42`,
 `IC-3B4C9F2A76E1`, `IC-D9A84C20546B`, `IC-7A628A4CBCAC`,
 `IC-25C1F7B9E4DA`, `IC-908E7A1D2C44`, and `IC-D49E037D5657`.

@@ -1260,8 +1260,14 @@ file_budgets:
       ratchet_max_private_helpers: 0
       owner_case_id: IC-3B4C9F2A76E1
     tests/unit/test_agent_task_context_reports_claim_support.py:
-      max_lines: 636
-      ratchet_max_lines: 636
+      max_lines: 358
+      ratchet_max_lines: 358
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-3B4C9F2A76E1
+    tests/unit/agent_task_context_reports_claim_support_support.py:
+      max_lines: 294
+      ratchet_max_lines: 294
       max_private_helpers: 0
       ratchet_max_private_helpers: 0
       owner_case_id: IC-3B4C9F2A76E1
@@ -1284,8 +1290,14 @@ file_budgets:
       ratchet_max_private_helpers: 0
       owner_case_id: IC-3B4C9F2A76E1
     tests/unit/test_agent_task_context_semantic_graph_promotions.py:
-      max_lines: 653
-      ratchet_max_lines: 653
+      max_lines: 236
+      ratchet_max_lines: 236
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-3B4C9F2A76E1
+    tests/unit/agent_task_context_semantic_graph_promotions_support.py:
+      max_lines: 426
+      ratchet_max_lines: 426
       max_private_helpers: 0
       ratchet_max_private_helpers: 0
       owner_case_id: IC-3B4C9F2A76E1

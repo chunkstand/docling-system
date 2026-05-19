@@ -12,6 +12,8 @@ RESIDUAL_TEST_COMPATIBILITY_PATHS = {
     "tests/db_model_contract.py",
     "tests/integration/test_claim_support_judge_evaluation_roundtrip.py",
     "tests/unit/test_agent_task_context.py",
+    "tests/unit/test_agent_task_context_reports_claim_support.py",
+    "tests/unit/test_agent_task_context_semantic_graph_promotions.py",
     "tests/unit/test_agent_tasks_api.py",
     "tests/unit/test_documents_api.py",
     "tests/unit/test_evaluation_service.py",
@@ -23,6 +25,8 @@ RESIDUAL_TEST_COMPATIBILITY_PATHS = {
 LOCAL_TEST_SUPPORT_PATHS = {
     "tests/integration/retrieval_learning_ledger_support.py",
     "tests/integration/technical_report_harness_support.py",
+    "tests/unit/agent_task_context_reports_claim_support_support.py",
+    "tests/unit/agent_task_context_semantic_graph_promotions_support.py",
 }
 
 _COMPATIBILITY_TEST_TOKENS = (

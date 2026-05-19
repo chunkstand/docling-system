@@ -6,11 +6,13 @@ Status: active queue-coordination brief after
 `top_routed_hotspot_paths` queue empty. Packet A is now resolved through
 `docs/stale_open_registry_closeout_milestone_plan.md`, Packet B is now
 resolved through `docs/verified_to_deployed_registry_closeout_milestone_plan.md`,
-and Packet C is the next queued packet.
+Packet C is now resolved through
+`docs/agent_task_context_residual_successor_split_milestone_plan.md`, and
+Packet D is the next queued packet.
 Owner context: broader coordination follow-on for the remaining improvement
 cases after the fresh broader reselect reduced `IC-23F2C79C8AA7`. The later
-stale-open and verified-to-deployed registry closeouts now leave the repo with
-`open=2`, `verified=0`, and `deployed=58`.
+stale-open, verified-to-deployed, and Packet C residual-successor closeouts
+now leave the repo with `open=1`, `verified=0`, and `deployed=59`.
 
 ## Purpose
 
@@ -19,11 +21,10 @@ queue so future sessions stop treating the raw case registry as the operative
 packet order.
 
 The current weakness is not the lack of known debt. The repo already knows the
-remaining cases. The problem is that the live routed queue is empty, several
-remaining `open` cases are already under budget and only need honest registry
-closeout, and only two of the remaining `open` cases still point at live
-code-owning work. Without an explicit queue brief, future sessions will
-reselect the same backlog repeatedly or reopen already-reduced roots.
+remaining cases. The problem is that the live routed queue is empty and the
+last remaining `open` case still points at live code-owning work. Without an
+explicit queue brief, future sessions will reselect the same backlog
+repeatedly or reopen already-reduced roots.
 
 ## Current Evidence
 
@@ -108,7 +109,8 @@ wc -l app/services/evidence_claim_support_replay_alerts.py \
     589 app/services/semantic_graph_promotions.py
 ```
 
-Durable repo evidence already narrows the remaining live code work further:
+Durable repo evidence already narrowed the remaining live code work further at
+the queue-freeze baseline:
 
 - `docs/agent_task_residual_owner_family_milestone_plan.md` says only
   `IC-3B4C9F2A76E1` and `IC-25C1F7B9E4DA` remain intentionally open because
@@ -135,7 +137,7 @@ uv run docling-system-improvement-case-summary
   status_counts={"measured":1,"deployed":49,"open":2,"verified":9}
 ```
 
-The remaining `open` cases are now only:
+At the Packet A checkpoint, the remaining `open` cases were only:
 
 - `IC-3B4C9F2A76E1`
 - `IC-25C1F7B9E4DA`
@@ -146,6 +148,14 @@ Packet B closeout result from the same 2026-05-19 checkout:
 uv run docling-system-improvement-case-summary
   case_count=61
   status_counts={"measured":1,"deployed":58,"open":2,"verified":0}
+```
+
+Packet C closeout result from the same 2026-05-19 checkout:
+
+```text
+uv run docling-system-improvement-case-summary
+  case_count=61
+  status_counts={"measured":1,"deployed":59,"open":1,"verified":0}
 ```
 
 ## Goal
@@ -313,6 +323,11 @@ Outcome label: resolved
 Finish `IC-3B4C9F2A76E1` by splitting or reducing the still-over-budget
 focused successor tests rather than regrowing the reduced root.
 
+Resolved on 2026-05-19 through
+`docs/agent_task_context_residual_successor_split_milestone_plan.md`. The
+post-closeout live target landed at `open=1`, `verified=0`, and
+`deployed=59`.
+
 Packet C must:
 
 - create a fresh child plan for the agent-task context residual test lane
@@ -418,16 +433,17 @@ For Packet C and Packet D:
   in chat.
 - The first two queued packets are docs-only registry sweeps, not accidental
   code packets.
-- `IC-3B4C9F2A76E1` and `IC-25C1F7B9E4DA` are the only queued code-owning
-  packets unless Milestone 0 discovers fresh regrowth.
+- Packet D `IC-25C1F7B9E4DA` is the only remaining queued code-owning packet
+  unless Milestone 0 discovers fresh regrowth.
 - The plan names the exact case IDs and the exact remaining over-budget
-  successor files for Packet C and Packet D.
+  successor file for Packet D after Packet C closes.
 - The handoff, architecture index, broader coordination brief, and this plan
   all describe the same queue order.
 - The queue targets honest counts: `open=2`, `verified=9`, `deployed=49`
-  after Packet A; `open=2`, `verified=0`, `deployed=58` after Packet B; and
-  `open=0`, `verified=0`, `deployed=60` after Packet D unless Milestone 0
-  finds new live debt.
+  after Packet A; `open=2`, `verified=0`, `deployed=58` after Packet B;
+  `open=1`, `verified=0`, `deployed=59` after Packet C; and `open=0`,
+  `verified=0`, `deployed=60` after Packet D unless Milestone 0 finds new
+  live debt.
 
 ## Stop Conditions
 

@@ -68,7 +68,13 @@ remains unchanged. The later 2026-05-19 Packet B verified-to-deployed registry
 closeout then deploys the remaining nine verified cases, moves the live counts
 to `open=2`, `verified=0`, and `deployed=58`, and leaves Packet C
 `IC-3B4C9F2A76E1` as the next queued packet while
-`top_routed_hotspot_paths=[]` still remains unchanged.
+`top_routed_hotspot_paths=[]` still remains unchanged. The later 2026-05-19
+Packet C residual-successor closeout then deploys `IC-3B4C9F2A76E1`, reduces
+the last two over-budget agent-task context successor tests to `358` and
+`236` lines over new `294`- and `426`-line support modules, moves the live
+counts to `open=1`, `verified=0`, and `deployed=59`, and leaves Packet D
+`IC-25C1F7B9E4DA` as the next queued packet while
+`top_routed_hotspot_paths=[]` remains unchanged.
 
 ## Purpose
 

@@ -74,10 +74,12 @@ Milestones 0 through 4 are now resolved locally in the current checkout.
   sibling suites and family-local support carrying the moved coverage.
 - The later 2026-05-19 registry-alignment sweep now deploys
   `IC-4098E8370B88`, `IC-5D14C2A0B6F7`, `IC-2E0A91B39C5D`, and
-  `IC-8F77A1D2C6E4` through durable closeout commit `b9b3e46`, so only the
-  adjacent oversized-test residuals `IC-3B4C9F2A76E1` and
-  `IC-25C1F7B9E4DA` remain intentionally open because focused successor files
-  still exceed the default `600`-line hygiene budget.
+  `IC-8F77A1D2C6E4` through durable closeout commit `b9b3e46`. The later
+  Packet C residual-successor split now also deploys `IC-3B4C9F2A76E1` by
+  reducing its last two focused successor tests to `358` and `236` lines over
+  new `294`- and `426`-line support modules, so only
+  `IC-25C1F7B9E4DA` remains intentionally open in the adjacent oversized-test
+  residual lane.
 - `config/improvement_cases.yaml`, `config/hygiene_policy.yaml`, and
   `config/hotspot_prevention.yaml` now route the residual owner families and
   successor test surfaces explicitly. The broader routing now advances to

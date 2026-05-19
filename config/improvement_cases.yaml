@@ -2649,7 +2649,7 @@ cases:
   updated_at: '2026-05-14T00:00:00+00:00'
 - case_id: IC-3B4C9F2A76E1
   title: 'Architecture hotspot: tests/unit/test_agent_task_context.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: tests/unit/test_agent_task_context.py previously mixed registry,
     freshness, semantic-generation, semantic-governance, semantic-graph, and
@@ -2670,11 +2670,14 @@ cases:
       tests/unit/test_agent_task_context_freshness.py
       tests/unit/test_agent_task_context_semantic_generation.py
       tests/unit/test_agent_task_context_reports_claim_support.py
+      tests/unit/agent_task_context_reports_claim_support_support.py
       tests/unit/test_agent_task_context_semantic_governance.py
       tests/unit/test_agent_task_context_semantic_governance_ontology.py
       tests/unit/agent_task_context_semantic_governance_support.py
       tests/unit/test_agent_task_context_semantic_graph.py
       tests/unit/test_agent_task_context_semantic_graph_promotions.py
+      tests/unit/agent_task_context_semantic_graph_promotions_support.py
+      tests/unit/test_hotspot_prevention_agent_task_context_routes.py
     - uv run pytest -q tests/unit/test_agent_task_context.py
       tests/unit/test_agent_task_context_freshness.py
       tests/unit/test_agent_task_context_semantic_generation.py
@@ -2683,11 +2686,13 @@ cases:
       tests/unit/test_agent_task_context_semantic_governance_ontology.py
       tests/unit/test_agent_task_context_semantic_graph.py
       tests/unit/test_agent_task_context_semantic_graph_promotions.py
+      tests/unit/test_hotspot_prevention_agent_task_context_routes.py
     acceptance_conditions:
     - tests/unit/test_agent_task_context.py remains a narrow compatibility and
       registry surface at or below 600 lines.
-    - Context-family coverage stays routed to focused owner files instead of
-      regrowing the residual surface.
+    - The reduced reports and semantic-graph promotion roots stay under 600
+      lines and route future growth into focused siblings or family-local
+      support modules instead of regrowing the residual surfaces.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
@@ -2699,21 +2704,24 @@ cases:
       into focused files. The later agent-task residual owner-family follow-on
       then reduced the semantic-governance branch to a 97-line smoke file plus
       251-line ontology coverage and a 307-line family-local support module.
-      The broader family remains reduced and open because
-      tests/unit/test_agent_task_context_reports_claim_support.py and
-      tests/unit/test_agent_task_context_semantic_graph_promotions.py still
-      measure 636 and 653 lines against the default 600-line budget.
+      Packet C on 2026-05-19 then extracted the remaining reports and
+      semantic-graph promotion scaffolding into 294-line and 426-line support
+      modules, reduced the focused roots to 358 and 236 lines, and routed the
+      reduced roots as deferred facades plus the support modules as accepted
+      residuals under the same owner case.
   measurement:
     metric_name: test_agent_task_context_hotspot_line_count
     current_value: 328.0
     measurement_window: 2026-05-14 oversized-test hotspot closeout
     notes: The residual compatibility file now measures 328 lines; the focused
       freshness, semantic-generation, reports/claim-support, semantic-governance,
-      semantic-graph, and semantic-graph promotion files measure 569, 384, 636,
-      97, 584, and 653 lines respectively, with focused semantic-governance
-      ontology coverage at 251 lines and family-local support at 307 lines.
+      semantic-graph, and semantic-graph promotion files now measure 569, 384,
+      358, 97, 584, and 236 lines respectively, with focused semantic-governance
+      ontology coverage at 251 lines, family-local support at 307 lines, and
+      the new reports plus graph-promotion support modules at 294 and 426
+      lines.
   created_at: '2026-05-14T00:00:00+00:00'
-  updated_at: '2026-05-18T00:00:00+00:00'
+  updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-908E7A1D2C44
   title: 'Architecture hotspot: tests/integration/test_retrieval_learning_ledger.py'
   status: deployed

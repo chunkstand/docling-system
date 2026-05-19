@@ -57,7 +57,11 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "tests/integration/test_claim_support_judge_evaluation_roundtrip.py",
         "tests/integration/test_retrieval_learning_ledger.py",
         "tests/integration/test_technical_report_harness_roundtrip.py",
+        "tests/unit/agent_task_context_reports_claim_support_support.py",
+        "tests/unit/agent_task_context_semantic_graph_promotions_support.py",
         "tests/unit/test_agent_task_context.py",
+        "tests/unit/test_agent_task_context_reports_claim_support.py",
+        "tests/unit/test_agent_task_context_semantic_graph_promotions.py",
         "tests/unit/test_agent_tasks_api.py",
         "tests/unit/test_architecture_inspection.py",
         "tests/unit/test_cli.py",
@@ -87,6 +91,8 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "tests/unit/test_architecture_inspection.py",
         "tests/unit/test_search_api.py",
         "tests/unit/test_documents_api.py",
+        "tests/unit/test_agent_task_context_reports_claim_support.py",
+        "tests/unit/test_agent_task_context_semantic_graph_promotions.py",
         "app/schemas/search.py",
         "tests/unit/test_db_model_import_compatibility.py",
     ]:
@@ -102,6 +108,12 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         policy.known_hotspots["tests/integration/retrieval_learning_ledger_support.py"].routing.status
         == "accepted_residual"
     )
+    for path in [
+        "tests/unit/agent_task_context_reports_claim_support_support.py",
+        "tests/unit/agent_task_context_semantic_graph_promotions_support.py",
+    ]:
+        assert policy.known_hotspots[path].routing is not None
+        assert policy.known_hotspots[path].routing.status == "accepted_residual"
 
 
 def test_policy_validation_rejects_missing_owner_and_unowned_exception() -> None:
