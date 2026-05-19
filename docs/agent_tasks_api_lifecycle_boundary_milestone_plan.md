@@ -1,10 +1,10 @@
 # Agent Tasks API Lifecycle Boundary Milestone Plan
 
 Date: 2026-05-18 local / 2026-05-19 UTC
-Status: resolved locally through implementation commit `790fa2d`, which
-retires the last oversized focused sibling under `IC-D9A84C20546B`, keeps the
-root API smoke file small, and routes future growth back into focused
-agent-task API owner files.
+Status: resolved locally through implementation commit `790fa2d` plus durable
+docs-and-registry closeout commit `8ce05b7`, which retires the last oversized
+focused sibling under `IC-D9A84C20546B`, keeps the root API smoke file small,
+and records the reduced facade without routing debt back into the family.
 Owner context: routed architecture-governance follow-on for
 `IC-D9A84C20546B` after the search API route-surface closeout returned the
 queue to `tests/unit/test_agent_tasks_api.py`. The root file was already down
@@ -146,6 +146,10 @@ uv run docling-system-architecture-quality-report --summary
   ]
   stale_facade_hotspot_count=14
 ```
+
+The durable docs-and-registry closeout commit `8ce05b7` records the packet as
+deployed while preserving `790fa2d` as the implementation reference in
+`config/improvement_cases.yaml`.
 
 ## Current Structural Evidence
 

@@ -109,7 +109,8 @@ remaining boring-change gap is now split across four different risks:
   closeout commit `8d7d316` records the deployed routed-facade state, and the routed
   queue now advances to `IC-D9A84C20546B` / `tests/unit/test_agent_tasks_api.py`
 - the routed agent-tasks API lifecycle-family follow-on is now also resolved
-  locally through implementation commit `790fa2d`: the residual root stays at
+  locally through implementation commit `790fa2d` plus durable
+  docs-and-registry closeout commit `8ce05b7`: the residual root stays at
   `92` lines, analytics coverage now lives in a `360`-line sibling, artifacts
   and failure-artifact success coverage now live in a `566`-line sibling,
   lifecycle coverage now lives in a `360`-line sibling, claim-support and auth

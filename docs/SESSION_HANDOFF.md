@@ -130,7 +130,8 @@ any fresher narrow replacement selected by the routed queue
 Previous resolved bounded implementation brief:
 `docs/search_api_route_surface_boundary_milestone_plan.md`
 The 2026-05-18 agent-tasks API lifecycle-family follow-on is now durably
-recorded through implementation commit `790fa2d`, and
+recorded through implementation commit `790fa2d` plus durable
+docs-and-registry closeout commit `8ce05b7`, and
 `config/improvement_cases.yaml` now reports
 `status_counts={"measured":1,"deployed":20,"open":25,"verified":13}` with
 `oldest_open_case_id=IC-FD18EE2D3309`; `tests/unit/test_agent_tasks_api.py`
@@ -526,9 +527,10 @@ still exceed the default `600`-line hygiene budget. `IC-D49E037D5657` is now
 verified after the later technical-report harness residual closeout reduced the
 focused audit family to `398`, `313`, and `162` lines and trapped the residual
 93-line smoke root as a deferred reduced facade. `IC-D9A84C20546B` is now
-deployed locally through implementation commit `790fa2d` after the later
-agent-tasks API lifecycle-family closeout reduced the remaining focused owner
-family to `360`, `360`, `566`, `419`, and `93` lines. The broader search owner case
+deployed locally through implementation commit `790fa2d` plus durable
+docs-and-registry closeout commit `8ce05b7` after the later agent-tasks API
+lifecycle-family closeout reduced the remaining focused owner family to
+`360`, `360`, `566`, `419`, and `93` lines. The broader search owner case
 `IC-1D03DBFE8492` is now deployed locally after the compatibility-facade
 closeout reduced `app/services/search.py` to a narrow facade and removed it
 from the live architecture-probe hotspot queue. Both claim-support owner cases
@@ -759,9 +761,9 @@ architecture probe no longer lists any of those residual files among the top
 `IC-D49E037D5657` is now later verified after the technical-report harness
 audit family closed at `398`, `313`, and `162` lines without creating a new
 oversized support sink, `IC-D9A84C20546B` is now deployed locally through
-implementation commit `790fa2d` after the later agent-tasks API lifecycle
-family closes at `360`, `360`, `566`, `419`, and `93` lines without creating a
-new support sink, while
+implementation commit `790fa2d` plus durable docs-and-registry closeout commit
+`8ce05b7` after the later agent-tasks API lifecycle family closes at `360`,
+`360`, `566`, `419`, and `93` lines without creating a new support sink, while
 `IC-3B4C9F2A76E1` and `IC-25C1F7B9E4DA` remain reduced or open because focused
 successor files still measure `636` or `630` or `653`, and `621` lines
 respectively.

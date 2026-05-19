@@ -6,7 +6,7 @@ Milestone 0 refresh; the scoped oversized-test hotspot issue is closed, the
 later 2026-05-18 technical-report harness residual gap-close now verifies
 `IC-D49E037D5657`, and the later 2026-05-18 agent-tasks API lifecycle-family
 closeout now also deploys `IC-D9A84C20546B` through implementation commit
-`790fa2d`
+`790fa2d` plus durable docs-and-registry closeout commit `8ce05b7`
 Owner context: closeout under `IC-5F0E1C8B0D42`,
 `IC-3B4C9F2A76E1`, `IC-D9A84C20546B`, `IC-7A628A4CBCAC`,
 `IC-25C1F7B9E4DA`, `IC-908E7A1D2C44`, and `IC-D49E037D5657`.
@@ -42,8 +42,8 @@ Local closeout results:
   `tests/unit/test_agent_tasks_api_analytics.py` at `360`, keeps
   `tests/unit/test_agent_tasks_api_artifacts.py` at `566`, and leaves the
   claim-support and auth siblings at `419` and `93`, so the broader owner case
-  is now deployed through implementation commit `790fa2d` instead of
-  remaining open
+  is now deployed through implementation commit `790fa2d` plus durable
+  docs-and-registry closeout commit `8ce05b7` instead of remaining open
 - confirmed `tests/unit/test_evaluation_service.py` was already down to
   `389` lines at the Milestone 0 refresh after the earlier evaluation-owner
   splits, so no new decomposition was required and the owner case remains
