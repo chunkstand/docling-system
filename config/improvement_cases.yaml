@@ -164,7 +164,7 @@ cases:
   updated_at: '2026-05-13T00:00:00+00:00'
 - case_id: IC-65AF4A6D8B1E
   title: 'Architecture hotspot: evidence owner-family modules'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: The broader evidence owner-family case previously remained
     reduced because app/services/evidence_claim_support_replay_alerts.py still
@@ -172,8 +172,8 @@ cases:
     follow-ons. The current checkout now reduces that replay-alert root to 407
     lines, adds app/services/evidence_claim_support_replay_alert_corpus.py at
     128 lines, and leaves no governed evidence owner above the default
-    600-line budget, so the case is locally retirement-ready pending an atomic
-    closeout commit.
+    600-line budget. The 2026-05-19 stale-open registry closeout now records
+    the broader evidence owner-family case as deployed.
   source:
     source_type: hygiene_finding
     source_ref: hygiene:file-budget:app/services/evidence_claim_support_replay_alerts.py
@@ -188,13 +188,14 @@ cases:
       snapshot lineage now lives in
       app/services/evidence_claim_support_replay_alert_corpus.py at 128 lines
       with an exact zero-helper ratchet. The broader case now has no governed
-      evidence owner above budget in the local checkout and is retirement-ready
-      pending commit.
+      evidence owner above budget in the local checkout, and the 2026-05-19
+      stale-open registry closeout records it as deployed.
   artifact:
     artifact_type: contract
     target_path: app/services/evidence_claim_support_replay_alerts.py
-    description: Ready-to-close replay-alert owner packet that retires the last
-      live over-budget evidence root in the local checkout.
+    description: Replay-alert owner packet that retired the last live
+      over-budget evidence root in the local checkout before the 2026-05-19
+      stale-open registry closeout deployed the broader family case.
   verification:
     commands:
     - uv run docling-system-hygiene-check
@@ -208,92 +209,14 @@ cases:
   workflow_version: improvement_v1
   deployment:
     deployed_ref: "3e033fc"
-    notes: Provenance-export boundary closeout commit 1aa8378 reduced
-      app/services/evidence_provenance_exports.py to a compatibility facade
-      and added app/services/evidence_provenance_export_graph_core.py,
-      app/services/evidence_provenance_export_graph_report.py, and
-      app/services/evidence_provenance_export_lifecycle.py. The broader
-      owner-family case remains open because multiple extracted evidence owner
-      modules still exceed the default 600-line budget. Milestone 0 of
-      docs/evidence_residual_owner_family_milestone_plan.md keeps the active
-      packet focused on the selected four files and leaves broader case
-      retirement as a routed follow-on. Milestone 0 closeout commit `44bec70`
-      adds the selected-scope lock, handoff or index alignment, and skeletal
-      owner-test seams without changing production evidence behavior. Milestone
-      1 closeout commit `d9d79ef` reduced
-      app/services/evidence_technical_report_exports.py to 396 lines by moving
-      provenance-lock lookup or assembly into
-      app/services/evidence_technical_report_export_provenance_locks.py and
-      claim-derivation contract checks into
-      app/services/evidence_technical_report_export_contracts.py while keeping
-      the broader owner-family case open and routing Milestone 2 as the next
-      selected slice. Milestone 2 closeout commit `115be15` reduced
-      app/services/evidence_technical_report_exports.py to 45 lines, moved
-      derivation package shaping plus claim-derivation row payload shaping into
-      app/services/evidence_technical_report_export_payloads.py at 258 lines,
-      moved export persistence plus attachment helpers into
-      app/services/evidence_technical_report_export_lifecycle.py at 138 lines,
-      and routed Milestone 3 as the next selected slice. Milestone 3 closeout
-      commit `245dc9f` reduced app/services/evidence_claim_feedback.py to 498
-      lines by moving verdict classification plus retrieval-context,
-      evidence-ref, and desired-row payload shaping into
-      app/services/evidence_claim_feedback_payloads.py at 376 lines. Milestone
-      4 closeout commit `3e033fc` then reduced
-      app/services/evidence_claim_feedback.py to 47 lines by moving integrity
-      reporting into app/services/evidence_claim_feedback_integrity.py at 305
-      lines and ledger or append-only lifecycle ownership into
-      app/services/evidence_claim_feedback_lifecycle.py at 215 lines. The
-      current checkout now measures app/services/evidence_claim_feedback.py at
-      48 lines after the later no-behavior seam-ratchet closeout. Milestone 5
-      is resolved locally in the current checkout where
-      app/services/evidence_semantic_trace.py is reduced to 36 lines,
-      derivation integrity recomputation now lives in
-      app/services/evidence_semantic_trace_integrity.py at 149 lines,
-      semantic-trace payload assembly now lives in
-      app/services/evidence_semantic_trace_payloads.py at 182 lines,
-      source-record shaping now lives in
-      app/services/evidence_semantic_trace_source_records.py at 109 lines,
-      provenance-edge assembly now lives in
-      app/services/evidence_semantic_trace_provenance.py at 444 lines. Milestone
-      6 is now resolved locally in the current checkout where
-      app/services/evidence_audit_views.py is reduced to 19 lines, receipt
-      payload shaping now lives in
-      app/services/evidence_audit_views_payloads.py at 26 lines, context-pack
-      audit reads now live in
-      app/services/evidence_audit_views_context.py at 115 lines,
-      release-readiness DB-gate persistence plus governance-event backfill now
-      live in app/services/evidence_audit_views_release_readiness.py at 136
-      lines, the main audit-bundle aggregation now lives in
-      app/services/evidence_audit_views_bundle.py at 482 lines. Milestone 7 is
-      now resolved locally in the current checkout. The selected packet closes
-      with exact seam ratchets for the 45-line export facade, the 48-line
-      claim-feedback facade, the 36-line semantic-trace facade, and the
-      19-line audit-view facade, while the broader case remains intentionally
-      reduced and now routes to
-      docs/evidence_manifest_trace_graph_boundary_milestone_plan.md.
-      Milestones 0 through 2 of that manifest-trace follow-on are now
-      resolved locally in the current checkout, where
-      app/services/evidence_manifest_traces.py measures 203 lines with exact
-      zero-helper ratchets, graph canonicalization now lives in
-      app/services/evidence_manifest_trace_graph.py at 204 lines, mixed trace
-      assembly now lives in app/services/evidence_manifest_trace_assembly.py
-      at 461 lines, and replay lineage now lives in
-      app/services/evidence_manifest_trace_replay.py at 244 lines. Milestones
-      0 through 2 of
-      docs/evidence_manifest_owner_boundary_milestone_plan.md are now resolved
-      locally in the current checkout, where
-      app/services/evidence_manifests.py measures 370 lines with payload
-      assembly moved into app/services/evidence_manifest_payloads.py at 384
-      lines. Milestones 0 through 2 of
-      docs/evidence_claim_support_replay_alerts_boundary_milestone_plan.md are
-      now resolved locally in the current checkout, where
-      app/services/evidence_claim_support_replay_alerts.py measures 407 lines,
-      replay-alert fixture-corpus snapshot lineage now lives in
-      app/services/evidence_claim_support_replay_alert_corpus.py at 128 lines,
-      and the broader evidence owner-family case now has no governed file above
-      the default budget in the local checkout. Because this slice is still
-      uncommitted, the broader case remains open in the registry until the
-      atomic closeout commit lands.
+    notes: The earlier evidence residual, manifest-trace, manifest-owner, and
+      replay-alert follow-ons now leave every governed evidence owner under
+      the default 600-line budget in the live checkout. The 2026-05-19 stale-open
+      registry closeout records IC-65AF4A6D8B1E as deployed with
+      app/services/evidence_release_readiness.py at 594 lines as the current
+      family maximum and app/services/evidence_claim_support_replay_alerts.py
+      at 407 lines with app/services/evidence_claim_support_replay_alert_corpus.py
+      at 128 lines.
   measurement:
     metric_name: evidence_owner_family_max_line_count
     current_value: 549.0
@@ -310,10 +233,10 @@ cases:
       lines with an exact four-helper ratchet, adds
       app/services/evidence_claim_support_replay_alert_corpus.py at 128 lines
       with an exact zero-helper ratchet, and leaves no governed evidence owner
-      above the default 600-line budget in the local checkout. The broader case
-      therefore stays open only as an uncommitted retirement-ready route.
+      above the default 600-line budget in the local checkout. The 2026-05-19
+      stale-open registry closeout now records the broader case as deployed.
   created_at: '2026-05-12T00:00:00+00:00'
-  updated_at: '2026-05-15T00:00:00+00:00'
+  updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-6C1B516A3F92
   title: 'Hygiene budget hotspot: app/hotspot_prevention_classifier.py'
   status: deployed
@@ -726,12 +649,12 @@ cases:
   updated_at: '2026-05-18T00:00:00+00:00'
 - case_id: IC-FD18EE2D3309
   title: 'Architecture hotspot: tests/unit/test_cli.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
-  observed_failure: tests/unit/test_cli.py remains the compatibility-owner test
-    surface at line_count=424 after the verified local High Value Technical
-    Paydown Milestone 4 split moved the agent-task, claim-support,
-    improvement-case, and search-harness CLI coverage into focused files.
+  observed_failure: tests/unit/test_cli.py remained open in the registry after
+    the earlier High Value Technical Paydown split even though focused CLI
+    behavior had already moved into family-local sibling files and the root
+    smoke file later reduced away entirely.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:tests/unit/test_cli.py
@@ -752,24 +675,26 @@ cases:
   workflow_version: improvement_v1
   deployment:
     deployed_ref: "0701121"
-    notes: Verified local High Value Technical Paydown Milestone 4 moved
-      focused CLI coverage into tests/unit/test_cli_agent_tasks.py,
+    notes: The earlier High Value Technical Paydown split moved focused CLI
+      coverage into tests/unit/test_cli_agent_tasks.py,
       tests/unit/test_cli_agent_task_analytics.py,
-      tests/unit/test_cli_claim_support.py, and
-      tests/unit/test_cli_improvement_cases.py. Milestone alignment follow-up
-      also moved search-harness CLI coverage into
-      tests/unit/test_cli_search_harness.py while tests/unit/test_cli.py
-      remains the core app.cli compatibility surface.
+      tests/unit/test_cli_claim_support.py,
+      tests/unit/test_cli_improvement_cases.py, and
+      tests/unit/test_cli_search_harness.py. The 2026-05-19 stale-open
+      registry closeout records IC-FD18EE2D3309 as deployed with the root
+      tests/unit/test_cli.py now fully retired at 0 lines.
   measurement:
     metric_name: test_cli_hotspot_line_count
-    current_value: 424.0
-    measurement_window: 2026-05-10 local verification
-    notes: Verified local High Value Technical Paydown Milestone 4 plus the
-      milestone-alignment follow-up reduced tests/unit/test_cli.py from 2362
-      lines to 424 lines and moved the search-harness CLI owner coverage into
+    current_value: 0.0
+    measurement_window: 2026-05-19 stale-open registry closeout baseline
+    notes: tests/unit/test_cli.py now measures 0 lines. Focused CLI coverage
+      remains routed through tests/unit/test_cli_agent_tasks.py,
+      tests/unit/test_cli_agent_task_analytics.py,
+      tests/unit/test_cli_claim_support.py,
+      tests/unit/test_cli_improvement_cases.py, and
       tests/unit/test_cli_search_harness.py.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T21:50:04+00:00'
+  updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-24F3558D6091
   title: 'Architecture hotspot: app/schemas/agent_tasks.py'
   status: deployed
@@ -1240,7 +1165,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "311b391"
     notes: >-
       Milestones 0 through 5 of
       docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md establish
@@ -1307,7 +1232,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "311b391"
     notes: >-
       Milestones 0 through 5 of
       docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md establish
@@ -1807,7 +1732,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "311b391"
     notes: Verified locally during the 2026-05-18 technical-report harness
       residual closeout. The residual smoke surface remains 93 lines while the
       surrounding scenario families now live in
@@ -1892,7 +1817,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "311b391"
     notes: Broader-reselect follow-on reduced tests/unit/test_documents_api.py
       to a 155-line route-smoke surface by moving access, actor-capability,
       run-history, and latest-evaluation coverage into
@@ -2760,7 +2685,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "b9b3e46"
     notes: Oversized-test hotspot closeout reduced tests/unit/test_agent_task_context.py
       to 328 lines and moved the freshness, semantic-generation, reports/claim-support,
       semantic-governance, semantic-graph, and semantic-graph promotion families
@@ -2902,7 +2827,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "b9b3e46"
     notes: Oversized-test hotspot closeout reduced tests/unit/test_search_service.py
       to 117 lines and moved metadata supplement, ranking, orchestration, and
       persistence assertions into focused files. The broader family remains
@@ -3438,7 +3363,7 @@ cases:
   updated_at: '2026-05-15T07:23:14Z'
 - case_id: IC-81C531769EB3
   title: 'Architecture hotspot: app/services/semantic_governance.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/services/semantic_governance.py remains a
     milestone-owned hygiene residual at 1157 lines after the semantics
@@ -3470,9 +3395,9 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "311b391"
     notes: >-
-      App large owner modules closeout reduced app/services/semantic_governance.py to a 39-line compatibility facade over semantic_governance_core.py, semantic_governance_events.py, semantic_governance_context.py, and semantic_governance_audit.py. No extracted governance owner exceeds the default 600-line budget, so the selected governance hotspot is resolved in the working tree.
+      App large owner modules closeout reduced app/services/semantic_governance.py to a 39-line compatibility facade over semantic_governance_core.py, semantic_governance_events.py, semantic_governance_context.py, and semantic_governance_audit.py. No extracted governance owner exceeds the default 600-line budget, and the 2026-05-19 stale-open registry closeout now records the selected governance hotspot as deployed.
   measurement:
     metric_name: semantic_governance_owner_line_count
     current_value: 39.0
@@ -3480,10 +3405,10 @@ cases:
     notes: >-
       app/services/semantic_governance.py now measures 39 lines. The extracted governance owners measure 201, 229, 340, and 456 lines respectively, so the selected root surface is resolved without creating a new over-budget governance residual.
   created_at: '2026-05-14T16:09:02Z'
-  updated_at: '2026-05-15T15:30:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-9A0332D41F79
   title: 'Architecture hotspot: app/services/docling_parser.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/services/docling_parser.py remains a large parser owner
     at 1555 lines, so converter selection, rescue policy, supplement registry
@@ -3523,9 +3448,9 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "311b391"
     notes: >-
-      App large owner modules closeout reduced app/services/docling_parser.py to a 199-line compatibility facade over docling_parser_types.py, docling_parser_conversion.py, docling_parser_normalization.py, and docling_parser_tables.py while preserving converter-wrapper, supplement-overlay, and root monkeypatch compatibility seams used by the parser tests.
+      App large owner modules closeout reduced app/services/docling_parser.py to a 199-line compatibility facade over docling_parser_types.py, docling_parser_conversion.py, docling_parser_normalization.py, and docling_parser_tables.py while preserving converter-wrapper, supplement-overlay, and root monkeypatch compatibility seams used by the parser tests. The 2026-05-19 stale-open registry closeout now records the selected parser hotspot as deployed.
   measurement:
     metric_name: docling_parser_owner_line_count
     current_value: 199.0
@@ -3533,10 +3458,10 @@ cases:
     notes: >-
       app/services/docling_parser.py now measures 199 lines. The extracted parser owners measure 194, 277, 474, and 584 lines respectively, so the selected parser hotspot is resolved without introducing a new 601-800 line parser residual.
   created_at: '2026-05-15T13:22:18Z'
-  updated_at: '2026-05-15T15:30:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-33B4990DC366
   title: 'Architecture hotspot: app/services/quality.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/services/quality.py remains a large quality owner at
     1444 lines, so evaluation status reads, candidate scanning and resolution,
@@ -3577,9 +3502,9 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "311b391"
     notes: >-
-      App large owner modules closeout reduced app/services/quality.py to a 15-line compatibility facade over quality_summary.py, quality_candidate_core.py, quality_candidate_memory.py, quality_candidate_sql.py, and quality_trends.py while preserving the public quality service entrypoints.
+      App large owner modules closeout reduced app/services/quality.py to a 15-line compatibility facade over quality_summary.py, quality_candidate_core.py, quality_candidate_memory.py, quality_candidate_sql.py, and quality_trends.py while preserving the public quality service entrypoints. The 2026-05-19 stale-open registry closeout now records the selected quality hotspot as deployed.
   measurement:
     metric_name: quality_owner_line_count
     current_value: 15.0
@@ -3587,7 +3512,7 @@ cases:
     notes: >-
       app/services/quality.py now measures 15 lines. The extracted quality owners measure 311, 326, 319, 353, and 214 lines respectively, so the selected quality hotspot is resolved without leaving a routed 601-800 line residual.
   created_at: '2026-05-15T13:22:18Z'
-  updated_at: '2026-05-15T15:30:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-8AFAD4A415CA
   title: 'Architecture hotspot: app/services/runs.py'
   status: verified
@@ -3719,7 +3644,7 @@ cases:
   updated_at: '2026-05-18T23:45:00Z'
 - case_id: IC-649D7B4E3AB5
   title: 'Architecture hotspot: app/services/semantic_candidates.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/services/semantic_candidates.py remains a large
     semantic candidate owner at 1357 lines, so extractor execution,
@@ -3763,9 +3688,9 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "311b391"
     notes: >-
-      App large owner modules closeout reduced app/services/semantic_candidates.py to a 120-line compatibility facade over semantic_candidate_core.py, semantic_candidate_export.py, semantic_candidate_evaluation.py, and semantic_candidate_triage.py while preserving the patched root dependency seams used by candidate, generation, and orchestration tests.
+      App large owner modules closeout reduced app/services/semantic_candidates.py to a 120-line compatibility facade over semantic_candidate_core.py, semantic_candidate_export.py, semantic_candidate_evaluation.py, and semantic_candidate_triage.py while preserving the patched root dependency seams used by candidate, generation, and orchestration tests. The 2026-05-19 stale-open registry closeout now records the selected candidate hotspot as deployed.
   measurement:
     metric_name: semantic_candidates_owner_line_count
     current_value: 120.0
@@ -3773,7 +3698,7 @@ cases:
     notes: >-
       app/services/semantic_candidates.py now measures 120 lines. The extracted candidate owners measure 550, 291, 327, and 233 lines respectively, so the selected candidate hotspot is resolved without leaving a routed 601-800 line residual.
   created_at: '2026-05-15T13:22:18Z'
-  updated_at: '2026-05-15T15:30:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-A92BA42C6D18
   title: 'Architecture hotspot: app/services/semantic_generation.py'
   status: verified
@@ -4144,14 +4069,14 @@ cases:
   updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-4B6E9F8D2A10
   title: 'Architecture hotspot: evaluation residual owner-family modules'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/services/evaluations.py is already a deployed
     283-line compatibility facade under IC-BF180637814C. The 2026-05-18
     next-pass split removed the evaluation family from the live >800 backlog,
     and the later gap-close pass retired the remaining same-family 601-800
-    residuals under the default 600-line budget. The registry stays open only
-    until the atomic closeout commit records the locally verified retirement.
+    residuals under the default 600-line budget. The 2026-05-19 stale-open
+    registry closeout now records the locally verified retirement as deployed.
   source:
     source_type: hygiene_finding
     source_ref: hygiene:file-budget:app/services/evaluation_fixtures.py
@@ -4224,7 +4149,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "b9b3e46"
     notes: Created during the residual large-file backlog Milestone 0
       rebaseline to route the extracted evaluation owner family through
       docs/evaluation_residual_owner_family_milestone_plan.md instead of
@@ -4243,8 +4168,8 @@ cases:
       310 / 0, and late auto-query filtering coverage now lives in
       tests/unit/test_evaluation_fixtures_auto_query_filtering.py at 378 / 0.
       The governed family now has no file above the default 600-line budget in
-      the local checkout and remains open only as an uncommitted retirement-
-      ready route.
+      the local checkout, and the 2026-05-19 stale-open registry closeout now
+      records the verified retirement as deployed.
   measurement:
     metric_name: evaluation_owner_family_max_line_count
     current_value: 570.0
@@ -4263,20 +4188,20 @@ cases:
       tests/unit/test_evaluation_fixtures_auto_queries.py 390 / 0, and
       tests/unit/test_evaluation_fixtures_auto_query_filtering.py 378 / 0.
       The governed family now has no file above the default 600-line budget in
-      the local checkout; the case remains open only until an atomic closeout
-      commit records the verified retirement.
+      the local checkout, and the 2026-05-19 stale-open registry closeout now
+      records the verified retirement as deployed.
   created_at: '2026-05-18T00:00:00Z'
-  updated_at: '2026-05-18T00:00:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-81F2C6D4B9A7
   title: 'Architecture hotspot: UI module residual owner family'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/ui/app.js is already a narrow 107-line shipped
     bootstrap under IC-1B643BA0AD90. The 2026-05-18 UI follow-on split removed
     the routed UI family from the live >800 backlog, rewired the shipped HTML
     entrypoints to focused module siblings, and kept every governed UI module
-    at or below the default 600-line budget. The registry stays open only
-    until the atomic closeout commit records the locally verified retirement.
+    at or below the default 600-line budget. The 2026-05-19 stale-open
+    registry closeout now records the locally verified retirement as deployed.
   source:
     source_type: hygiene_finding
     source_ref: hygiene:file-budget:app/ui/modules/agents.js
@@ -4320,7 +4245,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "b9b3e46"
     notes: Created during the residual large-file backlog Milestone 0
       rebaseline to route the post-bootstrap UI module monoliths through
       docs/ui_module_residual_owner_family_milestone_plan.md rather than the
@@ -4335,8 +4260,8 @@ cases:
       lines while keeping app/ui/modules/shared.js at 517 lines,
       app/ui/modules/agents.js at 599 lines, and app/ui/app.js at 107 lines.
       All shipped HTML entrypoints now load the split module graph before the
-      bootstrap, and the case remains open only as an uncommitted retirement-
-      ready route.
+      bootstrap, and the 2026-05-19 stale-open registry closeout now records
+      the family as deployed.
   measurement:
     metric_name: ui_module_owner_family_max_line_count
     current_value: 599.0
@@ -4351,13 +4276,15 @@ cases:
       remains the 107-line bootstrap, and the focused UI suite passed at
       10 tests.
   created_at: '2026-05-18T00:00:00Z'
-  updated_at: '2026-05-18T00:00:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-2D5A7E9C4B18
   title: 'Architecture hotspot: semantic and technical-report residual owner family'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: the semantic and technical-report residual family is now
-    reduced and locally retirement-ready in the current checkout.
+    reduced below the default 600-line budget in the current checkout, and the
+    2026-05-19 stale-open registry closeout now records the family as
+    deployed.
     app/services/semantic_orchestration.py closes at 543 lines with triage
     ownership moved into app/services/semantic_orchestration_triage.py at 570,
     app/services/technical_reports.py closes at 574 with verification and
@@ -4390,7 +4317,8 @@ cases:
     artifact_type: contract
     target_path: app/services/technical_reports.py
     description: Residual semantic and technical-report owner-family anchor
-      now locally retirement-ready pending an atomic closeout commit.
+      now durably recorded as deployed through the 2026-05-19 stale-open
+      registry closeout.
   verification:
     commands:
     - git diff --check
@@ -4437,7 +4365,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "b9b3e46"
     notes: >-
       The 2026-05-18 semantic/report residual closeout pass split semantic
       triage into app/services/semantic_orchestration_triage.py, split report
@@ -4453,10 +4381,8 @@ cases:
       slice passed at 26 tests, the DB-backed integration slice passed at 4
       tests, and the dependent downstream report-context and harness-integrity
       slice passed at 7 tests with 1 expected skip, proving the split did not
-      move debt into adjacent owners. The next routed packet is
-      docs/cross_cutting_large_file_residual_milestone_plan.md. This case
-      remains open only until that locally verified closeout lands in an
-      atomic commit.
+      move debt into adjacent owners. The 2026-05-19 stale-open registry
+      closeout now records the family as deployed.
   measurement:
     metric_name: semantic_report_owner_family_max_line_count
     current_value: 574.0
@@ -4474,10 +4400,10 @@ cases:
       split report test roots now measure 486 / 6 and 125 / 0. No governed
       semantic/report owner remains above 600 lines in the local checkout.
       The downstream report-context and harness-integrity slice also stayed
-      green at 7 passed and 1 skipped, so the packet is retirement-ready
-      pending an atomic closeout commit.
+      green at 7 passed and 1 skipped, and the 2026-05-19 stale-open registry
+      closeout now records the packet as deployed.
   created_at: '2026-05-18T00:00:00Z'
-  updated_at: '2026-05-18T21:13:23Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-6C3E1A7B9D52
   title: 'Architecture hotspot: cross-cutting service and verification residual family'
   status: deployed

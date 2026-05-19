@@ -1,12 +1,15 @@
 # Remaining Packet Queue Resolution Milestone Plan
 
 Date: 2026-05-19 local / 2026-05-19 UTC
-Status: drafted as the active queue-coordination brief after
+Status: active queue-coordination brief after
 `docs/documents_api_route_surface_boundary_milestone_plan.md` left the live
-`top_routed_hotspot_paths` queue empty.
+`top_routed_hotspot_paths` queue empty. Packet A is now resolved through
+`docs/stale_open_registry_closeout_milestone_plan.md`, and Packet B is the
+next queued packet.
 Owner context: broader coordination follow-on for the remaining improvement
-cases after the fresh broader reselect reduced `IC-23F2C79C8AA7` and left the
-repo with `open=11`, `verified=9`, and `deployed=40`.
+cases after the fresh broader reselect reduced `IC-23F2C79C8AA7`. The later
+stale-open registry closeout now leaves the repo with `open=2`, `verified=9`,
+and `deployed=49`.
 
 ## Purpose
 
@@ -122,6 +125,19 @@ Durable repo evidence already narrows the remaining live code work further:
   semantic pass, run-processing, semantic generation, and semantic graph roots
   as reduced or verified and needing honest deployment rather than fresh code
   work.
+
+Packet A closeout result from the same 2026-05-19 checkout:
+
+```text
+uv run docling-system-improvement-case-summary
+  case_count=61
+  status_counts={"measured":1,"deployed":49,"open":2,"verified":9}
+```
+
+The remaining `open` cases are now only:
+
+- `IC-3B4C9F2A76E1`
+- `IC-25C1F7B9E4DA`
 
 ## Goal
 
@@ -243,6 +259,10 @@ Outcome label: resolved
 
 Close the nine `open` cases that are already under budget and already
 described as resolved or retirement-ready in durable docs.
+
+Resolved on 2026-05-19 through
+`docs/stale_open_registry_closeout_milestone_plan.md`. The post-closeout live
+target landed at `open=2`, `verified=9`, and `deployed=49`.
 
 Packet A must:
 

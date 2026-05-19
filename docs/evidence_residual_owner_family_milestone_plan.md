@@ -1,8 +1,9 @@
 # Evidence Residual Owner Family Milestone Plan
 
 Date: 2026-05-15 local / 2026-05-15 UTC
-Status: resolved locally in the current checkout as the selected four-owner
-follow-on after `docs/evidence_provenance_exports_boundary_milestone_plan.md`;
+Status: resolved through the 2026-05-19 stale-open registry closeout as the
+selected four-owner follow-on after
+`docs/evidence_provenance_exports_boundary_milestone_plan.md`;
 Milestone 0 is resolved locally through closeout commit `44bec70` on
 2026-05-15, Milestone 1 is resolved locally through closeout commit `d9d79ef`
 on 2026-05-15, Milestone 2 is resolved locally through closeout commit
@@ -11,9 +12,10 @@ commit `245dc9f`, Milestone 4 is resolved locally through closeout commit
 `3e033fc`, Milestone 5 is resolved locally in the current checkout, Milestone
 6 is resolved locally in the current checkout, and Milestone 7 is now resolved
 locally in the current checkout. The later manifest-trace, manifest-owner, and
-replay-alert follow-ons now leave the broader `IC-65AF4A6D8B1E` case locally
-retirement-ready pending commit. The latest resolved bounded evidence follow-on
-is `docs/evidence_claim_support_replay_alerts_boundary_milestone_plan.md`, and
+replay-alert follow-ons now leave the broader `IC-65AF4A6D8B1E` case deployed
+through the 2026-05-19 stale-open registry closeout. The latest resolved
+bounded evidence follow-on is
+`docs/evidence_claim_support_replay_alerts_boundary_milestone_plan.md`, and
 the current broader repo active bounded packet is now
 `docs/hotspot_prevention_family_boundary_milestone_plan.md`.
 Owner context: residual evidence owner-family debt after the closeout that
@@ -300,8 +302,8 @@ Current structural evidence since the Milestone 0 baseline:
 ## Goal
 
 Goal status after Milestone 7: satisfied locally for the selected four owner
-roots. The broader `IC-65AF4A6D8B1E` case remains open only for the
-manifest-owner closeout and replay-alert follow-on work.
+roots. The broader `IC-65AF4A6D8B1E` case is now deployed through the later
+manifest-owner, replay-alert, and stale-open registry closeout work.
 
 Resolve the selected residual evidence-owner issue so that:
 

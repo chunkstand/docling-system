@@ -1,9 +1,8 @@
 # UI Module Residual Owner Family Milestone Plan
 
 Date: 2026-05-18 local / 2026-05-18 UTC
-Status: resolved locally in the current checkout through the 2026-05-18 UI
-module-family closeout pass. The atomic closeout commit is still pending while
-the broader checkout remains dirty with unrelated work.
+Status: resolved through the 2026-05-19 stale-open registry closeout after the
+2026-05-18 UI module-family closeout pass.
 Owner context: follow-on packet for the shipped operator UI module monoliths
 that remained above the live large-file threshold after `app/ui/app.js` was
 reduced to a narrow bootstrap under `IC-1B643BA0AD90`.

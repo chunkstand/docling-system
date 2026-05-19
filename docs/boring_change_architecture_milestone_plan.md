@@ -59,7 +59,12 @@ follow-on now records the explicit remaining order in
 `docs/remaining_packet_queue_resolution_milestone_plan.md`: Packet A stale-open
 registry closeout, Packet B verified-to-deployed closeout, Packet C
 `IC-3B4C9F2A76E1`, Packet D `IC-25C1F7B9E4DA`, and Packet E final queue
-exhaustion or rebaseline.
+exhaustion or rebaseline. The later 2026-05-19 Packet A stale-open registry
+closeout now completes the first docs-only queue pass, deploys nine
+already-reduced `open` cases, moves the live counts to `open=2`,
+`verified=9`, and `deployed=49`, and leaves Packet B verified-to-deployed
+closeout as the next queued packet while `top_routed_hotspot_paths=[]`
+remains unchanged.
 
 ## Purpose
 
@@ -311,8 +316,10 @@ uv run docling-system-hygiene-check
   backlog instead of reopening the just-closed packet.
   no evidence owner-family module remains in inherited budget debt after the
   replay-alert follow-on; broader `IC-65AF4A6D8B1E` routing now remains open
-  only as a locally retirement-ready evidence-family record while the broader
-  coordination brief now needs one fresh next bounded packet
+  only as a historical staging note from the pre-closeout draft, while the
+  later 2026-05-19 stale-open registry closeout now records the broader
+  evidence-family case as deployed and leaves the broader coordination brief
+  needing one fresh next bounded packet
 
 uv run docling-system-improvement-case-summary
   case_count=49

@@ -1,8 +1,8 @@
 # Semantic And Technical Report Residual Owner Family Milestone Plan
 
 Date: 2026-05-18 local / 2026-05-18 UTC
-Status: resolved locally in the current checkout through the 2026-05-18
-closeout and gap-close pass; pending atomic commit.
+Status: resolved through the 2026-05-19 stale-open registry closeout after
+the 2026-05-18 closeout and gap-close pass.
 Owner context: follow-on packet for the semantic, technical-report, and
 audit-training owners that remained above the live large-file threshold after
 the semantic lifecycle/read and audit-bundle facade closeouts and are now

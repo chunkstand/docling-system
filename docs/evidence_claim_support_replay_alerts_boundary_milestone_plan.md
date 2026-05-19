@@ -1,16 +1,15 @@
 # Evidence Claim Support Replay Alerts Boundary Milestone Plan
 
 Date: 2026-05-15 local / 2026-05-15 UTC
-Status: resolved locally in the current checkout as the latest resolved bounded
-evidence-owner follow-on after
+Status: resolved through the 2026-05-19 stale-open registry closeout as the
+latest resolved bounded evidence-owner follow-on after
 `docs/evidence_manifest_owner_boundary_milestone_plan.md`; Milestones 0
 through 2 are resolved locally, `app/services/evidence_claim_support_replay_alerts.py`
 now measures `407` lines / `4` private helpers,
 `app/services/evidence_claim_support_replay_alert_corpus.py` now measures
 `128` lines / `0` private helpers, and the broader `IC-65AF4A6D8B1E` case now
 has no governed file above the default `600`-line budget in the local checkout
-and is locally retirement-ready pending an atomic milestone commit. The current
-broader repo active bounded packet is now
+and is now deployed. The current broader repo active bounded packet is now
 `docs/hotspot_prevention_family_boundary_milestone_plan.md`.
 Owner context: final bounded evidence-owner follow-on for
 `IC-65AF4A6D8B1E` after the manifest-trace and manifest-owner packets closed

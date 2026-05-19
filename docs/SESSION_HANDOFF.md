@@ -132,18 +132,18 @@ reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
-`docs/documents_api_route_surface_boundary_milestone_plan.md`
+`docs/stale_open_registry_closeout_milestone_plan.md`
 Next routed bounded implementation brief:
-the queued follow-on in `docs/remaining_packet_queue_resolution_milestone_plan.md`,
-with the live `top_routed_hotspot_paths` queue still empty after the
-documents-API route-surface broader-reselect closeout
+Packet B verified-to-deployed registry closeout in
+`docs/remaining_packet_queue_resolution_milestone_plan.md`, with the live
+`top_routed_hotspot_paths` queue still empty
 Queued standalone follow-on:
-Packet A stale-open registry closeout, then Packet B verified-to-deployed
-closeout, then Packet C `IC-3B4C9F2A76E1`, then Packet D
-`IC-25C1F7B9E4DA`, then Packet E final queue exhaustion or rebaseline as
-recorded in `docs/remaining_packet_queue_resolution_milestone_plan.md`
+Packet B verified-to-deployed closeout, then Packet C
+`IC-3B4C9F2A76E1`, then Packet D `IC-25C1F7B9E4DA`, then Packet E final queue
+exhaustion or rebaseline as recorded in
+`docs/remaining_packet_queue_resolution_milestone_plan.md`
 Previous resolved bounded implementation brief:
-`docs/retrieval_learning_ledger_smoke_surface_boundary_milestone_plan.md`
+`docs/documents_api_route_surface_boundary_milestone_plan.md`
 The 2026-05-18 DB-model residual owner-family packet is now durably recorded
 through closeout commit `b9b3e46` for `IC-46C5B38A1D2E`,
 `IC-7D8AE7C83B8F`, and `IC-62C75B82F0AA`, and
@@ -339,6 +339,14 @@ code-owning because focused successor tests still exceed the default
 `600`-line budget. Treat that queue brief, this handoff, and
 `docs/agentic_architecture_index.md` as the new source of truth instead of
 repeating another free-form broader reselect.
+The later 2026-05-19 Packet A closeout now completes that first queue pass
+through `docs/stale_open_registry_closeout_milestone_plan.md`: the nine stale
+`open` cases are now deployed, live registry counts move to
+`status_counts.open=2`, `status_counts.verified=9`, and
+`status_counts.deployed=49`, and only `IC-3B4C9F2A76E1` plus
+`IC-25C1F7B9E4DA` remain open because they still point at live code-owning
+successor tests. Packet B verified-to-deployed closeout is now the next queued
+packet while `top_routed_hotspot_paths=[]` remains honest.
 The 2026-05-18 durable architecture closeout now records the governance
 self-hosting, documents-service, cross-cutting verification, semantic/report
 residual, evaluation residual, UI residual, residual-large-file,
