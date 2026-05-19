@@ -9,6 +9,8 @@ Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
 Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`
 Search Compatibility Facade Boundary closeout checkpoint:
 `fd9dd2a`
+DB Models Residual Owner Family closeout checkpoint:
+`b9b3e46`
 Search Schema Facade Boundary implementation checkpoint:
 `8b04845`
 Search Schema Facade Boundary closeout checkpoint:
@@ -124,46 +126,47 @@ reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
-`docs/search_schema_facade_boundary_milestone_plan.md`
+`docs/db_models_residual_owner_family_milestone_plan.md`
 Next routed bounded implementation brief:
 the broader reselect through `docs/boring_change_architecture_milestone_plan.md`,
-currently routing to `IC-7D8AE7C83B8F` /
-`tests/unit/test_db_model_import_compatibility.py`
+with the live post-closeout summary still surfacing stale deployed entries
+before the next fresh candidate `IC-5B6430FCB929` / `app/api/main.py`
 Queued standalone follow-on:
-the same broader under-budget reselect after the next shared DB-model
-compatibility packet, or any fresher narrow replacement selected by the routed
-queue
+the same broader under-budget reselect after the current routing-source-of-
+truth refresh, or any fresher narrow replacement selected by the queue
 Previous resolved bounded implementation brief:
-`docs/agent_tasks_api_lifecycle_boundary_milestone_plan.md`
-The 2026-05-18 search-schema facade follow-on is now durably recorded through
-implementation commit `8b04845` plus docs-and-registry closeout commit
-`d85a3f4` for `IC-DCEE88C7CA97`, and
+`docs/search_schema_facade_boundary_milestone_plan.md`
+The 2026-05-18 DB-model residual owner-family packet is now durably recorded
+through closeout commit `b9b3e46` for `IC-46C5B38A1D2E`,
+`IC-7D8AE7C83B8F`, and `IC-62C75B82F0AA`, and
 `config/improvement_cases.yaml` now reports
-`status_counts={"measured":1,"deployed":21,"open":24,"verified":13}` with
-`oldest_open_case_id=IC-FD18EE2D3309`; `app/schemas/search.py` now closes at
-`36` lines as a compatibility facade over focused owners at `83`, `77`, `77`,
-`100`, `220`, and `280` lines in `app/schemas/search_core.py`,
-`app/schemas/search_history.py`, `app/schemas/search_explanations.py`,
-`app/schemas/search_replays.py`, `app/schemas/search_harness.py`, and
-`app/schemas/search_learning.py`. `50` app-side importers intentionally remain
-on the shared public path, while the architecture probe still reports
-`app.schemas.search` imported by `75` local modules. `git diff --check`
-passed, the focused search-schema plus policy-contract slice passed at
-`50 passed`, the broader search-family regression slice passed at `86 passed`,
-and the post-closeout governance recheck now reports
+`status_counts={"measured":1,"deployed":24,"open":21,"verified":13}` with
+`oldest_open_case_id=IC-FD18EE2D3309`; the extracted DB-model owners now close
+at `31`, `53`, and `31` lines in
+`app/db/model_domains/audit_and_evidence.py`,
+`app/db/model_domains/semantic_memory.py`, and
+`app/db/model_domains/claim_support.py`, while the shared unit and integration
+roots now close at `457` and `472` lines in
+`tests/unit/test_db_model_import_compatibility.py` and
+`tests/integration/test_db_model_metadata.py` over focused sibling files at
+`45`, `45`, `51`, `43`, `43`, and `43`. `git diff --check` passed, and the
+post-closeout governance recheck now reports
 `changed_hotspots=0`, `blocked=0`, and `allowed=0`,
 `uv run docling-system-hygiene-check` reported `new hygiene regressions: none`,
 `uv run docling-system-improvement-case-validate` returned `valid=true`, and
 `uv run docling-system-architecture-quality-report --summary` still reports
 `agent_legibility_average_score=90.0`,
 `broad_facade_count=2`, `hotspot_count=20`, and
-`max_hotspot_risk_score=486.06`, while the routed queue now reports
-`top_routed_hotspot_paths=["tests/unit/test_db_model_import_compatibility.py"]`
-with `stale_facade_hotspot_count=15`. The architecture probe still reports `0`
+`max_hotspot_risk_score=486.06`; the live
+`top_routed_hotspot_paths=["tests/unit/test_db_model_import_compatibility.py",
+"app/api/main.py", "tests/unit/test_architecture_inspection.py",
+"app/api/routers/agent_tasks.py", "app/services/audit_bundles.py"]`
+still retains the now-deployed DB-model smoke root and another already-
+deployed facade packet, so treat that routed list as a remaining
+routing-source-of-truth gap and use `IC-5B6430FCB929` / `app/api/main.py` as
+the next fresh non-deployed candidate. The architecture probe still reports `0`
 Python cycle components with no code file above `799`, and the full DB-backed
-suite still last passed at `2089 passed`. `config/hotspot_prevention.yaml` now
-also marks `app/schemas/search.py` as a deferred reduced facade, so the routed
-queue does not drift back into the reduced shared schema surface.
+suite still last passed at `2089 passed`.
 The broader coordination brief still remains
 `docs/boring_change_architecture_milestone_plan.md`; treat this queue block
 plus `docs/agentic_architecture_index.md` as the durable routing truth for the

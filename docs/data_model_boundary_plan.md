@@ -39,7 +39,7 @@ private-surface import guard. The residual extracted-domain debt now lives in
 `app/db/model_domains/semantic_memory.py`, and is now operationalized by
 `docs/db_models_residual_owner_family_milestone_plan.md` rather than by
 reopening the deployed `app/db/models.py` facade case. That residual packet is
-now resolved locally in the current checkout: `audit_and_evidence.py`,
+now resolved through closeout commit `b9b3e46`: `audit_and_evidence.py`,
 `semantic_memory.py`, and `claim_support.py` are now `31`, `53`, and `31`
 line composition surfaces over focused `audit_and_evidence_*`,
 `semantic_memory_*`, and `claim_support_*` owners; the shared DB-model unit

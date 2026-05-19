@@ -1,7 +1,7 @@
 # DB Models Residual Owner Family Milestone Plan
 
 Date: 2026-05-18 local / 2026-05-18 UTC
-Status: resolved through the 2026-05-18 durable closeout after Milestone 4
+Status: resolved through closeout commit `b9b3e46` after Milestone 4
 verification and after the
 `docs/agent_task_residual_owner_family_milestone_plan.md` closeout.
 Owner context: residual owner-family follow-on after the deployed
@@ -14,8 +14,7 @@ contract harness surfaces they are most likely to regrow.
 
 ## 2026-05-18 Closeout Update
 
-This packet is now resolved locally in the current checkout through Milestone 4
-verification.
+This packet is now resolved through closeout commit `b9b3e46`.
 
 - `app/db/models.py` remains the deployed `159`-line public compatibility
   facade under `IC-F2A8110185EB`.
@@ -141,9 +140,32 @@ Post-closeout verified state in the current checkout:
   `hotspot_count=10` and `max_hotspot_risk_score=496.06`;
   the architecture probe now reports `17` code files above `800` and `0`
   Python cycle components
-- `git status -sb` still shows unrelated dirty local work in the broader
-  checkout, so the packet is resolved locally but not yet closed by an atomic
-  commit
+- closeout commit `b9b3e46` now carries the implementation, docs, and routing
+  state together; the later 2026-05-19 docs-and-registry alignment pass now
+  records the three residual owner cases as deployed rather than leaving them
+  open after the closeout landed
+
+Closeout-state recheck after the 2026-05-19 docs-and-registry alignment:
+
+- `uv run docling-system-hotspot-prevention-check --strict` reports
+  `changed_hotspots=0`, `blocked=0`, and `allowed=0`
+- `uv run docling-system-hygiene-check` still reports `new hygiene
+  regressions: none`; the only inherited budget debt remains
+  `app/services/agent_task_context_semantic_analysis.py` and
+  `app/services/agent_task_context_technical_reports.py`
+- `uv run docling-system-improvement-case-summary` now reports
+  `case_count=59`, `status_counts.deployed=24`, `status_counts.open=21`, and
+  `verified_undeployed_count=13`
+- `uv run docling-system-improvement-case-validate` remains `valid=true`
+- `uv run docling-system-architecture-quality-report --summary` still reports
+  `top_routed_hotspot_paths=["tests/unit/test_db_model_import_compatibility.py",
+  "app/api/main.py", "tests/unit/test_architecture_inspection.py",
+  "app/api/routers/agent_tasks.py", "app/services/audit_bundles.py"]`, which
+  means the routed queue still retains the now-deployed DB-model smoke root and
+  another already-deployed facade packet. Treat that list as a remaining
+  routing-source-of-truth gap rather than a reason to reopen this packet.
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles --max-file-lines 800`
+  still reports `0` Python cycle components and `0` code files above `800`
 
 Repo-current structural evidence:
 
@@ -158,9 +180,10 @@ Repo-current structural evidence:
 - `docs/data_model_boundary_plan.md`, `docs/SESSION_HANDOFF.md`,
   `docs/agentic_architecture_index.md`, and
   `docs/boring_change_architecture_milestone_plan.md` now all agree that this
-  residual DB-model packet is the latest locally resolved bounded brief and
-  that the next routed bounded packet is
-  `docs/hotspot_routing_trap_resolution_milestone_plan.md`.
+  residual DB-model packet is durably closed; the live post-closeout
+  architecture-quality queue still needs a routing-source-of-truth refresh
+  because it retains `tests/unit/test_db_model_import_compatibility.py` ahead
+  of fresher non-deployed candidates.
 - `app/db/model_domains/audit_and_evidence.py`,
   `app/db/model_domains/semantic_memory.py`, and
   `app/db/model_domains/claim_support.py` are now thin composition surfaces;

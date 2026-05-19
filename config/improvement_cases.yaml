@@ -3680,7 +3680,7 @@ cases:
   updated_at: '2026-05-18T23:45:00Z'
 - case_id: IC-46C5B38A1D2E
   title: 'Architecture hotspot: residual db-model owner-family modules'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/db/models.py is already a deployed 159-line compatibility
     facade, but the extracted residual owners app/db/model_domains/audit_and_evidence.py,
@@ -3739,7 +3739,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "b9b3e46"
     notes: >-
       Local db-model residual owner-family implementation resolves the routed
       extracted-domain debt in the current checkout by reducing
@@ -3750,7 +3750,8 @@ cases:
       owners at 197, 264, 241, and 190 lines, and keeping app/db/models.py
       frozen as the public compatibility facade. The focused db-model unit
       slice passed at 609 tests and the focused DB-backed metadata slice passed
-      at 335 tests; the atomic closeout commit is still pending.
+      at 335 tests; closeout commit b9b3e46 now records the deployed
+      residual-owner state.
   measurement:
     metric_name: db_model_owner_family_max_line_count
     current_value: 388.0
@@ -3764,10 +3765,10 @@ cases:
       472 lines after moving family-local ownership checks into focused
       siblings.
   created_at: '2026-05-18T00:00:00Z'
-  updated_at: '2026-05-18T00:00:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-7D8AE7C83B8F
   title: 'Architecture hotspot: tests/unit/test_db_model_import_compatibility.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: tests/unit/test_db_model_import_compatibility.py previously
     mixed cross-domain ownership assertions, domain-table column contracts, and
@@ -3801,13 +3802,14 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "b9b3e46"
     notes: Local db-model residual owner-family implementation resolves the
       routed shared unit hotspot in the current checkout by reducing the root
       unit surface to 457 lines and moving audit-and-evidence, claim-support,
       and semantic-memory ownership or column checks into focused siblings at
       45, 45, and 51 lines while preserving the broader import-compatibility
-      contract. The atomic closeout commit is still pending.
+      contract. Closeout commit b9b3e46 now records the deployed routed shared
+      unit surface.
   measurement:
     metric_name: test_db_model_import_compatibility_hotspot_line_count
     current_value: 457.0
@@ -3816,10 +3818,10 @@ cases:
       at 457 lines with focused family-local siblings at 45, 45, and 51 lines.
       The focused db-model unit slice passed at 609 tests in the current checkout.
   created_at: '2026-05-18T00:00:00Z'
-  updated_at: '2026-05-18T00:00:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-62C75B82F0AA
   title: 'Architecture hotspot: tests/integration/test_db_model_metadata.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: tests/integration/test_db_model_metadata.py previously
     mixed domain-table create-all contract assertions with the shared index,
@@ -3853,13 +3855,14 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "b9b3e46"
     notes: Local db-model residual owner-family implementation resolves the
       routed shared DB-backed metadata hotspot in the current checkout by
       reducing the root integration surface to 472 lines and moving
       audit-and-evidence, claim-support, and semantic-memory column checks
       into focused siblings at 43 lines each while preserving the broader
-      Postgres create-all contract. The atomic closeout commit is still pending.
+      Postgres create-all contract. Closeout commit b9b3e46 now records the
+      deployed shared DB-backed metadata surface.
   measurement:
     metric_name: test_db_model_metadata_hotspot_line_count
     current_value: 472.0
@@ -3868,7 +3871,7 @@ cases:
       at 472 lines with focused family-local siblings at 43 lines each. The
       focused DB-backed metadata slice passed at 335 tests in the current checkout.
   created_at: '2026-05-18T00:00:00Z'
-  updated_at: '2026-05-18T00:00:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-4B6E9F8D2A10
   title: 'Architecture hotspot: evaluation residual owner-family modules'
   status: open

@@ -32,9 +32,10 @@ around already-shrunk compatibility facades, and the checked-in gates that
 must keep oversized files and import cycles from regrowing. This plan remains
 the active coordination brief after the hotspot-prevention companion-test
 closeout, the later search API route-surface follow-on, and the later
-agent-tasks API lifecycle-family follow-on, and the later search-schema
-facade follow-on, with the routed queue now advancing to
-`IC-7D8AE7C83B8F` / `tests/unit/test_db_model_import_compatibility.py`.
+agent-tasks API lifecycle-family follow-on, the later search-schema
+facade follow-on, and the later DB-model residual registry closeout, with the
+routed queue now exposing one more source-of-truth gap before the next fresh
+non-deployed under-budget packet `IC-5B6430FCB929` / `app/api/main.py`.
 
 ## Purpose
 
@@ -127,12 +128,26 @@ remaining boring-change gap is now split across four different risks:
   the shared public path, hotspot prevention now routes the reduced root as a
   deferred reduced facade, and the routed queue now advances to
   `IC-7D8AE7C83B8F` / `tests/unit/test_db_model_import_compatibility.py`
+- the routed DB-model residual owner-family packet is now also durably
+  recorded through closeout commit `b9b3e46`: the extracted
+  `audit_and_evidence.py`, `semantic_memory.py`, and `claim_support.py`
+  composition roots now close at `31`, `53`, and `31` lines, the shared unit
+  and integration roots now close at `457` and `472` lines, and the routed
+  queue must now be reselected from the live post-closeout summary rather than
+  from the stale pre-closeout DB-model selection
+- the 2026-05-19 post-closeout rebaseline now shows that
+  `top_routed_hotspot_paths` still retains the now-deployed
+  `tests/unit/test_db_model_import_compatibility.py` root and the already-
+  deployed `app/services/audit_bundles.py` facade, so the remaining mechanical
+  debt is queue honesty rather than unresolved DB-model code ownership; the
+  next fresh non-deployed candidate behind those stale routed entries is
+  `IC-5B6430FCB929` / `app/api/main.py`
 
 This refreshed plan coordinates the remaining work by preserving the locally
 closed app-side packet, routing the remaining test, UI, and nonselected app
 backlog through narrower follow-on packets, preserving the now-zero-cycle
-state, advancing the next routed packet to
-`tests/unit/test_db_model_import_compatibility.py`, and finishing with a
+state, advancing the next routed packet to the live post-closeout reselect,
+and finishing with a
 checked-in boring-change gate that fails on both cycles and oversized code
 files.
 
@@ -769,10 +784,11 @@ Acceptance criteria:
   resolved locally, and the next active code-owning packet must now be
   reselected from this broader brief rather than from the cleared large-file
   queue.
-- The current routed hotspot after the search-schema facade closeout is
-  `IC-7D8AE7C83B8F` / `tests/unit/test_db_model_import_compatibility.py`; any
-  fresher narrow replacement must beat that routed queue evidence rather than
-  reopening a just-closed packet.
+- The current routed hotspot after the DB-model residual closeout still
+  contains stale deployed entries in the live summary, so future selection must
+  prefer the first fresh non-deployed candidate `IC-5B6430FCB929` /
+  `app/api/main.py` unless a fresher narrow replacement beats that rerouted
+  evidence.
 - The remaining routing traps after the current refresh are small but still
   high-churn facades such as `app/db/models.py`, `app/services/evidence.py`,
   `app/cli.py`, `app/schemas/agent_tasks.py`, and `app/services/agent_tasks.py`.
