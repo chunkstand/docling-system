@@ -953,7 +953,7 @@ cases:
   updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-40CA7C1FFA84
   title: 'Architecture hotspot: tests/integration/test_claim_support_judge_evaluation_roundtrip.py'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: tests/integration/test_claim_support_judge_evaluation_roundtrip.py
     now measures 339 lines and remains the residual claim-support evaluation
@@ -1017,16 +1017,18 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: Local claim-support residual closeout keeps the root smoke surface at
-      339 lines, deletes the former 702-line
+    deployed_ref: "d7c8f8a"
+    notes: Claim-support judge integration residual closeout commit d7c8f8a
+      keeps the root smoke surface at 339 lines, deletes the former 702-line
       tests/integration/claim_support_judge_evaluation_roundtrip_support.py
       sink, adds focused support owners at 13, 277, 344, 75, and 381 lines,
       and extracts replay-alert waiver/candidate coverage into
       tests/integration/test_claim_support_policy_change_impacts_replay_alert_coverage.py
       at 152 lines while reducing
       tests/integration/test_claim_support_policy_change_impacts_replay_alert_promotions.py
-      to 510 lines.
+      to 510 lines. The later closeout-refresh docs and this registry sweep
+      now record that packet as deployed instead of leaving the reduced smoke
+      root in a stale verified state.
   measurement:
     metric_name: test_claim_support_judge_roundtrip_hotspot_line_count
     current_value: 339.0
@@ -1037,7 +1039,7 @@ cases:
       measure 439, 351, 494, 356, 341, 152, 510, 401, and 293 lines; and no
       selected support file remains above the 400-line support budget.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-18T00:00:00+00:00'
+  updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-1D03DBFE8492
   title: 'Architecture hotspot: app/services/search.py'
   status: deployed
@@ -1333,13 +1335,15 @@ cases:
   updated_at: '2026-05-18T23:45:00Z'
 - case_id: IC-4098E8370B88
   title: 'Architecture hotspot: app/services/agent_tasks.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
-  observed_failure: app/services/agent_tasks.py previously mixed dependency validation,
-    lifecycle mutations, detail assembly, trace export, and outcome projection in
-    one 773-line hotspot service. The current checkout reduces the public root to
-    324 lines by moving those concern families into focused owners. The packet
-    is resolved locally and only the atomic closeout commit is still pending.
+  observed_failure: app/services/agent_tasks.py previously mixed dependency
+    validation, lifecycle mutations, detail assembly, trace export, and
+    outcome projection in one 773-line hotspot service. The current checkout
+    reduces the public root to 324 lines by moving those concern families
+    into focused owners, and the durable closeout now records that reduced
+    root as a deployed orchestration facade instead of leaving it as active
+    debt.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/agent_tasks.py
@@ -1378,16 +1382,15 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: Local agent-task residual owner-family implementation resolves the
-      routed hotspot in the current checkout by reducing
+    deployed_ref: "b9b3e46"
+    notes: Agent-task residual owner-family closeout commit b9b3e46 resolves
+      the routed hotspot by reducing
       app/services/agent_tasks.py to 324 lines, moving dependency validation
       into app/services/agent_task_dependencies.py at 176 lines, moving
       read-model projection into app/services/agent_task_reads.py at 259
       lines, moving lifecycle mutations into
       app/services/agent_task_lifecycle.py at 197 lines, and keeping the
-      public service entrypoints stable. The atomic closeout commit is still
-      pending.
+      public service entrypoints stable.
   measurement:
     metric_name: agent_tasks_hotspot_line_count
     current_value: 324.0
@@ -1399,10 +1402,10 @@ cases:
       integration slice passed at 13 tests, and the final DB-backed suite
       passed at 2044 tests in the current checkout.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-18T00:00:00+00:00'
+  updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-5D14C2A0B6F7
   title: 'Architecture hotspot: tests/unit/test_agent_tasks.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: tests/unit/test_agent_tasks.py previously mixed task creation,
     dependency validation, lifecycle transitions, outcome analytics, and shared
@@ -1437,13 +1440,13 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: Local agent-task residual owner-family implementation resolves the
-      routed unit hotspot in the current checkout by reducing the residual
+    deployed_ref: "b9b3e46"
+    notes: Agent-task residual owner-family closeout commit b9b3e46 resolves
+      the routed unit hotspot by reducing the residual
       smoke file to 12 lines, moving creation, lifecycle, and analytics
       coverage into focused siblings at 286, 276, and 366 lines, keeping
       family-local shared support at 98 lines, and preserving broader unit
-      contract coverage. The atomic closeout commit is still pending.
+      contract coverage.
   measurement:
     metric_name: test_agent_tasks_hotspot_line_count
     current_value: 12.0
@@ -1453,10 +1456,10 @@ cases:
       98-line family-local support module. The broader owner-family unit slice
       passed at 105 tests in the current checkout.
   created_at: '2026-05-18T00:00:00+00:00'
-  updated_at: '2026-05-18T00:00:00+00:00'
+  updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-2E0A91B39C5D
   title: 'Architecture hotspot: tests/unit/test_agent_task_actions_search_harness.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: tests/unit/test_agent_task_actions_search_harness.py previously
     mixed drafting, verification, apply, follow-up evidence, and error-path
@@ -1490,13 +1493,12 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: Local agent-task residual owner-family implementation resolves the
-      routed search-harness unit hotspot in the current checkout by reducing
+    deployed_ref: "b9b3e46"
+    notes: Agent-task residual owner-family closeout commit b9b3e46 resolves
+      the routed search-harness unit hotspot by reducing
       the residual root to 10 lines and moving drafting and apply coverage
       into focused siblings at 358 and 471 lines while preserving the broader
-      search-harness unit contract. The atomic closeout commit is still
-      pending.
+      search-harness unit contract.
   measurement:
     metric_name: test_agent_task_actions_search_harness_hotspot_line_count
     current_value: 10.0
@@ -1506,10 +1508,10 @@ cases:
       focused siblings at 358 and 471 lines. The broader owner-family unit
       slice passed at 105 tests in the current checkout.
   created_at: '2026-05-18T00:00:00+00:00'
-  updated_at: '2026-05-18T00:00:00+00:00'
+  updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-8F77A1D2C6E4
   title: 'Architecture hotspot: tests/integration/test_agent_task_triage_roundtrip.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: tests/integration/test_agent_task_triage_roundtrip.py previously
     mixed search-harness triage, approval lifecycle, learning surfaces, and
@@ -1545,13 +1547,12 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: Local agent-task residual owner-family implementation resolves the
-      routed triage integration hotspot in the current checkout by reducing
+    deployed_ref: "b9b3e46"
+    notes: Agent-task residual owner-family closeout commit b9b3e46 resolves
+      the routed triage integration hotspot by reducing
       the residual smoke file to 283 lines, keeping the family-local support
       module at 185 lines, and moving the search-harness scenario families
-      into focused siblings at 449 and 409 lines. The atomic closeout commit
-      is still pending.
+      into focused siblings at 449 and 409 lines.
   measurement:
     metric_name: test_agent_task_triage_roundtrip_hotspot_line_count
     current_value: 283.0
@@ -1563,7 +1564,7 @@ cases:
       passed at 13 tests and the final DB-backed suite passed at 2044 tests in
       the current checkout.
   created_at: '2026-05-18T00:00:00+00:00'
-  updated_at: '2026-05-18T00:00:00+00:00'
+  updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-03D7EFA03213
   title: 'Architecture hotspot: tests/unit/test_search_api.py'
   status: deployed
@@ -1657,7 +1658,7 @@ cases:
   updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-934588120F94
   title: 'Architecture hotspot: tests/unit/test_agent_task_actions.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: tests/unit/test_agent_task_actions.py is an architecture hotspot
     only as the compatibility-owner action surface at line_count=417 after the
@@ -1680,20 +1681,22 @@ cases:
     - uv run docling-system-architecture-quality-report
     acceptance_conditions:
     - Hotspot risk decreases or the surface has a narrower owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: "973be57"
-    notes: Verified local High Value Technical Paydown Milestone 5 moved
-      focused action-family coverage into
+    notes: High Value Technical Paydown Milestone 5 implementation commit
+      973be57 moved focused action-family coverage into
       tests/unit/test_agent_task_actions_search_harness.py,
       tests/unit/test_agent_task_actions_semantic_registry.py,
       tests/unit/test_agent_task_actions_ontology.py,
       tests/unit/test_agent_task_actions_semantic_graph.py, and
       tests/unit/test_agent_task_actions_semantic_documents.py while
       tests/unit/test_agent_task_actions.py remains the compatibility and
-      registry-metadata surface.
+      registry-metadata surface. The later closeout-refresh docs and this
+      registry sweep now record that reduced root as deployed instead of
+      leaving it open with only a deployment ref attached.
   measurement:
     metric_name: test_agent_task_actions_hotspot_line_count
     current_value: 417.0
@@ -1702,7 +1705,7 @@ cases:
       tests/unit/test_agent_task_actions.py from 4161 lines to 417 lines and
       aligned the moved coverage to focused action-family files.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T23:10:27Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-7A628A4CBCAC
   title: 'Architecture hotspot: tests/unit/test_evaluation_service.py'
   status: deployed
@@ -2575,7 +2578,7 @@ cases:
   updated_at: '2026-05-12T06:30:00+00:00'
 - case_id: IC-1B643BA0AD90
   title: 'Architecture hotspot: app/ui/app.js'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/ui/app.js now acts as the shipped operator UI bootstrap,
     but the compatibility entrypoint still needs to stay narrow while the shared
@@ -2599,17 +2602,19 @@ cases:
     - Surface remains the narrow bootstrap/composition entrypoint while the
       operator UI implementation is routed through focused app/ui/modules/*.js
       owner files.
-    catches_old_failure: false
-    allows_good_changes: false
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: "50fe179"
-    notes: Verified local High Value Technical Paydown Milestone 6 reduced
+    notes: High Value Technical Paydown Milestone 6 closeout commit 50fe179 reduced
       app/ui/app.js to a narrow bootstrap/composition entrypoint while the
       shared runtime and page-family logic moved into app/ui/modules/shared.js,
       app/ui/modules/landing.js, app/ui/modules/documents.js,
       app/ui/modules/search.js, app/ui/modules/evals.js,
-      app/ui/modules/semantics.js, and app/ui/modules/agents.js.
+      app/ui/modules/semantics.js, and app/ui/modules/agents.js. The later
+      closeout-refresh docs and this registry sweep now record that reduced
+      bootstrap as deployed instead of leaving it open with a stale status.
   measurement:
     metric_name: ui_bootstrap_hotspot_line_count
     current_value: 107.0
@@ -2619,7 +2624,7 @@ cases:
       operator UI implementation to focused app/ui/modules/*.js owner files
       plus tests/unit/test_ui_static_assets.py.
   created_at: '2026-05-10T19:12:35Z'
-  updated_at: '2026-05-10T23:10:27Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-5F0E1C8B0D42
   title: 'Architecture hotspot: tests/db_model_contract.py'
   status: deployed

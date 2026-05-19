@@ -45,7 +45,12 @@ reduced `app/api/routers/agent_tasks.py` route root from the active queue. The
 later retrieval-learning residual-smoke closeout now routes that already-split
 family off the active queue as well, so the live `top_routed_hotspot_paths`
 queue is currently empty and the next code-owning packet must be reselected
-from this broader brief rather than from a stale residual root.
+from this broader brief rather than from a stale residual root. The later
+2026-05-19 registry-alignment sweep also deploys the stale reduced-root
+agent-task, claim-support, action-test, and UI bootstrap cases left behind by
+earlier packets, bringing the live case summary to `open=12`, `verified=8`,
+and `deployed=40` while keeping `broad_facade_count=2`,
+`legibility_gap_count=0`, and `top_routed_hotspot_paths=[]`.
 
 ## Purpose
 

@@ -280,6 +280,23 @@ passed at `28 passed`, `uv run docling-system-capability-contracts`,
 deploys `IC-2BF32BF40542`, `IC-339A0E924F4E`, `IC-9E6B8F5D62A1`, and
 `IC-24F3558D6091` instead of leaving those already-governed surfaces as
 stale open or verified debt.
+The later 2026-05-19 registry-alignment sweep closes the remaining stale
+status gaps left after those earlier resolved packets. The agent-task residual
+quartet `IC-4098E8370B88`, `IC-5D14C2A0B6F7`, `IC-2E0A91B39C5D`, and
+`IC-8F77A1D2C6E4` now deploy through durable closeout commit `b9b3e46`, and
+`IC-40CA7C1FFA84`, `IC-934588120F94`, and `IC-1B643BA0AD90` are now also
+recorded as deployed through `d7c8f8a`, `973be57`, and `50fe179` instead of
+remaining reduced roots with stale `verified` or `open` status. The live
+improvement-case summary now reads `status_counts.open=12`,
+`status_counts.verified=8`, and `status_counts.deployed=40`, while
+`uv run docling-system-architecture-quality-report --summary` still reports
+`broad_facade_count=2`, `legibility_gap_count=0`, and
+`top_routed_hotspot_paths=[]`, `uv run docling-system-hygiene-check` still
+reports `new hygiene regressions: none` plus `inherited budget debt: none`,
+and the fresh architecture probe still reports `0` Python cycles without
+surfacing `app/architecture_quality.py` or
+`app/architecture_measurements.py` as new hotspots, so the capability and
+registry closeouts did not shift debt into adjacent governance code.
 The 2026-05-18 durable architecture closeout now records the governance
 self-hosting, documents-service, cross-cutting verification, semantic/report
 residual, evaluation residual, UI residual, residual-large-file,
