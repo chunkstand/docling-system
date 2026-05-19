@@ -31,8 +31,8 @@ change" backlog across under-budget residual owner families, stale routing risk
 around already-shrunk compatibility facades, and the checked-in gates that
 must keep oversized files and import cycles from regrowing. This plan remains
 the active coordination brief while the next packet advances to the
-technical-report harness routed hotspot and the hotspot-prevention residual
-test root stays queued behind it.
+hotspot-prevention residual test root after the technical-report harness routed
+hotspot closes locally.
 
 ## Purpose
 
@@ -85,15 +85,20 @@ remaining boring-change gap is now split across four different risks:
   the judge-roundtrip smoke root closes at `339` lines, focused family-local
   support closes at `13`, `277`, `344`, `75`, and `381`, replay-alert coverage
   now lives in a `152`-line sibling, replay-alert promotions closes at `510`,
-  and the routed queue now advances to the technical-report harness packet
+  and the routed queue then advances to the technical-report harness packet
+- the routed technical-report harness residual packet is now also resolved
+  locally: the smoke root stays at `93` lines, family-local support stays at
+  `396`, the focused context-pack surface stays at `315`, the audit family now
+  closes at `398`, `313`, and `162`, integrity stays at `402`, source-evidence
+  stays at `206`, and the routed queue now advances to the hotspot-prevention
+  residual test root
 
 This refreshed plan coordinates the remaining work by preserving the locally
 closed app-side packet, routing the remaining test, UI, and nonselected app
 backlog through narrower follow-on packets, preserving the now-zero-cycle
 state, advancing the next routed packet to
-`tests/integration/test_technical_report_harness_roundtrip.py`, and finishing
-with a checked-in boring-change gate that fails on both cycles and oversized
-code files.
+`tests/unit/test_hotspot_prevention.py`, and finishing with a checked-in
+boring-change gate that fails on both cycles and oversized code files.
 
 ## Current Evidence
 

@@ -3,9 +3,9 @@
 Date: 2026-05-14 local / 2026-05-14 UTC
 Status: resolved locally through closeout commit `65c0c67` after the
 Milestone 0 refresh; the scoped oversized-test hotspot issue is closed, the
-broader owner cases now remain explicitly `deployed` or `reduced/open` from
-refreshed evidence, and the next bounded follow-on routes to
-`docs/hygiene_owner_case_routing_boundary_milestone_plan.md`
+later 2026-05-18 technical-report harness residual gap-close now verifies
+`IC-D49E037D5657`, and the next bounded follow-on routes to
+`docs/hotspot_prevention_family_boundary_milestone_plan.md`
 Owner context: closeout under `IC-5F0E1C8B0D42`,
 `IC-3B4C9F2A76E1`, `IC-D9A84C20546B`, `IC-7A628A4CBCAC`,
 `IC-25C1F7B9E4DA`, `IC-908E7A1D2C44`, and `IC-D49E037D5657`.
@@ -50,9 +50,9 @@ Local closeout results:
   and `tests/integration/test_technical_report_harness_roundtrip.py` to
   `93` lines, added family-local support modules at `362` and `396` lines, and
   moved the scenario families into focused integration files; the
-  retrieval-learning owner case is now deployed, while the broader
-  technical-report owner case remains reduced and open because the audit
-  surface still measures `799` lines
+  retrieval-learning owner case is now deployed, and the later residual
+  closeout now also verifies the broader technical-report owner case after the
+  focused audit family closes at `398`, `313`, and `162` lines
 - updated hotspot-prevention, hygiene, and improvement-case routing so the four
   previously unowned hotspots now have explicit owner cases and exact residual
   budgets, while the next bounded implementation brief now routes to
@@ -71,6 +71,42 @@ Local closeout verification:
 - `uv run docling-system-architecture-quality-report --summary`: `agent_legibility_average_score=90.0`, `broad_facade_count=2`, `hotspot_count=10`, `max_hotspot_risk_score=501.06`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`: top hotspot remains `app/services/search.py`; none of the seven selected residual files remain in the top 20 hotspot list; Python cycle components=`5`
 - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1957 passed`
+
+## 2026-05-18 Residual Gap Closeout
+
+The later technical-report harness residual owner gap is now also closed under
+`IC-D49E037D5657`.
+
+- `tests/integration/test_technical_report_harness_roundtrip.py` remains the
+  `93` line smoke surface.
+- `tests/integration/technical_report_harness_support.py` remains the `396`
+  line family-local support owner.
+- `tests/integration/test_technical_report_harness_context_pack.py` remains at
+  `315` lines.
+- `tests/integration/test_technical_report_harness_audit_surfaces.py` is now
+  `398` lines, with the persistence and manifest families extracted into
+  `tests/integration/test_technical_report_harness_audit_persistence.py` at
+  `313` and
+  `tests/integration/test_technical_report_harness_manifest_surfaces.py` at
+  `162`.
+- `tests/integration/test_technical_report_harness_integrity.py` remains at
+  `402` lines and
+  `tests/integration/test_technical_report_harness_source_evidence.py` remains
+  at `206`.
+- `config/improvement_cases.yaml`, `config/hygiene_policy.yaml`, and
+  `config/hotspot_prevention.yaml` now route the residual root as a verified
+  deferred reduced facade, so the live routed queue advances to
+  `tests/unit/test_hotspot_prevention.py`.
+
+Residual gap-close verification:
+
+- `uv run ruff check tests/integration/test_technical_report_harness_roundtrip.py tests/integration/test_technical_report_harness_context_pack.py tests/integration/test_technical_report_harness_audit_surfaces.py tests/integration/test_technical_report_harness_audit_persistence.py tests/integration/test_technical_report_harness_manifest_surfaces.py tests/integration/test_technical_report_harness_integrity.py tests/integration/test_technical_report_harness_source_evidence.py tests/integration/technical_report_harness_support.py`: pass
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_technical_report_harness_roundtrip.py tests/integration/test_technical_report_harness_context_pack.py tests/integration/test_technical_report_harness_audit_surfaces.py tests/integration/test_technical_report_harness_audit_persistence.py tests/integration/test_technical_report_harness_manifest_surfaces.py tests/integration/test_technical_report_harness_integrity.py tests/integration/test_technical_report_harness_source_evidence.py`: `10 passed`
+- `uv run docling-system-hotspot-prevention-check --strict`: `changed_hotspots=0`, `blocked=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-improvement-case-validate`: `valid=true`
+- `uv run docling-system-improvement-case-summary`: `open=29`, `verified=13`
+- `uv run docling-system-architecture-quality-report --summary`: `top_routed_hotspot_paths=["tests/unit/test_hotspot_prevention.py"]`, `stale_facade_hotspot_count=9`
 
 ## Purpose
 

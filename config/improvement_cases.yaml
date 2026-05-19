@@ -1668,12 +1668,12 @@ cases:
   updated_at: '2026-05-10T01:15:27.810985+00:00'
 - case_id: IC-D49E037D5657
   title: 'Architecture hotspot: tests/integration/test_technical_report_harness_roundtrip.py'
-  status: open
+  status: verified
   cause_class: unclear_ownership
   observed_failure: tests/integration/test_technical_report_harness_roundtrip.py
-    previously mixed context-pack gates, release-readiness integrity, audit-bundle
-    coverage, provenance and trace checks, immutability triggers, and source-evidence
-    tamper scenarios in a single 2030-line integration test surface.
+    now measures 93 lines and remains the residual smoke surface over focused
+    context-pack, audit, audit-persistence, manifest, integrity, and source-evidence
+    owners.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:tests/integration/test_technical_report_harness_roundtrip.py
@@ -1691,6 +1691,8 @@ cases:
     - uv run ruff check tests/integration/test_technical_report_harness_roundtrip.py
       tests/integration/test_technical_report_harness_context_pack.py
       tests/integration/test_technical_report_harness_audit_surfaces.py
+      tests/integration/test_technical_report_harness_audit_persistence.py
+      tests/integration/test_technical_report_harness_manifest_surfaces.py
       tests/integration/test_technical_report_harness_integrity.py
       tests/integration/test_technical_report_harness_source_evidence.py
       tests/integration/technical_report_harness_support.py
@@ -1699,6 +1701,8 @@ cases:
       tests/integration/test_technical_report_harness_roundtrip.py
       tests/integration/test_technical_report_harness_context_pack.py
       tests/integration/test_technical_report_harness_audit_surfaces.py
+      tests/integration/test_technical_report_harness_audit_persistence.py
+      tests/integration/test_technical_report_harness_manifest_surfaces.py
       tests/integration/test_technical_report_harness_integrity.py
       tests/integration/test_technical_report_harness_source_evidence.py
     acceptance_conditions:
@@ -1706,35 +1710,38 @@ cases:
       narrow smoke surface at or below 800 lines.
     - The family-local support module remains at or below 400 lines and 10
       private helpers.
-    - Focused context-pack, audit, integrity, and source-evidence scenarios do
+    - Focused context-pack, audit, audit-persistence, manifest, integrity, and
+      source-evidence scenarios stay under the default 600-line budget and do
       not regrow the residual smoke file.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
-    notes: Oversized-test hotspot closeout reduced the residual smoke surface
-      to 93 lines and moved the surrounding scenario families into
-      tests/integration/test_technical_report_harness_context_pack.py,
-      tests/integration/test_technical_report_harness_audit_surfaces.py,
-      tests/integration/test_technical_report_harness_integrity.py, and
-      tests/integration/test_technical_report_harness_source_evidence.py while
-      keeping tests/integration/technical_report_harness_support.py within the
-      400-line family-local support budget. The broader routed family remains
-      reduced and open because the extracted audit surface still measures 799
-      lines against the default 600-line hygiene budget.
+    notes: Verified locally during the 2026-05-18 technical-report harness
+      residual closeout. The residual smoke surface remains 93 lines while the
+      surrounding scenario families now live in
+      tests/integration/test_technical_report_harness_context_pack.py at 315,
+      tests/integration/test_technical_report_harness_audit_surfaces.py at 398,
+      tests/integration/test_technical_report_harness_audit_persistence.py at 313,
+      tests/integration/test_technical_report_harness_manifest_surfaces.py at 162,
+      tests/integration/test_technical_report_harness_integrity.py at 402, and
+      tests/integration/test_technical_report_harness_source_evidence.py at 206,
+      while tests/integration/technical_report_harness_support.py remains within
+      the 400-line family-local support budget at 396. No routed 601-800
+      technical-report harness test owner remains after the split.
   measurement:
     metric_name: test_technical_report_harness_roundtrip_hotspot_line_count
     current_value: 93.0
-    measurement_window: 2026-05-14 oversized-test hotspot closeout
-    notes: The residual roundtrip smoke file now measures 93 lines, the local
+    measurement_window: 2026-05-18 technical-report harness residual closeout
+    notes: The residual roundtrip smoke file measures 93 lines, the local
       support module measures 396, the context-pack surface measures 315, the
-      audit surface 799, the integrity surface 385, and the source-evidence
-      surface 206. The scoped monolith issue is resolved, while the broader
-      family remains reduced and open because the audit surface still sits
-      above the default 600-line budget.
+      audit surface 398, the audit-persistence surface 313, the manifest surface
+      162, the integrity surface 402, and the source-evidence surface 206. The
+      family is now fully under budget without moving the debt into a new
+      oversized support sink.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-18T23:59:00Z'
 - case_id: IC-23F2C79C8AA7
   title: 'Architecture hotspot: tests/unit/test_documents_api.py'
   status: open

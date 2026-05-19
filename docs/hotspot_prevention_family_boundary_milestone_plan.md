@@ -17,6 +17,10 @@ private-helper root under `IC-15F6E41A9C77` with focused sibling coverage in
 coordination brief is now
 `docs/boring_change_architecture_milestone_plan.md`, which must activate the
 next fresh bounded packet from the refreshed post-closeout baseline.
+Later 2026-05-18 routing evidence reselects the companion test root under
+`IC-15F6E41A9C77` as the next bounded packet because
+`tests/unit/test_hotspot_prevention.py` has regrown to `653` lines while the
+classifier-side owners remain under budget.
 Owner context: targeted hotspot-prevention family follow-on after the semantic
 lifecycle/read packet closed locally. This packet keeps the next slice inside a
 single rule-and-test family instead of opening a giant mixed test backlog or a

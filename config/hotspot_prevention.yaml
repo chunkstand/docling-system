@@ -633,6 +633,25 @@ known_hotspots:
     target_role: technical-report integration smoke surface
     preferred_owner_modules:
       - tests/integration/test_technical_report_harness_*.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The residual technical-report roundtrip test is now a narrow
+        smoke surface, so future scenario growth belongs in the focused
+        context-pack, audit, audit-persistence, manifest, integrity, and
+        source-evidence modules rather than back in the root file.
+      route_to_case_ids:
+        - IC-D49E037D5657
+      route_to_paths:
+        - tests/integration/test_technical_report_harness_context_pack.py
+        - tests/integration/test_technical_report_harness_audit_surfaces.py
+        - tests/integration/test_technical_report_harness_audit_persistence.py
+        - tests/integration/test_technical_report_harness_manifest_surfaces.py
+        - tests/integration/test_technical_report_harness_integrity.py
+        - tests/integration/test_technical_report_harness_source_evidence.py
+        - tests/integration/technical_report_harness_support.py
+      route_to_plan_paths:
+        - docs/oversized_test_hotspots_boundary_milestone_plan.md
+        - docs/boring_change_architecture_milestone_plan.md
     block_new:
       - broad_new_test_group
       - broad_helper

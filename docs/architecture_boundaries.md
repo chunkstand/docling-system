@@ -204,14 +204,13 @@ list still begins with `app/db/models.py`, `app/cli.py`,
 `app/services/agent_task_actions.py`, `app/services/evidence.py`, and
 `app/schemas/agent_tasks.py`, but the routed queue now separates those reduced
 facades from the true next owner surfaces: `top_routed_hotspot_paths` now begin
-with `tests/integration/test_claim_support_judge_evaluation_roundtrip.py`,
-`tests/integration/test_technical_report_harness_roundtrip.py`, and
-`tests/unit/test_hotspot_prevention.py`, while `routing_trap_paths` plus
-`stale_facade_hotspot_count=7` preserve the compact stale-facade evidence
+with `tests/unit/test_hotspot_prevention.py`, while `routing_trap_paths` plus
+`stale_facade_hotspot_count=9` preserve the compact stale-facade evidence
 explicitly. The default 20-hotspot report artifact extends that routed-trap
 list to `10` paths by also capturing
-`app/services/agent_task_context.py`, `app/services/search.py`, and
-`app/services/claim_support_policy_impacts.py`. The full report also preserves
+`tests/integration/test_claim_support_judge_evaluation_roundtrip.py`,
+`tests/integration/test_technical_report_harness_roundtrip.py`, and
+`app/services/agent_tasks.py`. The full report also preserves
 `raw_improvement_case_candidates` for auditability while
 `improvement_case_candidates` now reflects the routed owner queue used by the
 improvement-case import surface. The routed-hotspot interpretation closeout and
