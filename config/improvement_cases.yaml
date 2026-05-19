@@ -4062,7 +4062,7 @@ cases:
     tests/unit/test_docling_parser.py at 540,
     tests/integration/test_search_harness_releases.py at 269, and
     tests/integration/test_claim_support_policy_activation_roundtrip.py at
-    437, with family-local siblings and support now carrying the moved parser,
+    439, with family-local siblings and support now carrying the moved parser,
     search-harness readiness, and claim-support waiver coverage. The adjacent
     architecture-governance family remains explicitly routed under
     IC-08C078FD4F45.
@@ -4094,8 +4094,8 @@ cases:
       tests/integration/search_harness_release_audit_support.py at 296, and
       tests/integration/test_search_harness_release_readiness.py at 224, and
       after tests/integration/test_claim_support_policy_activation_roundtrip.py
-      reduced to 437 with waiver coverage in
-      tests/integration/test_claim_support_policy_activation_waivers.py at 349.
+      reduced to 439 with waiver coverage in
+      tests/integration/test_claim_support_policy_activation_waivers.py at 351.
       Family members=app/services/documents.py,
       tests/unit/test_agent_task_verifications.py,
       tests/integration/test_postgres_roundtrip.py,
@@ -4172,7 +4172,7 @@ cases:
       boundary packet, and the cross-cutting verification packet are all
       resolved locally in the current checkout. The document owner quartet now
       closes at 49/233/324/276, the selected verification roots now close at
-      324/331/540/269/437, the new family-local siblings and support are
+      324/331/540/269/439, the new family-local siblings and support are
       exact-ratcheted in hygiene, and the governance self-hosting packet under
       IC-08C078FD4F45 is now also resolved locally. The next routed follow-on
       must be reselected from docs/boring_change_architecture_milestone_plan.md.
@@ -4191,7 +4191,7 @@ cases:
       tests/unit/test_agent_task_verifications_drafts.py 567,
       tests/unit/test_docling_parser.py 540,
       tests/integration/test_search_harness_releases.py 269, and
-      tests/integration/test_claim_support_policy_activation_roundtrip.py 437
+      tests/integration/test_claim_support_policy_activation_roundtrip.py 439
       after the verification closeout moved parser logical-table, search-harness
       readiness, and claim-support waiver scenarios into family-local siblings
       and support without creating a new >400 support sink.

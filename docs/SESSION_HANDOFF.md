@@ -211,8 +211,8 @@ family-local support narrowed to
 `tests/integration/search_harness_release_support.py` at `242` plus
 `tests/integration/search_harness_release_audit_support.py` at `296`; and
 `tests/integration/test_claim_support_policy_activation_roundtrip.py` closes at
-`437` with waiver coverage moved into
-`tests/integration/test_claim_support_policy_activation_waivers.py` at `349`
+`439` with waiver coverage moved into
+`tests/integration/test_claim_support_policy_activation_waivers.py` at `351`
 and retired-identity coverage moved into
 `tests/integration/test_claim_support_policy_activation_retired_identity.py`
 at `85`. The live architecture probe now reports `0` code files above `800`

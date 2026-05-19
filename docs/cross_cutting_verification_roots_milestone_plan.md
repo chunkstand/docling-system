@@ -28,7 +28,7 @@ behavior they prove today.
 
 ## 2026-05-18 Closeout Update
 
-- The selected roots now measure `324`, `331`, `540`, `269`, and `437` lines
+- The selected roots now measure `324`, `331`, `540`, `269`, and `439` lines
   across `tests/unit/test_agent_task_verifications.py`,
   `tests/integration/test_postgres_roundtrip.py`,
   `tests/unit/test_docling_parser.py`,
@@ -41,7 +41,7 @@ behavior they prove today.
   `tests/unit/test_docling_parser_logical_tables.py` at `160`,
   `tests/unit/test_docling_parser_table_supplements.py` at `391`,
   `tests/integration/test_search_harness_release_readiness.py` at `224`,
-  `tests/integration/test_claim_support_policy_activation_waivers.py` at `349`,
+  `tests/integration/test_claim_support_policy_activation_waivers.py` at `351`,
   `tests/integration/test_claim_support_policy_activation_retired_identity.py`
   at `85`, with family-local support reuse in
   `tests/unit/agent_task_verification_support.py` at `328`,

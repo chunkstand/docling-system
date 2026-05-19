@@ -113,7 +113,7 @@ resolved locally in the current checkout.
   `app/services/document_ingest.py` at `233`,
   `app/services/document_run_queue.py` at `324`, and
   `app/services/document_run_views.py` at `276`, while the selected
-  verification roots now measure `324`, `331`, `540`, `269`, and `437` lines
+  verification roots now measure `324`, `331`, `540`, `269`, and `439` lines
   across
   `tests/unit/test_agent_task_verifications.py`,
   `tests/integration/test_postgres_roundtrip.py`,
@@ -217,7 +217,7 @@ Repo-current structural evidence:
 | Evaluation residual | none above `800`; no governed evaluation root remains above `600` after the 2026-05-18 gap-close pass | Child packet `docs/evaluation_residual_owner_family_milestone_plan.md` is now resolved locally and locally retirement-ready under `IC-4B6E9F8D2A10`. |
 | UI module residual | none above `800`; no governed UI root remains above `600` after the 2026-05-18 closeout | Child packet `docs/ui_module_residual_owner_family_milestone_plan.md` is now resolved locally and locally retirement-ready under `IC-81F2C6D4B9A7`. |
 | Semantic and report residual | none above `800`; the governed semantic/report family now closes at `543`, `570`, `574`, `485`, `33`, `554`, `159`, and `258` lines across the routed service siblings, and the downstream report-context plus harness-integrity slice stayed green | Child packet `docs/semantic_and_technical_report_residual_owner_family_milestone_plan.md` is now resolved locally and locally retirement-ready under `IC-2D5A7E9C4B18`. |
-| Cross-cutting service and test residual | none above `800`; the document family now closes at `49`, `233`, `324`, and `276` lines while the selected verification roots close at `324`, `331`, `540`, `269`, and `437`, and the later governance family closes at `370`, `514`, `552`, `82`, and `218` with exact-ratcheted siblings at `122`, `184`, `475`, `279`, `277`, `101`, `122`, and `551` | The large-file parent packet, the queue-alignment packet, the documents-service packet, the cross-cutting verification packet, and the governance self-hosting packet are now all resolved locally. The next code-owning bounded follow-on must be reselected from `docs/boring_change_architecture_milestone_plan.md`. |
+| Cross-cutting service and test residual | none above `800`; the document family now closes at `49`, `233`, `324`, and `276` lines while the selected verification roots close at `324`, `331`, `540`, `269`, and `439`, and the later governance family closes at `370`, `514`, `552`, `82`, and `218` with exact-ratcheted siblings at `122`, `184`, `475`, `279`, `277`, `101`, `122`, and `551` | The large-file parent packet, the queue-alignment packet, the documents-service packet, the cross-cutting verification packet, and the governance self-hosting packet are now all resolved locally. The next code-owning bounded follow-on must be reselected from `docs/boring_change_architecture_milestone_plan.md`. |
 
 ## Goal
 

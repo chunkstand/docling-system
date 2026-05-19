@@ -53,8 +53,8 @@ This parent packet is now resolved locally in the current checkout.
   `tests/integration/search_harness_release_support.py` at `242` lines plus
   `tests/integration/search_harness_release_audit_support.py` at `296` lines.
 - `tests/integration/test_claim_support_policy_activation_roundtrip.py` now
-  measures `437` lines with waiver coverage moved into
-  `tests/integration/test_claim_support_policy_activation_waivers.py` at `349`
+  measures `439` lines with waiver coverage moved into
+  `tests/integration/test_claim_support_policy_activation_waivers.py` at `351`
   lines and retired-identity coverage moved into
   `tests/integration/test_claim_support_policy_activation_retired_identity.py`
   at `85` lines.
@@ -83,7 +83,7 @@ The narrowed routed residual family now closes at:
 - `tests/integration/test_search_harness_releases.py` at `269` lines
 - `tests/unit/test_improvement_case_intake.py` at `218` lines under `IC-08C078FD4F45`
 - `app/architecture_inspection_rules.py` at `514` lines under `IC-08C078FD4F45`
-- `tests/integration/test_claim_support_policy_activation_roundtrip.py` at `437` lines
+- `tests/integration/test_claim_support_policy_activation_roundtrip.py` at `439` lines
 - `app/services/document_ingest.py` at `233` lines with exact hygiene ratchets
 - `app/services/document_run_queue.py` at `324` lines with exact hygiene ratchets
 - `app/services/document_run_views.py` at `276` lines with exact hygiene ratchets
