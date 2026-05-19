@@ -127,3 +127,66 @@ def test_architecture_quality_summary_includes_routed_fields(
     assert summary["top_routed_hotspot_paths"] == ["app/small.py"]
     assert summary["routing_trap_paths"] == []
     assert summary["stale_facade_hotspot_count"] == 0
+
+
+def test_architecture_quality_report_excludes_accepted_residual_from_routed_queue(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    app_dir = tmp_path / "app"
+    (app_dir / "api" / "routers").mkdir(parents=True)
+    (app_dir / "services").mkdir(parents=True)
+    (app_dir / "api" / "main.py").write_text(
+        "\n".join(f"def route_{index}():\n    return {index}\n" for index in range(30))
+    )
+    (app_dir / "api" / "routers" / "agent_tasks.py").write_text(
+        "\n".join(f"def handler_{index}():\n    return {index}\n" for index in range(20))
+    )
+
+    monkeypatch.setattr(
+        "app.architecture_quality.build_capability_contract_map",
+        lambda _root: {"facades": []},
+    )
+    monkeypatch.setattr(
+        "app.architecture_quality.collect_git_churn_metrics",
+        lambda _root: {
+            "app/api/main.py": {"changes_30d": 30, "changes_90d": 50},
+            "app/api/routers/agent_tasks.py": {"changes_30d": 20, "changes_90d": 30},
+        },
+    )
+    monkeypatch.setattr(
+        "app.architecture_quality.load_hotspot_policy",
+        lambda project_root=None: HotspotPolicy(
+            schema_name="hotspot_prevention_policy",
+            schema_version="1.0",
+            known_hotspots={
+                "app/api/main.py": HotspotRule(
+                    relative_path="app/api/main.py",
+                    target_role="api bootstrap",
+                    preferred_owner_modules=("app/api/routers/",),
+                    block_new=("route_family_implementation",),
+                    allow=("router_registration",),
+                    routing=HotspotRouting(
+                        status="accepted_residual",
+                        reason="Bootstrap root is already intentional and under budget.",
+                        route_to_case_ids=("IC-API-BOOTSTRAP",),
+                        route_to_paths=("app/api/routers/agent_tasks.py",),
+                        route_to_plan_paths=("docs/open_owner_backlog_resolution_milestone_plan.md",),
+                    ),
+                )
+            },
+        ),
+    )
+
+    report = build_architecture_quality_report(
+        tmp_path,
+        inspection_report=_inspection_report(),
+        include_hygiene=False,
+    )
+
+    assert report["summary"]["top_hotspot_paths"][0] == "app/api/main.py"
+    assert report["summary"]["top_routed_hotspot_paths"] == ["app/api/routers/agent_tasks.py"]
+    assert report["summary"]["routing_trap_paths"] == []
+    assert report["hotspots"][0]["routing_status"] == "accepted_residual"
+    assert report["hotspots"][0]["selected_for_routed_queue"] is False
+    assert report["hotspots"][0]["route_to_case_ids"] == ["IC-API-BOOTSTRAP"]

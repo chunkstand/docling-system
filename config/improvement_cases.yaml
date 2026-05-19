@@ -893,7 +893,7 @@ cases:
   updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-5B6430FCB929
   title: 'Architecture hotspot: app/api/main.py'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/api/main.py now measures 98 lines and is limited to
     runtime bind validation, remote-read auth middleware, router registration,
@@ -927,11 +927,14 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: Verified locally during the open-owner rebaseline that
-      app/api/main.py is already the intended bootstrap boundary. This packet
-      adds an exact hygiene ratchet and closes the case without further code
-      motion because no defensible owner split remained.
+    deployed_ref: "d8841fd"
+    notes: The open-owner closeout commit d8841fd already proved that
+      app/api/main.py is the intended bootstrap boundary and should stay
+      limited to runtime bind validation, remote-read auth middleware, router
+      registration, static UI mounting, and the uvicorn entrypoint. The
+      2026-05-19 routing-source-of-truth refresh now records that closeout as
+      deployed and routes future work to focused routers and runtime helpers
+      instead of reopening the bootstrap file as an active hotspot packet.
   measurement:
     metric_name: architecture_quality_risk_score
     current_value: 331.4
@@ -940,7 +943,7 @@ cases:
       lines with 47 changes over 90 days. The file stays under budget and no
       longer carries mixed implementation ownership.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-18T23:45:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-40CA7C1FFA84
   title: 'Architecture hotspot: tests/integration/test_claim_support_judge_evaluation_roundtrip.py'
   status: verified

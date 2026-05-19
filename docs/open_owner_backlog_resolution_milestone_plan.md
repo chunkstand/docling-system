@@ -19,7 +19,11 @@ families under `IC-9812A0B138D9`, `IC-5B6430FCB929`, `IC-9E6B8F5D62A1`,
 `IC-8304248AB64C`, `IC-ADCFFF108626`, `IC-8AFAD4A415CA`,
 `IC-865AB8419D55`, `IC-A92BA42C6D18`, `IC-6F4E2B5A91C3`, and
 `IC-C8D41A2F77BE`. After closeout those selected cases now read as deployed or
-verified, and next-packet selection returns to the routed hotspot/test queue.
+verified, and the later 2026-05-19 routing-source-of-truth refresh now records
+`IC-5B6430FCB929` / `app/api/main.py` as deployed through `d8841fd` and routes
+the bootstrap root off the active queue as an accepted residual boundary.
+Next-packet selection therefore returns to the routed hotspot/test queue
+without reopening the small API bootstrap surface.
 
 ## Purpose
 

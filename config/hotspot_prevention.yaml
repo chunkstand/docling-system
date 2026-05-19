@@ -1,6 +1,42 @@
 schema_name: hotspot_prevention_policy
 schema_version: "1.0"
 known_hotspots:
+  app/api/main.py:
+    target_role: API bootstrap, remote-read auth, and router wiring surface
+    preferred_owner_modules:
+      - app/api/routers/
+      - app/services/runtime.py
+      - app/api/deps.py
+    routing:
+      status: accepted_residual
+      reason: app/api/main.py is already the intended bootstrap boundary under
+        budget, so future work should route to focused routers, runtime-health
+        helpers, or auth dependencies instead of reopening the bootstrap file
+        as a hotspot split.
+      route_to_case_ids:
+        - IC-5B6430FCB929
+        - IC-0F89DBB1CF9F
+      route_to_paths:
+        - app/api/routers/system.py
+        - app/api/routers/agent_tasks.py
+        - app/api/routers/documents.py
+        - app/api/routers/search.py
+        - app/services/runtime.py
+        - app/api/deps.py
+      route_to_plan_paths:
+        - docs/open_owner_backlog_resolution_milestone_plan.md
+        - docs/boring_change_architecture_milestone_plan.md
+    block_new:
+      - request_handler_logic
+      - route_family_implementation
+      - persistence_or_search_wiring
+      - broad_helper
+    allow:
+      - router_registration
+      - middleware_guard
+      - static_ui_mount
+      - uvicorn_entrypoint
+      - deletion
   app/db/models.py:
     target_role: compatibility facade for ORM models
     preferred_owner_modules:
@@ -160,6 +196,44 @@ known_hotspots:
       - report_trace_lineage_logic
       - export_lifecycle_logic
       - governance_change_impact_logic
+    allow:
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
+      - deletion
+  app/services/audit_bundles.py:
+    target_role: audit-bundle compatibility facade and export entrypoint
+    preferred_owner_modules:
+      - app/services/audit_bundle_validation_receipts.py
+      - app/services/audit_bundle_training_runs.py
+      - app/services/audit_bundle_release_payload_serialization.py
+      - app/services/audit_bundle_release_payload_validation.py
+      - app/services/audit_bundle_release_payload_prov.py
+      - app/services/audit_bundle_release_payloads.py
+    routing:
+      status: compatibility_facade_trap
+      reason: The audit-bundles root is already a narrow compatibility facade,
+        so routed ownership belongs in the extracted validation-receipt,
+        training-run, and release-payload owners instead of reopening
+        app/services/audit_bundles.py by default.
+      route_to_case_ids:
+        - IC-2112B1ADC5E8
+      route_to_paths:
+        - app/services/audit_bundle_validation_receipts.py
+        - app/services/audit_bundle_training_runs.py
+        - app/services/audit_bundle_release_payload_serialization.py
+        - app/services/audit_bundle_release_payload_validation.py
+        - app/services/audit_bundle_release_payload_prov.py
+        - app/services/audit_bundle_release_payloads.py
+      route_to_plan_paths:
+        - docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md
+        - docs/boring_change_architecture_milestone_plan.md
+    block_new:
+      - validation_receipt_logic
+      - training_run_logic
+      - export_payload_logic
+      - prov_graph_logic
+      - broad_helper
     allow:
       - import_forwarder
       - alias_forwarder
@@ -645,6 +719,37 @@ known_hotspots:
         match_tokens:
           - '    "ingest": _ingest.MODEL_SYMBOLS,'
           - '    **_ingest.REQUIRED_TABLE_INDEX_NAMES,'
+  tests/unit/test_db_model_import_compatibility.py:
+    target_role: DB model import compatibility and smoke tests
+    preferred_owner_modules:
+      - tests/unit/test_db_model_import_compatibility_*.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The shared DB-model unit smoke root is already reduced, so future
+        domain-specific growth belongs in the focused audit-and-evidence,
+        semantic-memory, and claim-support siblings rather than back in the
+        residual compatibility file.
+      route_to_case_ids:
+        - IC-46C5B38A1D2E
+        - IC-7D8AE7C83B8F
+        - IC-62C75B82F0AA
+      route_to_paths:
+        - tests/unit/test_db_model_import_compatibility_audit_and_evidence.py
+        - tests/unit/test_db_model_import_compatibility_semantic_memory.py
+        - tests/unit/test_db_model_import_compatibility_claim_support.py
+        - tests/integration/test_db_model_metadata_audit_and_evidence.py
+        - tests/integration/test_db_model_metadata_semantic_memory.py
+        - tests/integration/test_db_model_metadata_claim_support.py
+      route_to_plan_paths:
+        - docs/db_models_residual_owner_family_milestone_plan.md
+        - docs/oversized_test_hotspots_boundary_milestone_plan.md
+    block_new:
+      - broad_new_test_group
+      - broad_helper
+    allow:
+      - import_forwarder
+      - compatibility_assertion
+      - deletion
   tests/unit/test_agent_task_context.py:
     target_role: agent-task context compatibility and registry tests
     preferred_owner_modules:

@@ -33,9 +33,12 @@ must keep oversized files and import cycles from regrowing. This plan remains
 the active coordination brief after the hotspot-prevention companion-test
 closeout, the later search API route-surface follow-on, and the later
 agent-tasks API lifecycle-family follow-on, the later search-schema
-facade follow-on, and the later DB-model residual registry closeout, with the
-routed queue now exposing one more source-of-truth gap before the next fresh
-non-deployed under-budget packet `IC-5B6430FCB929` / `app/api/main.py`.
+facade follow-on, the later DB-model residual registry closeout, and the later
+queue-honesty refresh, with the routed queue now narrowed to the honest active
+owners `tests/unit/test_architecture_inspection.py` and
+`app/api/routers/agent_tasks.py` after retiring the stale DB-model smoke root,
+the deployed audit-bundles facade, and the accepted residual API bootstrap
+entry from the active queue.
 
 ## Purpose
 
@@ -135,13 +138,13 @@ remaining boring-change gap is now split across four different risks:
   and integration roots now close at `457` and `472` lines, and the routed
   queue must now be reselected from the live post-closeout summary rather than
   from the stale pre-closeout DB-model selection
-- the 2026-05-19 post-closeout rebaseline now shows that
-  `top_routed_hotspot_paths` still retains the now-deployed
-  `tests/unit/test_db_model_import_compatibility.py` root and the already-
-  deployed `app/services/audit_bundles.py` facade, so the remaining mechanical
-  debt is queue honesty rather than unresolved DB-model code ownership; the
-  next fresh non-deployed candidate behind those stale routed entries is
-  `IC-5B6430FCB929` / `app/api/main.py`
+- the 2026-05-19 queue-honesty refresh now records
+  `IC-5B6430FCB929` / `app/api/main.py` as deployed through `d8841fd`, routes
+  `tests/unit/test_db_model_import_compatibility.py`,
+  `app/services/audit_bundles.py`, and `app/api/main.py` off the active queue,
+  and leaves the live routed queue at
+  `["tests/unit/test_architecture_inspection.py","app/api/routers/agent_tasks.py"]`
+  with no deployed surface still leading selection
 
 This refreshed plan coordinates the remaining work by preserving the locally
 closed app-side packet, routing the remaining test, UI, and nonselected app
@@ -785,10 +788,11 @@ Acceptance criteria:
   reselected from this broader brief rather than from the cleared large-file
   queue.
 - The current routed hotspot after the DB-model residual closeout still
-  contains stale deployed entries in the live summary, so future selection must
-  prefer the first fresh non-deployed candidate `IC-5B6430FCB929` /
-  `app/api/main.py` unless a fresher narrow replacement beats that rerouted
-  evidence.
+  now starts with `tests/unit/test_architecture_inspection.py` and
+  `app/api/routers/agent_tasks.py`; the stale deployed
+  `tests/unit/test_db_model_import_compatibility.py` root, the deployed
+  `app/services/audit_bundles.py` facade, and the accepted residual
+  `app/api/main.py` bootstrap root are no longer in `top_routed_hotspot_paths`.
 - The remaining routing traps after the current refresh are small but still
   high-churn facades such as `app/db/models.py`, `app/services/evidence.py`,
   `app/cli.py`, `app/schemas/agent_tasks.py`, and `app/services/agent_tasks.py`.
