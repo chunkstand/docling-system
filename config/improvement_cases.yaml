@@ -772,7 +772,7 @@ cases:
   updated_at: '2026-05-10T21:50:04+00:00'
 - case_id: IC-24F3558D6091
   title: 'Architecture hotspot: app/schemas/agent_tasks.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/schemas/agent_tasks.py remains a routed architecture
     hotspot after the schema closeout reduced the facade to 38 lines, with
@@ -801,10 +801,11 @@ cases:
     notes: The schema aggregation packet reduced app/schemas/agent_tasks.py to
       a 38-line compatibility facade backed by owner-module export contracts,
       eliminated production app/ import fan-in through the facade, and
-      preserved the 221-name public import surface. The broader owner case
-      remains reduced and open because the architecture-quality summary still
-      routes the facade and 30 local test and integration modules still import
-      it.
+      preserved the 221-name public import surface. The later capability
+      legibility and registry alignment closeout keeps the facade in the raw
+      routing-trap measurement set but retires the stale open owner case
+      because the live `top_routed_hotspot_paths` queue no longer selects this
+      surface for implementation.
   measurement:
     metric_name: architecture_quality_risk_score
     current_value: 363.75
@@ -814,7 +815,7 @@ cases:
       routes 30 local test and integration importers through the compatibility
       facade.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-14T05:45:46Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-D9A84C20546B
   title: 'Architecture hotspot: tests/unit/test_agent_tasks_api.py'
   status: deployed
@@ -1127,7 +1128,7 @@ cases:
   updated_at: '2026-05-15T05:18:19Z'
 - case_id: IC-9E6B8F5D62A1
   title: 'Architecture hotspot: app/services/semantics.py'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/services/semantics.py is now a 54-line compatibility
     facade over the semantic pass lifecycle, reads, artifact, review, and
@@ -1152,11 +1153,11 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "a2eb27e"
     notes: >-
-      The semantics service-boundary split is verified locally in the
-      worktree. app/services/semantics.py is now a narrow compatibility facade
-      that forwards into app/services/semantic_pass_lifecycle.py,
+      The semantics service-boundary split closed through `a2eb27e`.
+      app/services/semantics.py is now a narrow compatibility facade that
+      forwards into app/services/semantic_pass_lifecycle.py,
       app/services/semantic_pass_artifacts.py,
       app/services/semantic_pass_reviews.py,
       app/services/semantic_pass_reads.py,
@@ -1194,7 +1195,7 @@ cases:
       closed through IC-8304248AB64C and IC-ADCFFF108626 instead of being
       carried only by the semantics facade owner case.
   created_at: '2026-05-13T20:30:00Z'
-  updated_at: '2026-05-18T23:45:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-8304248AB64C
   title: 'Architecture hotspot: app/services/semantic_pass_lifecycle.py'
   status: verified
@@ -2358,7 +2359,7 @@ cases:
   updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-2BF32BF40542
   title: 'Agent-legibility gap: retrieval'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: retrieval has agent_legibility_score=90.0 and function_count=42.
   source:
@@ -2379,22 +2380,31 @@ cases:
     acceptance_conditions:
     - Surface is under the bounded function threshold or has explicit tests, examples,
       trace command, and decision rationale.
-    catches_old_failure: false
-    allows_good_changes: false
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: null
+    deployed_ref: "66b0117"
+    notes: >-
+      Capability legibility gating now honors the documented stop condition for
+      broad but explicitly governed facades. Retrieval remains a 42-function
+      public capability surface, but the live architecture-quality summary now
+      reports `legibility_gap_count=0` because the facade already has tests,
+      examples, trace/replay guidance, decision rationale, and explicit owner
+      module mapping.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: agent_legibility_score
+    current_value: 90.0
+    measurement_window: 2026-05-19 capability legibility gating alignment
+    notes: >-
+      Retrieval remains a broad facade by design (`function_count=42`), but it
+      no longer emits an active legibility improvement-case candidate because
+      the non-bounded stop-condition criteria are all satisfied.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-339A0E924F4E
   title: 'Agent-legibility gap: agent_orchestration'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: agent_orchestration has agent_legibility_score=90.0 and function_count=31.
   source:
@@ -2415,19 +2425,28 @@ cases:
     acceptance_conditions:
     - Surface is under the bounded function threshold or has explicit tests, examples,
       trace command, and decision rationale.
-    catches_old_failure: false
-    allows_good_changes: false
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: null
+    deployed_ref: "66b0117"
+    notes: >-
+      Capability legibility gating now honors the documented stop condition for
+      broad but explicitly governed facades. Agent orchestration remains a
+      31-function public capability surface, but the live
+      architecture-quality summary now reports `legibility_gap_count=0`
+      because the facade already has tests, examples, trace guidance,
+      decision rationale, and explicit owner module mapping.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: agent_legibility_score
+    current_value: 90.0
+    measurement_window: 2026-05-19 capability legibility gating alignment
+    notes: >-
+      Agent orchestration remains a broad facade by design (`function_count=31`),
+      but it no longer emits an active legibility improvement-case candidate
+      because the non-bounded stop-condition criteria are all satisfied.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-2112B1ADC5E8
   title: 'Architecture hotspot: app/services/audit_bundles.py'
   status: deployed

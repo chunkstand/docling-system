@@ -83,7 +83,15 @@ chat history or scanning the whole repository.
   capability contracts are valid across 6 facades and 111 functions, and the
   architecture quality summary now reports
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
-  `hotspot_count=20`, and `max_hotspot_risk_score=486.06`.
+  `legibility_gap_count=0`, `hotspot_count=20`, and
+  `max_hotspot_risk_score=486.06`.
+- The later 2026-05-19 capability legibility gating alignment keeps
+  retrieval and agent orchestration as intentionally broad service facades
+  while retiring their stale legibility cases: `IC-2BF32BF40542` and
+  `IC-339A0E924F4E` are now deployed through commit `66b0117`, and the same
+  closeout sweep also durably deploys the already-hashed semantics and
+  agent-task schema cases `IC-9E6B8F5D62A1` (`a2eb27e`) and
+  `IC-24F3558D6091` (`efe6d4e`).
 - `app/db/models.py` remains in the architecture-quality routing list, but the
   semantic-memory owner family is now also extracted alongside the prior
   model-domain splits, and the remaining 159-line facade now has its own

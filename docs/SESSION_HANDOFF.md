@@ -267,6 +267,19 @@ and `uv run docling-system-architecture-inspect` remained valid, and the
 fresh architecture probe still reports `0` Python cycles while dropping both
 former over-budget context owners out of the top-20 largest-file list. The
 final DB-backed suite later passed again at `2115 passed`.
+The later 2026-05-19 capability legibility gating alignment now keeps
+`app/services/capabilities/retrieval.py` and
+`app/services/capabilities/agent_orchestration.py` as intentionally broad
+public facades while making the architecture-quality stop condition honest:
+`broad_facade_count` remains `2` as the raw breadth measure, but
+`legibility_gap_count` is now `0` because both facades already satisfy the
+explicit tests/examples/trace/decision contract. Focused governance tests
+passed at `28 passed`, `uv run docling-system-capability-contracts`,
+`uv run docling-system-architecture-inspect`, and
+`uv run docling-system-hygiene-check` stayed green, and the registry now
+deploys `IC-2BF32BF40542`, `IC-339A0E924F4E`, `IC-9E6B8F5D62A1`, and
+`IC-24F3558D6091` instead of leaving those already-governed surfaces as
+stale open or verified debt.
 The 2026-05-18 durable architecture closeout now records the governance
 self-hosting, documents-service, cross-cutting verification, semantic/report
 residual, evaluation residual, UI residual, residual-large-file,

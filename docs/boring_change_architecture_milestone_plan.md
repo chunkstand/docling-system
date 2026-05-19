@@ -228,6 +228,7 @@ git status -sb
 uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
+  legibility_gap_count=0
   hotspot_count=20
   max_hotspot_risk_score=486.06
   top_hotspot_paths=[
