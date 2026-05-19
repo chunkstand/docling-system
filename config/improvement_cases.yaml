@@ -2720,12 +2720,22 @@ cases:
       tests/integration/test_retrieval_learning_ledger_datasets.py
       tests/integration/test_retrieval_learning_ledger_candidates.py
       tests/integration/test_retrieval_learning_ledger_integrity.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-architecture-quality-report --summary
     acceptance_conditions:
     - tests/integration/test_retrieval_learning_ledger.py remains a narrow smoke
       surface at or below 800 lines.
     - The family-local support module remains at or below 400 lines and 10
       private helpers.
     - Dataset, candidate, and integrity scenarios remain routed to focused files.
+    - The residual smoke root and family-local support module are explicitly
+      routed off the active hotspot queue so future scenario growth targets the
+      focused sibling files instead of reopening the reduced root by default.
+    - The focused dataset, candidate, and integrity files have exact verified
+      hygiene ratchets and remain at or below the default 600-line budget.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
@@ -2734,17 +2744,22 @@ cases:
     notes: Oversized-test hotspot closeout reduced the residual retrieval-learning
       ledger surface to 428 lines, kept the family-local support module at 362 lines,
       and moved the dataset, candidate, and integrity scenarios into focused files
-      at 413, 597, and 599 lines respectively.
+      at 413, 597, and 599 lines respectively. The later 2026-05-19 residual-smoke
+      governance closeout then routed the reduced root as a deferred facade,
+      routed the support module as an accepted residual boundary, exact-ratcheted
+      the focused sibling files, and advanced the live queue away from the
+      retrieval-learning family without reopening the already-split surface.
   measurement:
     metric_name: test_retrieval_learning_ledger_hotspot_line_count
     current_value: 428.0
-    measurement_window: 2026-05-14 oversized-test hotspot closeout
+    measurement_window: 2026-05-19 retrieval-learning residual-smoke governance closeout
     notes: The retrieval-learning ledger family now closes with a 428-line
       smoke file, a 362-line support module, and focused scenario files at
-      413, 597, and 599 lines. The family stays within the packet budgets and
-      no longer appears in the top-20 architecture probe hotspot list.
+      413, 597, and 599 lines. The family stays within the packet budgets, the
+      focused siblings now have exact hygiene ratchets, and the residual root
+      plus support module are explicitly routed away from the active queue.
   created_at: '2026-05-14T00:00:00+00:00'
-  updated_at: '2026-05-14T00:00:00+00:00'
+  updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-25C1F7B9E4DA
   title: 'Architecture hotspot: tests/unit/test_search_service.py'
   status: open

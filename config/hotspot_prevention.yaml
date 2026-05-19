@@ -886,6 +886,23 @@ known_hotspots:
     target_role: retrieval-learning integration smoke surface
     preferred_owner_modules:
       - tests/integration/test_retrieval_learning_ledger_*.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The residual retrieval-learning ledger root is already reduced to
+        the end-to-end smoke path, so future dataset, candidate, integrity, or
+        replay-alert governance growth belongs in the focused sibling files and
+        family-local support module rather than back in the root file.
+      route_to_case_ids:
+        - IC-908E7A1D2C44
+      route_to_paths:
+        - tests/integration/test_retrieval_learning_ledger_datasets.py
+        - tests/integration/test_retrieval_learning_ledger_candidates.py
+        - tests/integration/test_retrieval_learning_ledger_integrity.py
+        - tests/integration/retrieval_learning_ledger_support.py
+      route_to_plan_paths:
+        - docs/retrieval_learning_ledger_smoke_surface_boundary_milestone_plan.md
+        - docs/oversized_test_hotspots_boundary_milestone_plan.md
+        - docs/boring_change_architecture_milestone_plan.md
     block_new:
       - broad_new_test_group
       - broad_helper
@@ -936,6 +953,24 @@ known_hotspots:
     target_role: retrieval-learning family-local support module
     preferred_owner_modules:
       - tests/integration/test_retrieval_learning_ledger_*.py
+    routing:
+      status: accepted_residual
+      reason: The family-local support module is the intended shared-fixture
+        boundary for retrieval-learning integration tests under its verified
+        helper ceiling, so future scenario assertions should stay in the
+        focused sibling files instead of accumulating more broad support debt
+        here.
+      route_to_case_ids:
+        - IC-908E7A1D2C44
+      route_to_paths:
+        - tests/integration/test_retrieval_learning_ledger.py
+        - tests/integration/test_retrieval_learning_ledger_datasets.py
+        - tests/integration/test_retrieval_learning_ledger_candidates.py
+        - tests/integration/test_retrieval_learning_ledger_integrity.py
+      route_to_plan_paths:
+        - docs/retrieval_learning_ledger_smoke_surface_boundary_milestone_plan.md
+        - docs/oversized_test_hotspots_boundary_milestone_plan.md
+        - docs/boring_change_architecture_milestone_plan.md
     block_new:
       - broad_helper
     allow:

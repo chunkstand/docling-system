@@ -132,17 +132,16 @@ reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
-`docs/agent_tasks_route_surface_boundary_milestone_plan.md`
+`docs/retrieval_learning_ledger_smoke_surface_boundary_milestone_plan.md`
 Next routed bounded implementation brief:
 the broader reselect through `docs/boring_change_architecture_milestone_plan.md`,
-with the live routed queue now advanced to
-`tests/integration/test_retrieval_learning_ledger.py`
+with the live `top_routed_hotspot_paths` queue now empty after the
+retrieval-learning residual-smoke closeout
 Queued standalone follow-on:
-the same broader under-budget reselect after the retrieval-learning ledger
-packet, or
-any fresher narrow replacement selected by the live report
+the same broader under-budget reselect, or any fresher narrow replacement
+selected by the live report
 Previous resolved bounded implementation brief:
-`docs/architecture_inspection_test_surface_boundary_milestone_plan.md`
+`docs/agent_tasks_route_surface_boundary_milestone_plan.md`
 The 2026-05-18 DB-model residual owner-family packet is now durably recorded
 through closeout commit `b9b3e46` for `IC-46C5B38A1D2E`,
 `IC-7D8AE7C83B8F`, and `IC-62C75B82F0AA`, and
@@ -218,6 +217,23 @@ stays under its existing 360-line ratchet at `355`, the improvement-case
 summary now reports `case_count=61` with
 `status_counts={"measured":1,"deployed":29,"open":21,"verified":10}`, and the
 full DB-backed suite passed again at `2109 passed`.
+The later 2026-05-19 retrieval-learning residual-smoke closeout now keeps the
+already-split retrieval-learning family at `428`, `362`, `413`, `597`, and
+`599` lines across the smoke root, family-local support, dataset, candidate,
+and integrity siblings; routes
+`tests/integration/test_retrieval_learning_ledger.py` as a deferred reduced
+facade and `tests/integration/retrieval_learning_ledger_support.py` as an
+accepted residual boundary in `config/hotspot_prevention.yaml`;
+exact-ratchets the focused sibling files in `config/hygiene_policy.yaml`;
+refreshes `IC-908E7A1D2C44` in `config/improvement_cases.yaml`; keeps
+`uv run docling-system-hotspot-prevention-check --strict`,
+`uv run docling-system-hygiene-check`,
+`uv run docling-system-improvement-case-validate`, and
+`uv run docling-system-architecture-inspect` green; passes the focused
+retrieval-learning plus policy slice at `20 passed`; passes the full DB-backed
+suite again at `2109 passed`; and leaves the live
+`top_routed_hotspot_paths=[]`, so the next code-owning packet now requires a
+fresh broader reselect rather than another stale residual-root follow-on.
 The broader coordination brief still remains
 `docs/boring_change_architecture_milestone_plan.md`; treat this queue block
 plus `docs/agentic_architecture_index.md` as the durable routing truth for the

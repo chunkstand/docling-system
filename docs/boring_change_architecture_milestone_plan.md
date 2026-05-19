@@ -37,11 +37,15 @@ agent-tasks API lifecycle-family follow-on, the later search-schema
 facade follow-on, the later DB-model residual registry closeout, and the later
 queue-honesty refresh, the later architecture-inspection test-surface
 closeout, and the later agent-tasks route-surface closeout, with the routed
-queue now advanced to the current live owner
+queue previously advanced to
 `tests/integration/test_retrieval_learning_ledger.py` after retiring the stale
 DB-model smoke root, the deployed audit-bundles facade, the accepted residual
 API bootstrap entry, the reduced architecture-inspection smoke root, and the
-reduced `app/api/routers/agent_tasks.py` route root from the active queue.
+reduced `app/api/routers/agent_tasks.py` route root from the active queue. The
+later retrieval-learning residual-smoke closeout now routes that already-split
+family off the active queue as well, so the live `top_routed_hotspot_paths`
+queue is currently empty and the next code-owning packet must be reselected
+from this broader brief rather than from a stale residual root.
 
 ## Purpose
 
@@ -162,12 +166,19 @@ remaining boring-change gap is now split across four different risks:
   files in `config/hygiene_policy.yaml`, and keeps the live queue on
   `tests/integration/test_retrieval_learning_ledger.py` instead of silently
   reopening the agent-task route family
+- the later 2026-05-19 retrieval-learning residual-smoke closeout then routes
+  `tests/integration/test_retrieval_learning_ledger.py` as a deferred reduced
+  facade, routes `tests/integration/retrieval_learning_ledger_support.py` as
+  an accepted residual boundary, exact-ratchets the focused dataset,
+  candidate, and integrity siblings at `413`, `597`, and `599`, and leaves the
+  live `top_routed_hotspot_paths` queue empty instead of pretending the
+  already-split retrieval-learning family is still the next code-owning packet
 
 This refreshed plan coordinates the remaining work by preserving the locally
 closed app-side packet, routing the remaining test, UI, and nonselected app
 backlog through narrower follow-on packets, preserving the now-zero-cycle
-state, advancing the next routed packet to the live post-closeout reselect,
-and finishing with a
+state, advancing the next routed packet to a live post-closeout broader
+reselect once a fresh owner is chosen, and finishing with a
 checked-in boring-change gate that fails on both cycles and oversized code
 files.
 
@@ -804,18 +815,22 @@ Acceptance criteria:
   durably resolved, and the next active code-owning packet must now be
   reselected from this broader brief rather than from the cleared large-file
   queue.
-- The current routed hotspot after the agent-tasks route-surface closeout now
-  starts with `tests/integration/test_retrieval_learning_ledger.py`; the stale deployed
+- The live `top_routed_hotspot_paths` queue is now empty after the
+  retrieval-learning residual-smoke closeout; the stale deployed
   `tests/unit/test_db_model_import_compatibility.py` root, the deployed
-  `app/services/audit_bundles.py` facade, and the accepted residual
+  `app/services/audit_bundles.py` facade, the accepted residual
   `app/api/main.py` bootstrap root, the reduced
-  `tests/unit/test_architecture_inspection.py` smoke root, and the reduced
-  `app/api/routers/agent_tasks.py` route root are no longer in
-  `top_routed_hotspot_paths`.
+  `tests/unit/test_architecture_inspection.py` smoke root, the reduced
+  `app/api/routers/agent_tasks.py` route root, and the routed
+  retrieval-learning residual smoke root are no longer active queue entries.
 - The reduced `app/api/routers/agent_tasks.py` route root is now explicitly
   guarded as a deferred reduced facade with exact hygiene ratchets on the new
   lifecycle and artifact routers, so this closeout no longer depends on docs
   alone to keep the split from regrowing in the wrong file.
+- The reduced retrieval-learning smoke root and its family-local support module
+  are now also explicitly governed, so the broader queue no longer confuses a
+  deployed residual test family with the next code-owning implementation
+  packet.
 - The remaining routing traps after the current refresh are small but still
   high-churn facades such as `app/db/models.py`, `app/services/evidence.py`,
   `app/cli.py`, `app/schemas/agent_tasks.py`, and `app/services/agent_tasks.py`.

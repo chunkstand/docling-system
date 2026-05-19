@@ -1503,6 +1503,24 @@ file_budgets:
       max_private_helpers: 10
       ratchet_max_private_helpers: 10
       owner_case_id: IC-908E7A1D2C44
+    tests/integration/test_retrieval_learning_ledger_candidates.py:
+      max_lines: 597
+      ratchet_max_lines: 597
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-908E7A1D2C44
+    tests/integration/test_retrieval_learning_ledger_datasets.py:
+      max_lines: 413
+      ratchet_max_lines: 413
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-908E7A1D2C44
+    tests/integration/test_retrieval_learning_ledger_integrity.py:
+      max_lines: 599
+      ratchet_max_lines: 599
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-908E7A1D2C44
     tests/integration/test_retrieval_learning_ledger.py:
       max_lines: 428
       ratchet_max_lines: 428

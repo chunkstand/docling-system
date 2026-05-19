@@ -81,6 +81,7 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
     for path in [
         "app/cli.py",
         "app/api/routers/agent_tasks.py",
+        "tests/integration/test_retrieval_learning_ledger.py",
         "tests/unit/test_agent_tasks_api.py",
         "tests/unit/test_architecture_inspection.py",
         "tests/unit/test_search_api.py",
@@ -91,6 +92,14 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         assert policy.known_hotspots[path].routing.status == "deferred_reduced_facade"
     assert policy.known_hotspots["tests/unit/test_cli.py"].routing is not None
     assert policy.known_hotspots["app/services/search.py"].routing is not None
+    assert (
+        policy.known_hotspots["tests/integration/retrieval_learning_ledger_support.py"].routing
+        is not None
+    )
+    assert (
+        policy.known_hotspots["tests/integration/retrieval_learning_ledger_support.py"].routing.status
+        == "accepted_residual"
+    )
 
 
 def test_policy_validation_rejects_missing_owner_and_unowned_exception() -> None:
