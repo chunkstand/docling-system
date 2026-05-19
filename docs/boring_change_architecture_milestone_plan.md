@@ -78,6 +78,14 @@ counts to `open=1`, `verified=0`, and `deployed=59`, and leaves Packet D
 pass then removes the temporary support-extraction exceptions, aligns the
 owner-case verification contract to the actual gate stack, and keeps the
 queue pointed at Packet D without reopening the reduced roots.
+The later 2026-05-19 Packet D residual-ranking closeout then deploys
+`IC-25C1F7B9E4DA`, reduces `tests/unit/test_search_service_ranking.py` to
+`532` lines, moves source-filename ranking coverage into
+`tests/unit/test_search_service_ranking_source_filename.py` at `158`, routes
+the reduced search-service root as a deferred facade, moves the live counts to
+`open=0`, `verified=0`, and `deployed=60`, and leaves Packet E as the only
+remaining queued follow-on while `top_routed_hotspot_paths=[]` remains
+unchanged.
 
 ## Purpose
 

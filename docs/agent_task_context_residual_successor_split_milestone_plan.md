@@ -3,8 +3,8 @@
 Date: 2026-05-19 local / 2026-05-19 UTC
 Status: resolved through the 2026-05-19 Packet C residual-successor split.
 `IC-3B4C9F2A76E1` is now deployed, the reduced roots and new support modules
-are exact-ratcheted and hotspot-governed, and Packet D
-`IC-25C1F7B9E4DA` is now the next queued packet.
+are exact-ratcheted and hotspot-governed, the later Packet D closeout now also
+deploys `IC-25C1F7B9E4DA`, and Packet E is now the next queued packet.
 Owner context: code-owning closeout for the last over-budget focused successor
 tests left behind by the earlier `tests/unit/test_agent_task_context.py`
 family split.

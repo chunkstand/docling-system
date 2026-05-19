@@ -90,6 +90,7 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "tests/unit/test_agent_tasks_api.py",
         "tests/unit/test_architecture_inspection.py",
         "tests/unit/test_search_api.py",
+        "tests/unit/test_search_service.py",
         "tests/unit/test_documents_api.py",
         "tests/unit/test_agent_task_context_reports_claim_support.py",
         "tests/unit/test_agent_task_context_semantic_graph_promotions.py",

@@ -9,7 +9,8 @@ closeout, and the later 2026-05-18 agent-tasks API lifecycle-family
 closeout now also deploys `IC-D9A84C20546B` through implementation commit
 `790fa2d` plus durable docs-and-registry closeout commit `8ce05b7`, while the
 later 2026-05-19 Packet C residual-successor split now also deploys
-`IC-3B4C9F2A76E1`
+`IC-3B4C9F2A76E1`, and the later 2026-05-19 Packet D residual-ranking split
+now also deploys `IC-25C1F7B9E4DA`
 Owner context: closeout under `IC-5F0E1C8B0D42`,
 `IC-3B4C9F2A76E1`, `IC-D9A84C20546B`, `IC-7A628A4CBCAC`,
 `IC-25C1F7B9E4DA`, `IC-908E7A1D2C44`, and `IC-D49E037D5657`.
@@ -53,8 +54,11 @@ Local closeout results:
   deployed
 - reduced `tests/unit/test_search_service.py` to `117` lines and moved
   metadata supplement, ranking, orchestration, and persistence assertions into
-  focused files; the broader owner case remains reduced and open because
-  `tests/unit/test_search_service_ranking.py` still measures `621` lines
+  focused files; the later Packet D follow-on now reduces
+  `tests/unit/test_search_service_ranking.py` to `532` lines, moves
+  source-filename ranking coverage into
+  `tests/unit/test_search_service_ranking_source_filename.py` at `158`, and
+  deploys the broader owner case instead of leaving the ranking lane open
 - reduced `tests/integration/test_retrieval_learning_ledger.py` to `428` lines
   and `tests/integration/test_technical_report_harness_roundtrip.py` to
   `93` lines, added family-local support modules at `362` and `396` lines, and

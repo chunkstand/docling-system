@@ -998,6 +998,23 @@ known_hotspots:
     target_role: search service compatibility and smoke tests
     preferred_owner_modules:
       - tests/unit/test_search_*.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The residual search-service root is already reduced to
+        compatibility and smoke assertions, so future ranking, metadata,
+        orchestration, persistence, or source-filename ranking growth belongs
+        in the focused sibling files rather than back in the reduced root.
+      route_to_case_ids:
+        - IC-25C1F7B9E4DA
+      route_to_paths:
+        - tests/unit/test_search_metadata_supplement.py
+        - tests/unit/test_search_service_ranking.py
+        - tests/unit/test_search_service_ranking_source_filename.py
+        - tests/unit/test_search_service_orchestration.py
+        - tests/unit/test_search_service_persistence.py
+      route_to_plan_paths:
+        - docs/search_service_residual_ranking_split_milestone_plan.md
+        - docs/remaining_packet_queue_resolution_milestone_plan.md
     block_new:
       - broad_new_test_group
       - broad_helper

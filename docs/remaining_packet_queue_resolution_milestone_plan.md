@@ -7,12 +7,15 @@ Status: active queue-coordination brief after
 `docs/stale_open_registry_closeout_milestone_plan.md`, Packet B is now
 resolved through `docs/verified_to_deployed_registry_closeout_milestone_plan.md`,
 Packet C is now resolved through
-`docs/agent_task_context_residual_successor_split_milestone_plan.md`, and
-Packet D is the next queued packet.
+`docs/agent_task_context_residual_successor_split_milestone_plan.md`, Packet D
+is now resolved through
+`docs/search_service_residual_ranking_split_milestone_plan.md`, and Packet E is
+the next queued packet.
 Owner context: broader coordination follow-on for the remaining improvement
 cases after the fresh broader reselect reduced `IC-23F2C79C8AA7`. The later
-stale-open, verified-to-deployed, and Packet C residual-successor closeouts
-now leave the repo with `open=1`, `verified=0`, and `deployed=59`.
+stale-open, verified-to-deployed, Packet C residual-successor, and Packet D
+residual-ranking closeouts now leave the repo with `open=0`, `verified=0`, and
+`deployed=60`.
 
 ## Purpose
 
@@ -21,10 +24,10 @@ queue so future sessions stop treating the raw case registry as the operative
 packet order.
 
 The current weakness is not the lack of known debt. The repo already knows the
-remaining cases. The problem is that the live routed queue is empty and the
-last remaining `open` case still points at live code-owning work. Without an
-explicit queue brief, future sessions will reselect the same backlog
-repeatedly or reopen already-reduced roots.
+remaining queue truth. The problem is making sure the now-empty code-owning
+backlog gets closed honestly instead of leaving stale Packet D wording behind
+or reopening already-reduced roots because `top_routed_hotspot_paths` is still
+empty.
 
 ## Current Evidence
 
@@ -158,6 +161,14 @@ uv run docling-system-improvement-case-summary
   status_counts={"measured":1,"deployed":59,"open":1,"verified":0}
 ```
 
+Packet D closeout result from the same 2026-05-19 checkout:
+
+```text
+uv run docling-system-improvement-case-summary
+  case_count=61
+  status_counts={"measured":1,"deployed":60,"open":0,"verified":0}
+```
+
 ## Goal
 
 Queue the remaining packets into an explicit, durable execution order so that:
@@ -168,6 +179,8 @@ Queue the remaining packets into an explicit, durable execution order so that:
   instead of staying indefinitely in `verified`
 - the two genuinely active residual code packets are listed explicitly and
   executed after the registry truth sweeps
+- the final queue-exhaustion sweep can close the coordination brief honestly
+  once the code-owning backlog reaches zero
 - the repo can drive from a durable ordered list instead of another broad
   free-form reselect
 
@@ -346,6 +359,11 @@ Outcome label: resolved
 Finish `IC-25C1F7B9E4DA` by reducing the still-over-budget ranking successor
 without reopening the reduced root or shifting debt into a new ungoverned test
 file.
+
+Resolved on 2026-05-19 through
+`docs/search_service_residual_ranking_split_milestone_plan.md`. The
+post-closeout live target landed at `open=0`, `verified=0`, and
+`deployed=60`.
 
 Packet D must:
 

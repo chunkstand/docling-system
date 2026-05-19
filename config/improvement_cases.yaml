@@ -2822,7 +2822,7 @@ cases:
   updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-25C1F7B9E4DA
   title: 'Architecture hotspot: tests/unit/test_search_service.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: tests/unit/test_search_service.py previously mixed query-shape,
     metadata supplement, ranking, orchestration, and persistence assertions in a
@@ -2842,18 +2842,37 @@ cases:
     - uv run ruff check tests/unit/test_search_service.py
       tests/unit/test_search_metadata_supplement.py
       tests/unit/test_search_service_ranking.py
+      tests/unit/test_search_service_ranking_source_filename.py
       tests/unit/test_search_service_orchestration.py
       tests/unit/test_search_service_persistence.py
+      tests/unit/test_hotspot_prevention_search_service_routes.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
     - uv run pytest -q tests/unit/test_search_service.py
       tests/unit/test_search_metadata_supplement.py
       tests/unit/test_search_service_ranking.py
+      tests/unit/test_search_service_ranking_source_filename.py
       tests/unit/test_search_service_orchestration.py
       tests/unit/test_search_service_persistence.py
+      tests/unit/test_hotspot_prevention_search_service_routes.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
+    - uv run pytest -q tests/unit/test_search_service.py
+      tests/unit/test_search_service_ranking.py
+      tests/unit/test_search_service_ranking_source_filename.py
+      tests/unit/test_search_api.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-inspect
+    - uv run docling-system-architecture-quality-report --summary
+    - uv run docling-system-improvement-case-validate
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
     acceptance_conditions:
     - tests/unit/test_search_service.py remains a narrow compatibility and
       smoke surface at or below 600 lines.
     - Search metadata, ranking, orchestration, and persistence assertions stay
       routed to focused files instead of regrowing the residual surface.
+    - The reduced search-service root is routed as a deferred facade and the
+      focused ranking plus source-filename ranking owners are exact-ratcheted
+      at or below 600 lines.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
@@ -2861,18 +2880,22 @@ cases:
     deployed_ref: "b9b3e46"
     notes: Oversized-test hotspot closeout reduced tests/unit/test_search_service.py
       to 117 lines and moved metadata supplement, ranking, orchestration, and
-      persistence assertions into focused files. The broader family remains
-      reduced and open because the ranking owner still measures 621 lines
-      against the default 600-line budget.
+      persistence assertions into focused files. Packet D on 2026-05-19 then
+      split the source-filename ranking assertions into a new 158-line focused
+      sibling, reduced tests/unit/test_search_service_ranking.py to 532 lines,
+      routed the residual search-service root as a deferred facade, and exact-ratcheted
+      the ranking siblings so the owner case is now honestly deployed.
   measurement:
     metric_name: test_search_service_hotspot_line_count
     current_value: 117.0
-    measurement_window: 2026-05-14 oversized-test hotspot closeout
+    measurement_window: 2026-05-19 Packet D residual ranking closeout
     notes: The residual compatibility file now measures 117 lines; the focused
-      metadata supplement, ranking, orchestration, and persistence files measure
-      411, 621, 580, and 208 lines respectively.
+      metadata supplement, ranking, source-filename ranking, orchestration, and
+      persistence files now measure 411, 532, 158, 580, and 208 lines
+      respectively, and the reduced root is now explicitly routed away from
+      future ranking growth.
   created_at: '2026-05-14T00:00:00+00:00'
-  updated_at: '2026-05-14T00:00:00+00:00'
+  updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-08C078FD4F45
   title: 'Architecture hotspot: app/architecture_inspection.py'
   status: deployed

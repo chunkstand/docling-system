@@ -132,17 +132,16 @@ reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
-`docs/agent_task_context_residual_successor_split_milestone_plan.md`
+`docs/search_service_residual_ranking_split_milestone_plan.md`
 Next routed bounded implementation brief:
-Packet D `IC-25C1F7B9E4DA` in
+Packet E final queue exhaustion and honesty sweep in
 `docs/remaining_packet_queue_resolution_milestone_plan.md`, with the live
 `top_routed_hotspot_paths` queue still empty
 Queued standalone follow-on:
-Packet D `IC-25C1F7B9E4DA`, then Packet E final queue
-exhaustion or rebaseline as recorded in
+Packet E final queue exhaustion or rebaseline as recorded in
 `docs/remaining_packet_queue_resolution_milestone_plan.md`
 Previous resolved bounded implementation brief:
-`docs/verified_to_deployed_registry_closeout_milestone_plan.md`
+`docs/agent_task_context_residual_successor_split_milestone_plan.md`
 Post-Packet A/B alignment audit from the current 2026-05-19 checkout:
 `uv run docling-system-improvement-case-summary` now reports
 `status_counts={"measured":1,"deployed":58,"open":2}`,
@@ -169,8 +168,19 @@ Packet C-specific root exceptions, hygiene still reports
 `inherited budget debt: none`, architecture inspection remains
 `violation_count=0`, and the live improvement-case summary now reads
 `status_counts={"measured":1,"deployed":59,"open":1}`. Packet D
-`IC-25C1F7B9E4DA` is now the next queued packet while
+`IC-25C1F7B9E4DA` then became the next queued packet while
 `top_routed_hotspot_paths=[]` remains honest.
+The later 2026-05-19 Packet D closeout now resolves `IC-25C1F7B9E4DA`
+through `docs/search_service_residual_ranking_split_milestone_plan.md`:
+`tests/unit/test_search_service_ranking.py` now closes at `532` lines,
+source-filename ranking coverage now lives in
+`tests/unit/test_search_service_ranking_source_filename.py` at `158`, the
+residual root `tests/unit/test_search_service.py` remains at `117`, hotspot
+prevention now routes the reduced root as a deferred facade, hygiene still
+reports `inherited budget debt: none`, architecture inspection remains
+`violation_count=0`, and the live improvement-case summary now reads
+`status_counts={"measured":1,"deployed":60,"open":0}`. Packet E is now the
+next queued packet while `top_routed_hotspot_paths=[]` remains honest.
 The 2026-05-18 DB-model residual owner-family packet is now durably recorded
 through closeout commit `b9b3e46` for `IC-46C5B38A1D2E`,
 `IC-7D8AE7C83B8F`, and `IC-62C75B82F0AA`, and
@@ -387,8 +397,15 @@ through `docs/agent_task_context_residual_successor_split_milestone_plan.md`:
 `IC-3B4C9F2A76E1` is now deployed, live registry counts move to
 `status_counts.open=1`, `status_counts.verified=0`, and
 `status_counts.deployed=59`, and only `IC-25C1F7B9E4DA` remains open because
-it still points at a live code-owning successor test. Packet D is now the next
+it still points at a live code-owning successor test. Packet D then became the next
 queued packet while `top_routed_hotspot_paths=[]` remains honest.
+The later 2026-05-19 Packet D closeout now completes that fourth queue pass
+through `docs/search_service_residual_ranking_split_milestone_plan.md`:
+`IC-25C1F7B9E4DA` is now deployed, live registry counts move to
+`status_counts.open=0`, `status_counts.verified=0`, and
+`status_counts.deployed=60`, and no code-owning packet remains open. Packet E
+is now the next queued packet while `top_routed_hotspot_paths=[]` remains
+honest.
 The 2026-05-18 durable architecture closeout now records the governance
 self-hosting, documents-service, cross-cutting verification, semantic/report
 residual, evaluation residual, UI residual, residual-large-file,
