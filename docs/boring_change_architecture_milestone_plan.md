@@ -30,9 +30,9 @@ Owner context: broader coordination brief for the remaining "expensive to
 change" backlog across under-budget residual owner families, stale routing risk
 around already-shrunk compatibility facades, and the checked-in gates that
 must keep oversized files and import cycles from regrowing. This plan remains
-the active coordination brief while the next packet advances to the
-hotspot-prevention residual test root after the technical-report harness routed
-hotspot closes locally.
+the active coordination brief after the hotspot-prevention companion-test
+closeout, with the routed queue now returning to `IC-03D7EFA03213` /
+`tests/unit/test_search_api.py`.
 
 ## Purpose
 
@@ -90,15 +90,21 @@ remaining boring-change gap is now split across four different risks:
   locally: the smoke root stays at `93` lines, family-local support stays at
   `396`, the focused context-pack surface stays at `315`, the audit family now
   closes at `398`, `313`, and `162`, integrity stays at `402`, source-evidence
-  stays at `206`, and the routed queue now advances to the hotspot-prevention
-  residual test root, where the companion test has regrown to `653` lines
-  while the classifier-side owners remain under budget
+  stays at `206`, and the routed queue then advanced to the hotspot-prevention
+  residual test root
+- the routed hotspot-prevention companion-test packet is now also resolved
+  locally: the analyzer root closes at `343` lines, policy or report
+  contract coverage now lives in a `317`-line sibling, blocked-family
+  coverage remains at `318`, wrapper coverage remains at `296`, shared
+  support remains at `50`, the focused family slice passed at `41 passed`,
+  and the routed queue now returns to `IC-03D7EFA03213` /
+  `tests/unit/test_search_api.py`
 
 This refreshed plan coordinates the remaining work by preserving the locally
 closed app-side packet, routing the remaining test, UI, and nonselected app
 backlog through narrower follow-on packets, preserving the now-zero-cycle
 state, advancing the next routed packet to
-`tests/unit/test_hotspot_prevention.py`, and finishing with a checked-in
+`tests/unit/test_search_api.py`, and finishing with a checked-in
 boring-change gate that fails on both cycles and oversized code files.
 
 ## Current Evidence
@@ -730,6 +736,10 @@ Acceptance criteria:
   resolved locally, and the next active code-owning packet must now be
   reselected from this broader brief rather than from the cleared large-file
   queue.
+- The current routed hotspot after the companion-test closeout is
+  `IC-03D7EFA03213` / `tests/unit/test_search_api.py`; any fresher narrow
+  replacement must beat that routed queue evidence rather than reopening a
+  just-closed packet.
 - The remaining routing traps after the current refresh are small but still
   high-churn facades such as `app/db/models.py`, `app/services/evidence.py`,
   `app/cli.py`, `app/schemas/agent_tasks.py`, and `app/services/agent_tasks.py`.

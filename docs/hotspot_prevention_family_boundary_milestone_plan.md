@@ -1,9 +1,8 @@
 # Hotspot Prevention Family Boundary Milestone Plan
 
 Date: 2026-05-16 local / 2026-05-16 UTC
-Status: resolved locally in the current checkout through Milestone 3 closeout
-on the classifier side, with the later 2026-05-18 routing refresh reopening
-the companion test root as the active next packet.
+Status: resolved locally in the current checkout through the 2026-05-18
+companion-test closeout.
 `app/hotspot_prevention_classifier.py` is now a `360` line / `1` private-helper
 dispatcher under `IC-6C1B516A3F92`, the classifier family now carries exact
 same-milestone ratchets on
@@ -11,20 +10,18 @@ same-milestone ratchets on
 `app/hotspot_prevention_classifier_service_rules.py` at `384 / 0`,
 `app/hotspot_prevention_classifier_boundary_rules.py` at `209 / 0`, and
 `app/hotspot_prevention_classifier_support.py` at `571 / 1`, and
-`tests/unit/test_hotspot_prevention.py` is now a `595` line / `0`
-private-helper root under `IC-15F6E41A9C77` with focused sibling coverage in
+`tests/unit/test_hotspot_prevention.py` is now a `343` line / `0`
+private-helper analyzer root under `IC-15F6E41A9C77`, policy and report
+contract coverage now lives in
+`tests/unit/test_hotspot_prevention_policy_contracts.py` at `317 / 0`,
+blocked-family coverage remains in
 `tests/unit/test_hotspot_prevention_family_rules.py` at `318 / 0`,
+wrapper-allowance coverage remains in
 `tests/unit/test_hotspot_prevention_wrapper_rules.py` at `296 / 0`, and
-`tests/unit/hotspot_prevention_test_support.py` at `50 / 2`. The broader
-coordination brief is now
-`docs/boring_change_architecture_milestone_plan.md`, which must activate the
-next fresh bounded packet from the refreshed post-closeout baseline.
-Later 2026-05-18 routing evidence reselects the companion test root under
-`IC-15F6E41A9C77` as the next bounded packet because
-`tests/unit/test_hotspot_prevention.py` has regrown to `653` lines while the
-classifier-side owners remain under budget.
-Treat the `595`-line references below as the last resolved checkpoint, not as
-the current live routed state for the companion test owner.
+`tests/unit/hotspot_prevention_test_support.py` remains at `50 / 2`. The
+broader coordination brief remains
+`docs/boring_change_architecture_milestone_plan.md`, and the routed queue now
+returns to `IC-03D7EFA03213` / `tests/unit/test_search_api.py`.
 Owner context: targeted hotspot-prevention family follow-on after the semantic
 lifecycle/read packet closed locally. This packet keeps the next slice inside a
 single rule-and-test family instead of opening a giant mixed test backlog or a
@@ -51,9 +48,9 @@ closed packet-specific guardrails.
 
 ## Current Evidence
 
-Closeout baseline refreshed from the current local checkout on 2026-05-16
-local / 2026-05-16 UTC after the hotspot-prevention family packet resolved
-locally:
+Closeout baseline refreshed from the current local checkout on 2026-05-18
+local / 2026-05-19 UTC after the hotspot-prevention companion-test closeout
+resolved locally:
 
 ```text
 wc -l \
@@ -63,6 +60,7 @@ wc -l \
   app/hotspot_prevention_classifier_boundary_rules.py \
   app/hotspot_prevention_classifier_support.py \
   tests/unit/test_hotspot_prevention.py \
+  tests/unit/test_hotspot_prevention_policy_contracts.py \
   tests/unit/test_hotspot_prevention_family_rules.py \
   tests/unit/test_hotspot_prevention_wrapper_rules.py \
   tests/unit/hotspot_prevention_test_support.py
@@ -71,7 +69,8 @@ wc -l \
     384 app/hotspot_prevention_classifier_service_rules.py
     209 app/hotspot_prevention_classifier_boundary_rules.py
     571 app/hotspot_prevention_classifier_support.py
-    595 tests/unit/test_hotspot_prevention.py
+    343 tests/unit/test_hotspot_prevention.py
+    317 tests/unit/test_hotspot_prevention_policy_contracts.py
     318 tests/unit/test_hotspot_prevention_family_rules.py
     296 tests/unit/test_hotspot_prevention_wrapper_rules.py
      50 tests/unit/hotspot_prevention_test_support.py
@@ -85,6 +84,7 @@ for path_str in [
     "app/hotspot_prevention_classifier_boundary_rules.py",
     "app/hotspot_prevention_classifier_support.py",
     "tests/unit/test_hotspot_prevention.py",
+    "tests/unit/test_hotspot_prevention_policy_contracts.py",
     "tests/unit/test_hotspot_prevention_family_rules.py",
     "tests/unit/test_hotspot_prevention_wrapper_rules.py",
     "tests/unit/hotspot_prevention_test_support.py",
@@ -103,6 +103,7 @@ PY
   app/hotspot_prevention_classifier_boundary_rules.py private_helpers=0
   app/hotspot_prevention_classifier_support.py private_helpers=1
   tests/unit/test_hotspot_prevention.py private_helpers=0
+  tests/unit/test_hotspot_prevention_policy_contracts.py private_helpers=0
   tests/unit/test_hotspot_prevention_family_rules.py private_helpers=0
   tests/unit/test_hotspot_prevention_wrapper_rules.py private_helpers=0
   tests/unit/hotspot_prevention_test_support.py private_helpers=2
@@ -113,15 +114,17 @@ uv run ruff check app/hotspot_prevention_classifier.py \
   app/hotspot_prevention_claim_support_rules.py \
   app/hotspot_prevention_classifier_support.py \
   tests/unit/test_hotspot_prevention.py \
+  tests/unit/test_hotspot_prevention_policy_contracts.py \
   tests/unit/test_hotspot_prevention_family_rules.py \
   tests/unit/test_hotspot_prevention_wrapper_rules.py \
   tests/unit/hotspot_prevention_test_support.py
   pass
 
 uv run pytest -q tests/unit/test_hotspot_prevention.py \
+  tests/unit/test_hotspot_prevention_policy_contracts.py \
   tests/unit/test_hotspot_prevention_family_rules.py \
   tests/unit/test_hotspot_prevention_wrapper_rules.py
-  40 passed
+  41 passed
 
 uv run docling-system-hotspot-prevention-check --strict
   changed_hotspots=0
@@ -132,21 +135,26 @@ uv run docling-system-hygiene-check
   hotspot-prevention family no longer appears in inherited budget debt
 
 uv run docling-system-improvement-case-summary
-  case_count=49
-  status_counts.open=33
-  status_counts.deployed=15
-  measured_case_count=44
+  case_count=59
+  status_counts.open=27
+  status_counts.deployed=16
+  status_counts.verified=15
+  measured_case_count=56
 
 uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
   hotspot_count=10
   max_hotspot_risk_score=496.06
+  top_routed_hotspot_paths=["tests/unit/test_search_api.py"]
 
 python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20
-  27 code files above 800 lines
-  hotspot-prevention family no longer appears in the largest-file list
-  Python cycle components: 3
+  0 Python cycle components
+  0 code files above 800 lines
+  hotspot-prevention family no longer appears in the top 20 hotspots
+
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+  2089 passed in 114.04s
 ```
 
 Current structural evidence:
@@ -156,21 +164,25 @@ Current structural evidence:
   source-family routes are `384 / 0`, boundary or wrapper routes are `209 / 0`,
   and shared support helpers are `571 / 1`.
 - `IC-15F6E41A9C77` now governs an exact-ratcheted companion test family:
-  `tests/unit/test_hotspot_prevention.py` is `595 / 0`, blocked-family
-  coverage lives in `tests/unit/test_hotspot_prevention_family_rules.py` at
-  `318 / 0`, wrapper or allowance coverage lives in
+  `tests/unit/test_hotspot_prevention.py` is `343 / 0`, policy and report
+  contract coverage lives in
+  `tests/unit/test_hotspot_prevention_policy_contracts.py` at `317 / 0`,
+  blocked-family coverage lives in
+  `tests/unit/test_hotspot_prevention_family_rules.py` at `318 / 0`, wrapper
+  or allowance coverage lives in
   `tests/unit/test_hotspot_prevention_wrapper_rules.py` at `296 / 0`, and the
   shared diff or policy helper lives in
   `tests/unit/hotspot_prevention_test_support.py` at `50 / 2`.
 - The family is still narrow enough for one packet: classifier rule bodies,
   support siblings, and companion tests now form one coherent owner surface
   without leaving a new oversized sink behind.
-- The three live Python cycle components do not currently include this family,
-  so this packet is a size and owner-boundary reduction, not a cycle-break
-  packet.
+- The live architecture probe now reports `0` Python cycle components and no
+  code file above `800` lines, so this packet closes as a bounded family
+  reduction rather than as cycle or large-file debt.
 - The broader boring-change brief now has cleaner next-packet evidence: the
-  closeout removes this family from the 800-line backlog and makes the
-  remaining routed debt more clearly test-heavy.
+  closeout removes this family from the routed queue and returns the next
+  narrow packet selection to `IC-03D7EFA03213` /
+  `tests/unit/test_search_api.py`.
 
 ## Goal
 
@@ -179,8 +191,8 @@ Reduce the hotspot-prevention family so that:
 - `app/hotspot_prevention_classifier.py` is reduced under the default `600`
   line hygiene budget or split into focused sibling owners with explicit
   routing for any `601-800` residual
-- `tests/unit/test_hotspot_prevention.py` is reduced below the
-  architecture-probe `800`-line threshold without weakening negative coverage
+- `tests/unit/test_hotspot_prevention.py` is reduced back under the default
+  `600`-line hygiene budget without weakening negative coverage
 - the public hotspot-prevention behavior remains unchanged at the rule,
   report, and strict-blocking boundary
 - the packet closes with accurate handoff, index, and registry state
@@ -206,6 +218,7 @@ In scope:
 - `app/hotspot_prevention_classifier_support.py`
 - `config/hotspot_prevention.yaml`
 - `tests/unit/test_hotspot_prevention.py`
+- `tests/unit/test_hotspot_prevention_policy_contracts.py`
 - `tests/unit/test_hotspot_prevention_family_rules.py`
 - `tests/unit/test_hotspot_prevention_wrapper_rules.py`
 - `tests/unit/hotspot_prevention_test_support.py`
@@ -232,6 +245,7 @@ Out of scope:
 - `app/hotspot_prevention_classifier_support.py`
 - `config/hotspot_prevention.yaml`
 - `tests/unit/test_hotspot_prevention.py`
+- `tests/unit/test_hotspot_prevention_policy_contracts.py`
 - `tests/unit/test_hotspot_prevention_family_rules.py`
 - `tests/unit/test_hotspot_prevention_wrapper_rules.py`
 - `tests/unit/hotspot_prevention_test_support.py`
@@ -287,7 +301,7 @@ Local status: resolved locally in the current checkout.
 
 Outcome label: reduced
 
-Reduce `tests/unit/test_hotspot_prevention.py` below `800` lines by moving
+Reduce `tests/unit/test_hotspot_prevention.py` back under `600` lines by moving
 cohesive helper fixtures or focused rule-family assertions into narrower test
 owners without weakening the negative-path contract.
 Local status: resolved locally in the current checkout.
@@ -307,7 +321,8 @@ baseline.
 - focused classifier-family code changes across the dispatcher, source-family,
   boundary, claim-support, and support siblings
 - focused hotspot-prevention test decomposition changes across the root test,
-  blocked-family sibling tests, wrapper sibling tests, and shared test support
+  policy-contract sibling tests, blocked-family sibling tests, wrapper sibling
+  tests, and shared test support
 - refreshed `config/improvement_cases.yaml`
 - refreshed `config/hygiene_policy.yaml`
 - refreshed `docs/hotspot_prevention_family_boundary_milestone_plan.md`
@@ -326,8 +341,8 @@ baseline.
 ## Required Verification Gates
 
 - `git diff --check`
-- `uv run ruff check app/hotspot_prevention_classifier.py app/hotspot_prevention_classifier_service_rules.py app/hotspot_prevention_classifier_boundary_rules.py app/hotspot_prevention_claim_support_rules.py app/hotspot_prevention_classifier_support.py tests/unit/test_hotspot_prevention.py tests/unit/test_hotspot_prevention_family_rules.py tests/unit/test_hotspot_prevention_wrapper_rules.py tests/unit/hotspot_prevention_test_support.py`
-- `uv run pytest -q tests/unit/test_hotspot_prevention.py tests/unit/test_hotspot_prevention_family_rules.py tests/unit/test_hotspot_prevention_wrapper_rules.py`
+- `uv run ruff check app/hotspot_prevention_classifier.py app/hotspot_prevention_classifier_service_rules.py app/hotspot_prevention_classifier_boundary_rules.py app/hotspot_prevention_claim_support_rules.py app/hotspot_prevention_classifier_support.py tests/unit/test_hotspot_prevention.py tests/unit/test_hotspot_prevention_policy_contracts.py tests/unit/test_hotspot_prevention_family_rules.py tests/unit/test_hotspot_prevention_wrapper_rules.py tests/unit/hotspot_prevention_test_support.py`
+- `uv run pytest -q tests/unit/test_hotspot_prevention.py tests/unit/test_hotspot_prevention_policy_contracts.py tests/unit/test_hotspot_prevention_family_rules.py tests/unit/test_hotspot_prevention_wrapper_rules.py`
 - `uv run docling-system-hotspot-prevention-check --strict`
 - `uv run docling-system-hygiene-check`
 - `uv run docling-system-improvement-case-summary`
@@ -339,7 +354,7 @@ baseline.
 
 - the classifier root is reduced under `600` lines or any residual `601-800`
   owner is routed in the same milestone
-- the hotspot-prevention test root is reduced below `800` lines
+- the hotspot-prevention test root is reduced under `600` lines
 - the focused hotspot-prevention baseline remains green without weaker
   negative-path coverage
 - the handoff, architecture index, broader boring-change brief, and improvement
@@ -369,10 +384,10 @@ baseline.
   current checkout.
 - The broader boring-change brief should now remeasure the remaining
   large-test and app/UI backlog and promote exactly one next narrow packet.
-- Current evidence favors a fresh residual test-large-owner packet before
-  reopening app or UI backlog, because the hotspot-prevention family no longer
-  appears in the 800-line queue and the remaining largest-file backlog is now
-  led by tests.
+- Current evidence now favors `IC-03D7EFA03213` /
+  `tests/unit/test_search_api.py` as the next routed narrow packet, because
+  the hotspot-prevention family no longer appears in the queue and the routed
+  hotspot has moved back into the search test family.
 - The most likely post-closeout follow-ons remain the larger residual test
   backlog, `app/ui/modules/agents.js`, `app/services/semantic_orchestration.py`,
   `app/services/technical_reports.py`, and the remaining cycle-only work.

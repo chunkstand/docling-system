@@ -316,7 +316,7 @@ cases:
   updated_at: '2026-05-15T00:00:00+00:00'
 - case_id: IC-6C1B516A3F92
   title: 'Hygiene budget hotspot: app/hotspot_prevention_classifier.py'
-  status: open
+  status: verified
   cause_class: unclear_ownership
   observed_failure: The hotspot-prevention family packet now reduces
     app/hotspot_prevention_classifier.py to 360 lines while keeping the
@@ -324,8 +324,9 @@ cases:
     at 436 lines, app/hotspot_prevention_classifier_service_rules.py at 384
     lines, app/hotspot_prevention_classifier_boundary_rules.py at 209 lines,
     and app/hotspot_prevention_classifier_support.py at 571 lines. The
-    classifier owner family is now locally retirement-ready pending an atomic
-    hotspot-prevention closeout commit.
+    companion hotspot-prevention tests now also close locally at 343, 317,
+    318, 296, and 50 lines, so the full family is locally verified rather
+    than still waiting on the companion-test sink.
   source:
     source_type: hygiene_finding
     source_ref: hygiene:file-budget:app/hotspot_prevention_classifier.py
@@ -348,10 +349,12 @@ cases:
       app/hotspot_prevention_claim_support_rules.py
       app/hotspot_prevention_classifier_support.py
       tests/unit/test_hotspot_prevention.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
       tests/unit/test_hotspot_prevention_family_rules.py
       tests/unit/test_hotspot_prevention_wrapper_rules.py
       tests/unit/hotspot_prevention_test_support.py
     - uv run pytest -q tests/unit/test_hotspot_prevention.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
       tests/unit/test_hotspot_prevention_family_rules.py
       tests/unit/test_hotspot_prevention_wrapper_rules.py
     - uv run docling-system-hotspot-prevention-check --strict
@@ -369,7 +372,8 @@ cases:
       app/hotspot_prevention_classifier_boundary_rules.py remain governed at
       or below their same-milestone exact ratchets.
     - Hotspot prevention fixture coverage remains green for registry
-      composition, wrapper allowances, and strict blocking behavior.
+      composition, policy contracts, wrapper allowances, and strict blocking
+      behavior.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
@@ -387,8 +391,12 @@ cases:
       at 384 / 0, boundary and wrapper routes now live in
       app/hotspot_prevention_classifier_boundary_rules.py at 209 / 0, and the
       shared support helpers remain in app/hotspot_prevention_classifier_support.py
-      at 571 / 1. The owner case is now retirement-ready pending an atomic
-      closeout commit.
+      at 571 / 1. The 2026-05-18 companion-test closeout now verifies the full
+      family locally with tests/unit/test_hotspot_prevention.py at 343 / 0,
+      tests/unit/test_hotspot_prevention_policy_contracts.py at 317 / 0,
+      tests/unit/test_hotspot_prevention_family_rules.py at 318 / 0,
+      tests/unit/test_hotspot_prevention_wrapper_rules.py at 296 / 0, and
+      tests/unit/hotspot_prevention_test_support.py at 50 / 2.
   measurement:
     metric_name: hotspot_prevention_classifier_line_count
     current_value: 360.0
@@ -403,22 +411,20 @@ cases:
       and keeps shared support helpers in
       app/hotspot_prevention_classifier_support.py at 571 / 1.
       `uv run pytest -q tests/unit/test_hotspot_prevention.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
       tests/unit/test_hotspot_prevention_family_rules.py
       tests/unit/test_hotspot_prevention_wrapper_rules.py`
-      passes at 40 passed, and the owner case is retirement-ready pending an
-      atomic closeout commit.
+      passes at 41 passed, and the full family is locally verified.
   created_at: '2026-05-13T00:00:00+00:00'
-  updated_at: '2026-05-16T23:19:57Z'
+  updated_at: '2026-05-19T04:02:22Z'
 - case_id: IC-15F6E41A9C77
   title: 'Architecture hotspot: tests/unit/test_hotspot_prevention.py'
-  status: open
+  status: verified
   cause_class: unclear_ownership
-  observed_failure: tests/unit/test_hotspot_prevention.py has regrown to 653
-    lines after the earlier hotspot-prevention family split, while the
-    blocked-family and wrapper-allowance coverage remains in focused siblings
-    at 318, 296, and 50 lines. The classifier-side owner family remains under
-    budget, but the companion test root is again the next routed
-    hotspot-prevention packet rather than a retirement-ready closeout.
+  observed_failure: tests/unit/test_hotspot_prevention.py now measures 343
+    lines and remains the analyzer-behavior residual surface over focused
+    policy-contract, blocked-family, wrapper-allowance, and shared-support
+    hotspot-prevention siblings at 317, 318, 296, and 50 lines.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:tests/unit/test_hotspot_prevention.py
@@ -426,11 +432,10 @@ cases:
       artifact_target_path=tests/unit/test_hotspot_prevention.py;
       verification_command=uv run docling-system-architecture-quality-report;
       stop_condition=Hotspot risk decreases or the surface has a narrower
-      owner contract. Refreshed during the 2026-05-18 routed-queue alignment
-      pass after the technical-report harness residual closeout reselected
-      this packet because the root test regrew above its prior 595-line exact
-      ratchet while the focused sibling test owners remained below the
-      default 600-line budget.
+      owner contract. Refreshed during the 2026-05-18 companion-test closeout
+      after the routed queue reselected this packet because the root test had
+      regrown above its prior 595-line exact ratchet while the focused sibling
+      test owners remained below the default 600-line budget.
   artifact:
     artifact_type: test
     target_path: tests/unit/test_hotspot_prevention.py
@@ -444,10 +449,12 @@ cases:
       app/hotspot_prevention_claim_support_rules.py
       app/hotspot_prevention_classifier_support.py
       tests/unit/test_hotspot_prevention.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
       tests/unit/test_hotspot_prevention_family_rules.py
       tests/unit/test_hotspot_prevention_wrapper_rules.py
       tests/unit/hotspot_prevention_test_support.py
     - uv run pytest -q tests/unit/test_hotspot_prevention.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
       tests/unit/test_hotspot_prevention_family_rules.py
       tests/unit/test_hotspot_prevention_wrapper_rules.py
     - uv run docling-system-hotspot-prevention-check --strict
@@ -457,10 +464,11 @@ cases:
     - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
       --format markdown --top 20
     acceptance_conditions:
-    - tests/unit/test_hotspot_prevention.py is reduced back to the default
-      600-line hygiene budget without weakening negative-path or
-      controlled-violation coverage.
-    - tests/unit/test_hotspot_prevention_family_rules.py,
+    - tests/unit/test_hotspot_prevention.py remains a narrow analyzer-behavior
+      root at or below the default 600-line hygiene budget without weakening
+      negative-path or controlled-violation coverage.
+    - tests/unit/test_hotspot_prevention_policy_contracts.py,
+      tests/unit/test_hotspot_prevention_family_rules.py,
       tests/unit/test_hotspot_prevention_wrapper_rules.py, and
       tests/unit/hotspot_prevention_test_support.py remain governed at or
       below their same-milestone exact ratchets without weakening negative-path
@@ -475,36 +483,35 @@ cases:
     notes: >-
       Milestone 0 of docs/boring_change_architecture_milestone_plan.md
       promoted docs/hotspot_prevention_family_boundary_milestone_plan.md as
-      the current active bounded follow-on, and this case provided the first
-      dedicated registry routing for the oversized hotspot-prevention
-      companion test. The hotspot-prevention family packet initially split
-      the test root to 595 / 0, but the later 2026-05-18 routing refresh now
-      records the live re-growth state instead of retiring the case: the root
-      test is 653 / 0, the blocked-family coverage lives in
+      the current active bounded follow-on, and the 2026-05-18 companion-test
+      closeout now verifies the routed packet locally instead of leaving the
+      re-growth state open. The root analyzer file is now 343 / 0, the policy
+      and report contract coverage now lives in
+      tests/unit/test_hotspot_prevention_policy_contracts.py at 317 / 0, the
+      blocked-family coverage remains in
       tests/unit/test_hotspot_prevention_family_rules.py at 318 / 0, the
-      wrapper-allowance coverage lives in
+      wrapper-allowance coverage remains in
       tests/unit/test_hotspot_prevention_wrapper_rules.py at 296 / 0, and the
-      shared test support lives in
-      tests/unit/hotspot_prevention_test_support.py at 50 / 2. The owner case
-      therefore remains open as the next routed hotspot-prevention packet
-      rather than being silently retired.
+      shared test support remains in
+      tests/unit/hotspot_prevention_test_support.py at 50 / 2.
   measurement:
     metric_name: test_hotspot_prevention_line_count
-    current_value: 653.0
-    measurement_window: 2026-05-18 post-technical-report harness routing refresh
+    current_value: 343.0
+    measurement_window: 2026-05-18 companion-test closeout
     notes: The current local state keeps tests/unit/test_hotspot_prevention.py
-      at 653 lines / 0 private helpers, preserves blocked-family coverage in
-      tests/unit/test_hotspot_prevention_family_rules.py at 318 / 0, moves
-      wrapper and allowance coverage into
+      at 343 lines / 0 private helpers, moves policy, report, and CLI wiring
+      coverage into tests/unit/test_hotspot_prevention_policy_contracts.py at
+      317 / 0, preserves blocked-family coverage in
+      tests/unit/test_hotspot_prevention_family_rules.py at 318 / 0, keeps
+      wrapper and allowance coverage in
       tests/unit/test_hotspot_prevention_wrapper_rules.py at 296 / 0, and
       keeps shared test support in
       tests/unit/hotspot_prevention_test_support.py at 50 / 2. The companion
       classifier remains at 360 lines / 1 private helper under
-      IC-6C1B516A3F92, the routed queue still selects this case as the next
-      bounded packet, and the family remains explicit open debt rather than a
-      transferred or hidden regression.
+      IC-6C1B516A3F92, and the family is now fully under the default 600-line
+      budget without moving the debt into a new oversized sibling.
   created_at: '2026-05-16T08:10:00Z'
-  updated_at: '2026-05-19T00:15:00Z'
+  updated_at: '2026-05-19T04:02:22Z'
 - case_id: IC-9812A0B138D9
   title: 'Architecture hotspot: app/cli.py'
   status: deployed

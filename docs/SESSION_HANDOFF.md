@@ -1,6 +1,6 @@
 # Session Handoff
 
-Date: 2026-05-18 local / 2026-05-18 UTC
+Date: 2026-05-18 local / 2026-05-19 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
@@ -120,58 +120,41 @@ reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
-`docs/oversized_test_hotspots_boundary_milestone_plan.md`
+`docs/hotspot_prevention_family_boundary_milestone_plan.md`
 Next routed bounded implementation brief:
-`docs/hotspot_prevention_family_boundary_milestone_plan.md` selecting
-`IC-15F6E41A9C77` / `tests/unit/test_hotspot_prevention.py`
+the broader reselect through `docs/boring_change_architecture_milestone_plan.md`,
+currently routing to `IC-03D7EFA03213` / `tests/unit/test_search_api.py`
 Queued standalone follow-on:
-the broader under-budget reselect returns to
-`docs/boring_change_architecture_milestone_plan.md` after the
-hotspot-prevention family closes again
+the same broader under-budget reselect after the next search API packet, or
+any fresher narrow replacement selected by the routed queue
 Previous resolved bounded implementation brief:
-`docs/claim_support_judge_integration_residual_milestone_plan.md`
-The broader coordination brief still remains
-`docs/boring_change_architecture_milestone_plan.md`, and the live queue now
-advances to the hotspot-prevention residual test root after the
-technical-report harness residual closeout trapped the 93-line smoke root as a
-deferred reduced facade. That routed next packet remains explicit open debt:
-`tests/unit/test_hotspot_prevention.py` has regrown to `653` lines while the
-classifier-side owners remain under budget, so `IC-15F6E41A9C77` stays open
-rather than being silently retired. Fresh routing evidence now reports
-`top_hotspot_paths=["app/db/models.py","app/cli.py","app/services/agent_task_actions.py","app/services/evidence.py","app/schemas/agent_tasks.py"]`,
-`routing_trap_paths=["app/db/models.py","app/cli.py","app/services/agent_task_actions.py","app/services/evidence.py","app/schemas/agent_tasks.py","tests/integration/test_claim_support_judge_evaluation_roundtrip.py","tests/integration/test_technical_report_harness_roundtrip.py","tests/unit/test_cli.py","app/services/agent_tasks.py"]`,
-`top_routed_hotspot_paths=["tests/unit/test_hotspot_prevention.py"]`,
-and `stale_facade_hotspot_count=9`.
-The 2026-05-18 claim-support integration residual closeout now leaves
+`docs/oversized_test_hotspots_boundary_milestone_plan.md`
+The 2026-05-18 hotspot-prevention companion-test closeout now leaves
 `config/improvement_cases.yaml` at
-`status_counts={"measured":1,"deployed":16,"open":30,"verified":12}` with
-`oldest_open_case_id=IC-FD18EE2D3309`; the claim-support residual smoke root
-now closes at `339` lines, focused support owners close at `13 / 277 / 344 / 75 / 381`,
-replay-alert coverage now lives in a `152`-line sibling, replay-alert
-promotions closes at `510`, `git diff --check` passed, the focused
-hotspot-prevention unit slice passed at `19 passed`, the focused DB-backed
-claim-support slice passed at `18 passed`, `uv run docling-system-hotspot-prevention-check --strict`
-reported `changed_hotspots=1` and `blocked=0`, `uv run docling-system-hygiene-check`
-reported `new hygiene regressions: none`, `uv run docling-system-improvement-case-validate`
-returned `valid=true`, `uv run docling-system-architecture-quality-report --summary`
-then reported `top_routed_hotspot_paths=["tests/integration/test_technical_report_harness_roundtrip.py","tests/unit/test_hotspot_prevention.py"]`,
-the architecture probe still reports `0` Python cycle components with no code
-file above `799`, and the final full DB-backed suite now passes at
-`2087 passed`.
-The 2026-05-18 technical-report harness residual closeout now leaves
-`config/improvement_cases.yaml` at
-`status_counts={"measured":1,"deployed":16,"open":29,"verified":13}` with
-`oldest_open_case_id=IC-FD18EE2D3309`; the residual smoke root remains `93`
-lines, family-local support remains `396`, the focused context-pack surface is
-`315`, the focused audit surfaces now close at `398`, `313`, and `162`, the
-integrity surface is `402`, and the source-evidence surface is `206`. Focused
-DB-backed harness verification passed at `10 passed`, `uv run docling-system-hotspot-prevention-check --strict`
+`status_counts={"measured":1,"deployed":16,"open":27,"verified":15}` with
+`oldest_open_case_id=IC-FD18EE2D3309`; `tests/unit/test_hotspot_prevention.py`
+now closes at `343` lines, policy or report contract coverage now lives in
+`tests/unit/test_hotspot_prevention_policy_contracts.py` at `317`, blocked-family
+coverage remains in `tests/unit/test_hotspot_prevention_family_rules.py` at `318`,
+wrapper-allowance coverage remains in
+`tests/unit/test_hotspot_prevention_wrapper_rules.py` at `296`, and shared
+test support remains in `tests/unit/hotspot_prevention_test_support.py` at
+`50`. `git diff --check` passed, the focused hotspot-prevention family unit
+slice passed at `41 passed`, `uv run docling-system-hotspot-prevention-check --strict`
 reported `changed_hotspots=0` and `blocked=0`, `uv run docling-system-hygiene-check`
 reported `new hygiene regressions: none`, `uv run docling-system-improvement-case-validate`
 returned `valid=true`, `uv run docling-system-architecture-quality-report --summary`
-now reports `top_routed_hotspot_paths=["tests/unit/test_hotspot_prevention.py"]`
-with `stale_facade_hotspot_count=9`, and `uv run docling-system-architecture-inspect`
-remained `valid=true` with `violation_count=0`.
+still reports `agent_legibility_average_score=90.0`,
+`broad_facade_count=2`, `hotspot_count=10`, and
+`max_hotspot_risk_score=486.06`, while the routed queue now reports
+`top_routed_hotspot_paths=["tests/unit/test_search_api.py"]` with
+`stale_facade_hotspot_count=9`. The architecture probe still reports `0`
+Python cycle components with no code file above `799`, and the full DB-backed
+suite now passes at `2089 passed`.
+The broader coordination brief still remains
+`docs/boring_change_architecture_milestone_plan.md`; treat this queue block
+plus `docs/agentic_architecture_index.md` as the durable routing truth for the
+current repo state.
 The 2026-05-18 durable architecture closeout now records the governance
 self-hosting, documents-service, cross-cutting verification, semantic/report
 residual, evaluation residual, UI residual, residual-large-file,
