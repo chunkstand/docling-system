@@ -206,7 +206,7 @@ list still begins with `app/db/models.py`, `app/cli.py`,
 facades from the true next owner surfaces: `top_routed_hotspot_paths` now begin
 with `tests/integration/test_claim_support_judge_evaluation_roundtrip.py`,
 `tests/integration/test_technical_report_harness_roundtrip.py`, and
-`app/api/main.py`, while `routing_trap_paths` plus
+`tests/unit/test_hotspot_prevention.py`, while `routing_trap_paths` plus
 `stale_facade_hotspot_count=7` preserve the compact stale-facade evidence
 explicitly. The default 20-hotspot report artifact extends that routed-trap
 list to `10` paths by also capturing
@@ -214,7 +214,10 @@ list to `10` paths by also capturing
 `app/services/claim_support_policy_impacts.py`. The full report also preserves
 `raw_improvement_case_candidates` for auditability while
 `improvement_case_candidates` now reflects the routed owner queue used by the
-improvement-case import surface.
+improvement-case import surface. The routed-hotspot interpretation closeout and
+the later open-owner closeout are now both resolved locally, so future
+reselection should start from `top_routed_hotspot_paths` rather than from the
+raw facade list.
 
 Trace-first agent review is owned by `app.agent_trace_review`. It emits the
 `agent_trace_review_report` contract for failed agent tasks, failed

@@ -15,10 +15,9 @@ helpers, review and projection ownership now lives in
 helpers, source-materialization and record-shaping ownership now lives in
 `app/services/semantic_pass_source_records.py` at `415` lines / `4` private
 helpers, and the broader `IC-9E6B8F5D62A1` case plus selected owner cases
-`IC-8304248AB64C` and `IC-ADCFFF108626` are locally retirement-ready pending
-an atomic milestone commit. The broader coordination brief now routes the next
-active bounded follow-on through
-`docs/hotspot_prevention_family_boundary_milestone_plan.md` and
+`IC-8304248AB64C` and `IC-ADCFFF108626` were later verified locally as closed
+by `docs/open_owner_backlog_resolution_milestone_plan.md`. The broader
+coordination brief now reselects from the routed hotspot/test queue in
 `docs/boring_change_architecture_milestone_plan.md`.
 Owner context: standalone residual semantic-owner packet after the semantics
 service-boundary closeout reduced `app/services/semantics.py` to a narrow

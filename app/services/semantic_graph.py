@@ -24,16 +24,16 @@ from app.services.semantic_graph_memory import (
     graph_memory_for_brief as _graph_memory_for_brief_impl,
 )
 from app.services.semantic_graph_promotions import (
-    apply_graph_promotions as _apply_graph_promotions_impl,
-)
-from app.services.semantic_graph_promotions import (
     draft_graph_promotions as _draft_graph_promotions_impl,
 )
 from app.services.semantic_graph_promotions import (
-    persist_semantic_graph_snapshot as _persist_semantic_graph_snapshot_impl,
-)
-from app.services.semantic_graph_promotions import (
     verify_draft_graph_promotions as _verify_draft_graph_promotions_impl,
+)
+from app.services.semantic_graph_snapshot_lifecycle import (
+    apply_graph_promotions as _apply_graph_promotions_impl,
+)
+from app.services.semantic_graph_snapshot_lifecycle import (
+    persist_semantic_graph_snapshot as _persist_semantic_graph_snapshot_impl,
 )
 from app.services.semantic_registry import get_active_semantic_ontology_snapshot
 from app.services.semantics import get_active_semantic_pass_detail

@@ -22,15 +22,16 @@ the now-resolved closeout-state and stale-queue alignment packet
 `docs/closeout_state_queue_alignment_milestone_plan.md` and now returns the
 now-resolved cross-cutting verification packet recorded in
 `docs/cross_cutting_verification_roots_milestone_plan.md`; the
-governance self-hosting packet is now likewise resolved locally, so the next
-active code-owning packet must now be reselected from this broader brief, and
-the resolved documents-service packet remains recorded in
+governance self-hosting packet is now likewise resolved locally, the later
+hotspot-interpretation and open-owner follow-ons are now also resolved
+locally, and the resolved documents-service packet remains recorded in
 `docs/documents_service_boundary_milestone_plan.md`.
 Owner context: broader coordination brief for the remaining "expensive to
 change" backlog across under-budget residual owner families, stale routing risk
 around already-shrunk compatibility facades, and the checked-in gates that
-must keep oversized files and import cycles from regrowing. This plan is now
-the active coordination brief while the next narrow packet is selected.
+must keep oversized files and import cycles from regrowing. This plan remains
+the active coordination brief while the next packet is reselected from the
+routed hotspot/test queue.
 
 ## Purpose
 
@@ -76,8 +77,9 @@ remaining boring-change gap is now split across four different risks:
   the large-file backlog later falls to `0` code files above `800`, the
   documents-service sink is then retired to a 49-line facade, the
   cross-cutting verification packet is now also resolved locally, the
-  governance self-hosting packet is now also resolved locally, and the next
-  active code-owning packet must now be reselected from this broader brief
+  governance self-hosting packet is now also resolved locally, and the later
+  hotspot-interpretation plus open-owner packets are now also resolved
+  locally, returning next-packet selection to `top_routed_hotspot_paths`
 
 This refreshed plan coordinates the remaining work by preserving the locally
 closed app-side packet, routing the remaining test, UI, and nonselected app

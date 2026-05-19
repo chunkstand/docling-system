@@ -2,10 +2,14 @@
 
 Date: 2026-05-15 local / 2026-05-15 UTC
 Status: resolved locally in the working tree on 2026-05-15. Milestones 0
-through 9 are complete locally; accepted routed residuals remain under
-`IC-6F4E2B5A91C3` for `app/services/semantic_generation_brief.py` at `644`
-lines and `IC-C8D41A2F77BE` for `app/services/semantic_graph_core.py` at
-`697` lines plus `app/services/semantic_graph_promotions.py` at `718` lines.
+through 9 are complete locally; the later
+`docs/open_owner_backlog_resolution_milestone_plan.md` closeout then resolved
+the accepted routed residuals by reducing
+`app/services/semantic_generation_brief.py` to `505` lines with
+`semantic_generation_brief_metrics.py` at `145`, and reducing
+`app/services/semantic_graph_core.py` / `app/services/semantic_graph_promotions.py`
+to `492` / `589` with support and snapshot-lifecycle siblings at `214` /
+`138`.
 Owner context: selected app-side large owner-module debt from the live
 architecture probe:
 `app/services/semantic_graph.py`,

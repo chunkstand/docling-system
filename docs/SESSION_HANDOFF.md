@@ -83,12 +83,13 @@ cases are
 `IC-865AB8419D55` for `app/services/semantic_graph.py`,
 `IC-649D7B4E3AB5` for `app/services/semantic_candidates.py`,
 `IC-A92BA42C6D18` for `app/services/semantic_generation.py`, and refreshed
-`IC-81C531769EB3` for `app/services/semantic_governance.py`. Accepted routed
-residual owner-family cases now remain open as `IC-6F4E2B5A91C3` for
-`app/services/semantic_generation_brief.py` at `644` lines and
-`IC-C8D41A2F77BE` for `app/services/semantic_graph_core.py` at `697` lines
-plus `app/services/semantic_graph_promotions.py` at `718` lines. The selected
-roots now measure `199`, `15`, `404`, `120`, `91`, `39`, and `185` lines for
+`IC-81C531769EB3` for `app/services/semantic_governance.py`. The previously
+accepted residual owner-family cases are now also verified: `IC-6F4E2B5A91C3`
+closes the generation brief family at `505` and `145` lines, and
+`IC-C8D41A2F77BE` closes the semantic graph family at `492`, `589`, `214`,
+and `138` lines across the core, promotions, support, and
+snapshot-lifecycle owners. The selected roots now measure `199`, `15`, `404`,
+`120`, `91`, `39`, and `185` lines for
 `docling_parser.py`, `quality.py`, `runs.py`, `semantic_candidates.py`,
 `semantic_generation.py`, `semantic_governance.py`, and `semantic_graph.py`
 respectively. The broader current working tree has since been revalidated
@@ -119,24 +120,42 @@ reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
-`docs/improvement_case_governance_self_hosting_milestone_plan.md`
+`docs/open_owner_backlog_resolution_milestone_plan.md`
 Next routed bounded implementation brief:
 to be reselected from `docs/boring_change_architecture_milestone_plan.md`
 Queued standalone follow-on:
-none selected yet beyond the broader boring-change rebaseline
+none selected yet beyond the routed hotspot/test queue
 Previous resolved bounded implementation brief:
-`docs/cross_cutting_verification_roots_milestone_plan.md`
+`docs/hotspot_interpretation_source_of_truth_milestone_plan.md`
 The broader coordination brief still remains
-`docs/boring_change_architecture_milestone_plan.md`, and the live
-code-owning queue now requires a fresh under-budget reselect from that brief.
+`docs/boring_change_architecture_milestone_plan.md`, and the live queue now
+returns to the routed hotspot/test selection surface after both the
+hotspot-interpretation and open-owner packets closed locally. Fresh routing
+evidence still reports
+`top_hotspot_paths=["app/db/models.py","app/cli.py","app/services/agent_task_actions.py","app/services/evidence.py","app/schemas/agent_tasks.py"]`,
+`routing_trap_paths=["app/db/models.py","app/cli.py","app/services/agent_task_actions.py","app/services/evidence.py","app/schemas/agent_tasks.py","tests/unit/test_cli.py","app/services/agent_tasks.py"]`,
+`top_routed_hotspot_paths=["tests/integration/test_claim_support_judge_evaluation_roundtrip.py","tests/integration/test_technical_report_harness_roundtrip.py","tests/unit/test_hotspot_prevention.py"]`,
+and `stale_facade_hotspot_count=7`.
+The 2026-05-18 hotspot-interpretation plus open-owner closeouts now leave
+`config/improvement_cases.yaml` at
+`status_counts={"measured":1,"deployed":16,"open":31,"verified":11}` with
+`oldest_open_case_id=IC-FD18EE2D3309`; the selected generation and graph
+residual owners now close at `505 / 145` and `492 / 589 / 214 / 138` lines;
+`git diff --check` passed; the focused unit slice passed at `100 passed`; the
+targeted DB-backed semantic slice passed at `6 passed`; the final full
+DB-backed suite passed at `2086 passed`; `uv run docling-system-hygiene-check`
+reported `new hygiene regressions: none`; and the architecture probe still
+reports `0` Python cycle components with no code files above `800`.
 The 2026-05-18 durable architecture closeout now records the governance
 self-hosting, documents-service, cross-cutting verification, semantic/report
 residual, evaluation residual, UI residual, residual-large-file,
-queue-alignment, routed-hotspot, Python-cycle, agent-task residual, and
-DB-model residual packets. Historical sections below may still use
-pre-closeout "resolved locally" wording from their in-progress drafting
-passes; treat this queue block plus `docs/agentic_architecture_index.md` as
-the durable routing truth for the current repo state.
+queue-alignment, routed-hotspot, Python-cycle, agent-task residual,
+DB-model residual, and the later hotspot-interpretation plus open-owner
+closeouts. Historical sections below may still use earlier "queued",
+"retirement-ready", or "resolved locally" wording from their in-progress
+drafting passes; treat this queue block plus
+`docs/agentic_architecture_index.md` as the durable routing truth for the
+current repo state.
 The governance self-hosting packet is now durably recorded in that closeout:
 `app/architecture_inspection.py` closes at `370` lines,
 `app/architecture_inspection_rules.py` at `514`,

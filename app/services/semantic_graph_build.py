@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import SemanticReviewStatus
 from app.services import semantic_graph_core as _semantic_graph_core
+from app.services import semantic_graph_support as _semantic_graph_support
 from app.services.semantic_registry import semantic_registry_from_payload
 
 
@@ -27,7 +28,7 @@ def build_shadow_semantic_graph(
     ontology_snapshot = get_active_semantic_ontology_snapshot_fn(session)
     registry = semantic_registry_from_payload(ontology_snapshot.payload_json or {})
     unique_document_ids = list(dict.fromkeys(document_ids))
-    nodes_by_key, edges_by_pair, document_refs = _semantic_graph_core._collect_graph_support(
+    nodes_by_key, edges_by_pair, document_refs = _semantic_graph_support._collect_graph_support(
         session,
         registry=registry,
         document_ids=unique_document_ids,

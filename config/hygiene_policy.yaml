@@ -139,8 +139,11 @@ file_budgets:
     max_private_helpers: 20
   overrides:
     app/api/main.py:
-      max_lines: 948
-      max_private_helpers: 2
+      max_lines: 98
+      ratchet_max_lines: 98
+      max_private_helpers: 1
+      ratchet_max_private_helpers: 1
+      owner_case_id: IC-5B6430FCB929
     app/architecture_inspection.py:
       max_lines: 370
       ratchet_max_lines: 370
@@ -1050,8 +1053,14 @@ file_budgets:
       ratchet_max_private_helpers: 0
       owner_case_id: IC-A92BA42C6D18
     app/services/semantic_generation_brief.py:
-      max_lines: 600
-      ratchet_max_lines: 644
+      max_lines: 505
+      ratchet_max_lines: 505
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-6F4E2B5A91C3
+    app/services/semantic_generation_brief_metrics.py:
+      max_lines: 145
+      ratchet_max_lines: 145
       max_private_helpers: 1
       ratchet_max_private_helpers: 1
       owner_case_id: IC-6F4E2B5A91C3
@@ -1068,16 +1077,28 @@ file_budgets:
       ratchet_max_private_helpers: 0
       owner_case_id: IC-865AB8419D55
     app/services/semantic_graph_core.py:
-      max_lines: 600
-      ratchet_max_lines: 697
-      max_private_helpers: 21
-      ratchet_max_private_helpers: 21
+      max_lines: 492
+      ratchet_max_lines: 492
+      max_private_helpers: 18
+      ratchet_max_private_helpers: 18
       owner_case_id: IC-C8D41A2F77BE
     app/services/semantic_graph_promotions.py:
-      max_lines: 600
-      ratchet_max_lines: 718
+      max_lines: 589
+      ratchet_max_lines: 589
       max_private_helpers: 2
       ratchet_max_private_helpers: 2
+      owner_case_id: IC-C8D41A2F77BE
+    app/services/semantic_graph_snapshot_lifecycle.py:
+      max_lines: 138
+      ratchet_max_lines: 138
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-C8D41A2F77BE
+    app/services/semantic_graph_support.py:
+      max_lines: 214
+      ratchet_max_lines: 214
+      max_private_helpers: 1
+      ratchet_max_private_helpers: 1
       owner_case_id: IC-C8D41A2F77BE
     app/services/semantic_orchestration.py:
       max_lines: 543
