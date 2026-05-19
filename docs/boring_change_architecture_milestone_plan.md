@@ -1,6 +1,6 @@
 # Boring Change Architecture Milestone Plan
 
-Date: 2026-05-18 local / 2026-05-18 UTC
+Date: 2026-05-19 local / 2026-05-19 UTC
 Status: drafted originally on 2026-05-13 and refreshed on 2026-05-16 to the
 current system state after the search, claim-support, evaluations,
 evidence-provenance, semantics, runtime-health, and CI parity closeouts, and
@@ -50,7 +50,11 @@ from this broader brief rather than from a stale residual root. The later
 agent-task, claim-support, action-test, and UI bootstrap cases left behind by
 earlier packets, bringing the live case summary to `open=12`, `verified=8`,
 and `deployed=40` while keeping `broad_facade_count=2`,
-`legibility_gap_count=0`, and `top_routed_hotspot_paths=[]`.
+`legibility_gap_count=0`, and `top_routed_hotspot_paths=[]`. The later fresh
+broader reselect then closes `IC-23F2C79C8AA7` as a verified reduced
+documents-API route surface, moving the live counts to `open=11`,
+`verified=9`, and `deployed=40` while leaving `top_routed_hotspot_paths=[]`
+because the queue still has no active routed packet.
 
 ## Purpose
 
@@ -841,6 +845,11 @@ Acceptance criteria:
   are now also explicitly governed, so the broader queue no longer confuses a
   deployed residual test family with the next code-owning implementation
   packet.
+- The reduced `tests/unit/test_documents_api.py` route root is now also
+  explicitly governed as a deferred reduced facade with exact hygiene ratchets
+  on its focused access, runs, evaluations, artifact, and semantic siblings,
+  so the fresh broader reselect no longer leaves one unresolved test hotspot
+  behind from the earlier high-value paydown split.
 - The remaining routing traps after the current refresh are small but still
   high-churn facades such as `app/db/models.py`, `app/services/evidence.py`,
   `app/cli.py`, `app/schemas/agent_tasks.py`, and `app/services/agent_tasks.py`.

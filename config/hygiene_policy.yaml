@@ -1451,6 +1451,42 @@ file_budgets:
       max_private_helpers: 0
       ratchet_max_private_helpers: 0
       owner_case_id: IC-62C75B82F0AA
+    tests/unit/test_documents_api.py:
+      max_lines: 155
+      ratchet_max_lines: 155
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-23F2C79C8AA7
+    tests/unit/test_documents_api_access.py:
+      max_lines: 253
+      ratchet_max_lines: 253
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-23F2C79C8AA7
+    tests/unit/test_documents_api_artifacts.py:
+      max_lines: 286
+      ratchet_max_lines: 286
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-23F2C79C8AA7
+    tests/unit/test_documents_api_evaluations.py:
+      max_lines: 93
+      ratchet_max_lines: 93
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-23F2C79C8AA7
+    tests/unit/test_documents_api_runs.py:
+      max_lines: 137
+      ratchet_max_lines: 137
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-23F2C79C8AA7
+    tests/unit/test_documents_api_semantics.py:
+      max_lines: 394
+      ratchet_max_lines: 394
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-23F2C79C8AA7
     tests/unit/hotspot_prevention_test_support.py:
       max_lines: 50
       ratchet_max_lines: 50

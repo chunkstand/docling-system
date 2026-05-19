@@ -645,6 +645,33 @@ known_hotspots:
     allow:
       - compatibility_assertion
       - deletion
+  tests/unit/test_documents_api.py:
+    target_role: document API route compatibility and smoke tests
+    preferred_owner_modules:
+      - tests/unit/test_documents_api_*.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The documents API root test is now a narrow route-smoke surface,
+        so future route-family growth belongs in the focused access, runs,
+        evaluations, artifact, and semantic siblings rather than back in the
+        root file.
+      route_to_case_ids:
+        - IC-23F2C79C8AA7
+      route_to_paths:
+        - tests/unit/test_documents_api_access.py
+        - tests/unit/test_documents_api_runs.py
+        - tests/unit/test_documents_api_evaluations.py
+        - tests/unit/test_documents_api_artifacts.py
+        - tests/unit/test_documents_api_semantics.py
+      route_to_plan_paths:
+        - docs/documents_api_route_surface_boundary_milestone_plan.md
+        - docs/boring_change_architecture_milestone_plan.md
+    block_new:
+      - broad_new_test_group
+      - broad_helper
+    allow:
+      - compatibility_assertion
+      - deletion
   tests/unit/test_search_api.py:
     target_role: search API route compatibility and smoke tests
     preferred_owner_modules:

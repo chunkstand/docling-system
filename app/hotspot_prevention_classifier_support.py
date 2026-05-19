@@ -13,6 +13,7 @@ RESIDUAL_TEST_COMPATIBILITY_PATHS = {
     "tests/integration/test_claim_support_judge_evaluation_roundtrip.py",
     "tests/unit/test_agent_task_context.py",
     "tests/unit/test_agent_tasks_api.py",
+    "tests/unit/test_documents_api.py",
     "tests/unit/test_evaluation_service.py",
     "tests/unit/test_search_service.py",
     "tests/integration/test_retrieval_learning_ledger.py",

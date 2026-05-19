@@ -1834,12 +1834,13 @@ cases:
   updated_at: '2026-05-18T23:59:00Z'
 - case_id: IC-23F2C79C8AA7
   title: 'Architecture hotspot: tests/unit/test_documents_api.py'
-  status: open
+  status: verified
   cause_class: unclear_ownership
-  observed_failure: tests/unit/test_documents_api.py remains the core
-    document-route test surface at line_count=613 after the verified local
+  observed_failure: tests/unit/test_documents_api.py remained the core
+    document-route test surface at line_count=613 after the earlier verified
     High Value Technical Paydown Milestone 4 split moved artifact and semantic
-    route coverage into focused files.
+    route coverage into focused files, leaving access, run-history, latest-
+    evaluation, and not-found route contracts mixed together in the root test.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:tests/unit/test_documents_api.py
@@ -1853,28 +1854,68 @@ cases:
     description: Architecture quality owner surface for tests/unit/test_documents_api.py.
   verification:
     commands:
-    - uv run docling-system-architecture-quality-report
+    - git diff --check
+    - uv run ruff check tests/unit/test_documents_api.py
+      tests/unit/test_documents_api_access.py
+      tests/unit/test_documents_api_runs.py
+      tests/unit/test_documents_api_evaluations.py
+      tests/unit/test_documents_api_artifacts.py
+      tests/unit/test_documents_api_semantics.py
+      tests/unit/test_hotspot_prevention_documents_api_routes.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
+    - uv run pytest -q tests/unit/test_documents_api.py
+      tests/unit/test_documents_api_access.py
+      tests/unit/test_documents_api_runs.py
+      tests/unit/test_documents_api_evaluations.py
+      tests/unit/test_documents_api_artifacts.py
+      tests/unit/test_documents_api_semantics.py
+      tests/unit/test_hotspot_prevention_documents_api_routes.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    - uv run docling-system-architecture-inspect
+    - uv run docling-system-hotspot-prevention-check --strict
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
     acceptance_conditions:
-    - Hotspot risk decreases or the surface has a narrower owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    - tests/unit/test_documents_api.py is reduced into a narrow compatibility
+      and smoke surface with access, runs, evaluations, artifact, and semantic
+      route behavior routed into focused siblings without weakening existing
+      route assertions.
+    - The reduced root and the focused document-route siblings are exact-
+      ratcheted and routed so the packet does not shift debt into a fresh
+      ungoverned test sink.
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "0701121"
-    notes: Verified local High Value Technical Paydown Milestone 4 moved
-      artifact-route coverage into tests/unit/test_documents_api_artifacts.py
-      and semantic-route coverage into
-      tests/unit/test_documents_api_semantics.py while
-      tests/unit/test_documents_api.py remains the core document-route surface.
+    deployed_ref: null
+    notes: Broader-reselect follow-on reduced tests/unit/test_documents_api.py
+      to a 155-line route-smoke surface by moving access, actor-capability,
+      run-history, and latest-evaluation coverage into
+      tests/unit/test_documents_api_access.py,
+      tests/unit/test_documents_api_runs.py, and
+      tests/unit/test_documents_api_evaluations.py while routing the root as a
+      deferred reduced facade and exact-ratcheting the full focused owner
+      family.
   measurement:
     metric_name: test_documents_api_hotspot_line_count
-    current_value: 613.0
-    measurement_window: 2026-05-10 local verification
-    notes: Verified local High Value Technical Paydown Milestone 4 reduced
-      tests/unit/test_documents_api.py from 1273 lines to 613 lines and
-      aligned artifact and semantics coverage to focused files.
+    current_value: 155.0
+    measurement_window: 2026-05-19 documents API route surface local closeout
+    notes: tests/unit/test_documents_api.py now measures 155 lines. The
+      focused document-route siblings measure 253, 137, 93, 286, and 394 lines
+      in tests/unit/test_documents_api_access.py,
+      tests/unit/test_documents_api_runs.py,
+      tests/unit/test_documents_api_evaluations.py,
+      tests/unit/test_documents_api_artifacts.py, and
+      tests/unit/test_documents_api_semantics.py respectively, so the selected
+      route root is resolved without creating a new over-budget document API
+      test sink.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T21:36:56+00:00'
+  updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-E2270F89B397
   title: 'Architecture hotspot: app/services/claim_support_policy_impacts.py'
   status: deployed

@@ -1,6 +1,6 @@
 # Session Handoff
 
-Date: 2026-05-18 local / 2026-05-19 UTC
+Date: 2026-05-19 local / 2026-05-19 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
@@ -132,16 +132,16 @@ reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
-`docs/retrieval_learning_ledger_smoke_surface_boundary_milestone_plan.md`
+`docs/documents_api_route_surface_boundary_milestone_plan.md`
 Next routed bounded implementation brief:
 the broader reselect through `docs/boring_change_architecture_milestone_plan.md`,
-with the live `top_routed_hotspot_paths` queue now empty after the
-retrieval-learning residual-smoke closeout
+with the live `top_routed_hotspot_paths` queue still empty after the
+documents-API route-surface broader-reselect closeout
 Queued standalone follow-on:
 the same broader under-budget reselect, or any fresher narrow replacement
 selected by the live report
 Previous resolved bounded implementation brief:
-`docs/agent_tasks_route_surface_boundary_milestone_plan.md`
+`docs/retrieval_learning_ledger_smoke_surface_boundary_milestone_plan.md`
 The 2026-05-18 DB-model residual owner-family packet is now durably recorded
 through closeout commit `b9b3e46` for `IC-46C5B38A1D2E`,
 `IC-7D8AE7C83B8F`, and `IC-62C75B82F0AA`, and
@@ -297,6 +297,30 @@ and the fresh architecture probe still reports `0` Python cycles without
 surfacing `app/architecture_quality.py` or
 `app/architecture_measurements.py` as new hotspots, so the capability and
 registry closeouts did not shift debt into adjacent governance code.
+The later 2026-05-19 fresh broader reselect now closes
+`IC-23F2C79C8AA7` as a verified reduced document-route test packet. The root
+`tests/unit/test_documents_api.py` now closes at `155` lines, access coverage
+now lives in `tests/unit/test_documents_api_access.py` at `253`, run coverage
+now lives in `tests/unit/test_documents_api_runs.py` at `137`, and latest-
+evaluation coverage now lives in
+`tests/unit/test_documents_api_evaluations.py` at `93`, while the earlier
+artifact and semantic siblings remain at `286` and `394`. The packet now
+routes `tests/unit/test_documents_api.py` as a deferred reduced facade in
+`config/hotspot_prevention.yaml`, exact-ratchets the full focused owner family
+in `config/hygiene_policy.yaml`, adds focused analyzer coverage in
+`tests/unit/test_hotspot_prevention_documents_api_routes.py`, advances the
+live registry counts to `status_counts.open=11`,
+`status_counts.verified=9`, and `status_counts.deployed=40`, and keeps the
+live `top_routed_hotspot_paths=[]` queue empty because the next code-owning
+packet still requires another broader reselect rather than a stale routed
+follow-on. The focused document-route plus hotspot-prevention slice passed at
+`48 passed`, `uv run docling-system-hotspot-prevention-check --strict` now
+reports `known_hotspots=42`, `changed_hotspots=1`, and `blocked=0`, the
+hygiene check still reports `new hygiene regressions: none` plus
+`inherited budget debt: none`, the architecture quality summary remains at
+`broad_facade_count=2`, `legibility_gap_count=0`, and
+`top_routed_hotspot_paths=[]`, and the full DB-backed suite passed again at
+`2119 passed`.
 The 2026-05-18 durable architecture closeout now records the governance
 self-hosting, documents-service, cross-cutting verification, semantic/report
 residual, evaluation residual, UI residual, residual-large-file,
