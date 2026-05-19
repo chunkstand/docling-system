@@ -1,7 +1,8 @@
 # Search Schema Facade Boundary Milestone Plan
 
 Date: 2026-05-18 local / 2026-05-19 UTC
-Status: resolved locally in the current checkout for `IC-DCEE88C7CA97`;
+Status: resolved locally through implementation commit `8b04845` plus durable
+docs-and-registry closeout in the current checkout for `IC-DCEE88C7CA97`;
 `app/schemas/search.py` is now a narrow compatibility facade, the concrete
 schema definitions now live in focused owner modules, and the routed queue now
 advances to the next under-budget packet instead of reopening the facade.
@@ -190,6 +191,39 @@ python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/arch
   0 Python cycle components
   0 code files above 800 lines
   app.schemas.search imported by 75 local modules
+```
+
+Closeout-state recheck after the durable docs-and-registry alignment:
+
+```text
+uv run docling-system-hotspot-prevention-check --strict
+  known_hotspots=36
+  changed_hotspots=0
+  blocked=0
+  allowed=0
+
+uv run docling-system-hygiene-check
+  new hygiene regressions: none
+
+uv run docling-system-improvement-case-summary
+  status_counts={"measured":1,"deployed":21,"open":24,"verified":13}
+
+uv run docling-system-improvement-case-validate
+  valid=true
+
+uv run docling-system-architecture-quality-report --summary
+  top_routed_hotspot_paths=[
+    "tests/unit/test_db_model_import_compatibility.py",
+    "app/api/main.py",
+    "tests/unit/test_architecture_inspection.py",
+    "app/api/routers/agent_tasks.py",
+    "app/services/audit_bundles.py"
+  ]
+  stale_facade_hotspot_count=15
+
+python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles --max-file-lines 800
+  0 Python cycle components
+  0 code files above 800 lines
 ```
 
 ## Current Structural Evidence

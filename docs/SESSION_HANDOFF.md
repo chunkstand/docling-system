@@ -9,6 +9,8 @@ Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
 Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`
 Search Compatibility Facade Boundary closeout checkpoint:
 `fd9dd2a`
+Search Schema Facade Boundary implementation checkpoint:
+`8b04845`
 Claim Support Policy Impacts Boundary Milestone 4 checkpoint: `3d7d090`
 Evaluations Service Boundary Milestone 1 checkpoint: `9e3a8e4`
 Evaluations Service Boundary Milestone 2 checkpoint: `3817659`
@@ -131,10 +133,11 @@ compatibility packet, or any fresher narrow replacement selected by the routed
 queue
 Previous resolved bounded implementation brief:
 `docs/agent_tasks_api_lifecycle_boundary_milestone_plan.md`
-The 2026-05-18 search-schema facade follow-on is now resolved locally in the
-current checkout for `IC-DCEE88C7CA97`, and
+The 2026-05-18 search-schema facade follow-on is now durably recorded through
+implementation commit `8b04845` plus the current docs-and-registry closeout
+for `IC-DCEE88C7CA97`, and
 `config/improvement_cases.yaml` now reports
-`status_counts={"measured":1,"deployed":20,"open":24,"verified":14}` with
+`status_counts={"measured":1,"deployed":21,"open":24,"verified":13}` with
 `oldest_open_case_id=IC-FD18EE2D3309`; `app/schemas/search.py` now closes at
 `36` lines as a compatibility facade over focused owners at `83`, `77`, `77`,
 `100`, `220`, and `280` lines in `app/schemas/search_core.py`,
@@ -145,8 +148,8 @@ on the shared public path, while the architecture probe still reports
 `app.schemas.search` imported by `75` local modules. `git diff --check`
 passed, the focused search-schema plus policy-contract slice passed at
 `50 passed`, the broader search-family regression slice passed at `86 passed`,
-and the current governance recheck now reports
-`changed_hotspots=1`, `blocked=0`, and `allowed=27`,
+and the post-closeout governance recheck now reports
+`changed_hotspots=0`, `blocked=0`, and `allowed=0`,
 `uv run docling-system-hygiene-check` reported `new hygiene regressions: none`,
 `uv run docling-system-improvement-case-validate` returned `valid=true`, and
 `uv run docling-system-architecture-quality-report --summary` still reports

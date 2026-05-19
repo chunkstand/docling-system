@@ -2222,7 +2222,7 @@ cases:
   updated_at: '2026-05-18T00:00:00+00:00'
 - case_id: IC-DCEE88C7CA97
   title: 'Architecture hotspot: app/schemas/search.py'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/schemas/search.py now measures 36 lines and remains the
     reduced compatibility surface over focused core, history, explanations,
@@ -2307,14 +2307,14 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: The 2026-05-18 local search-schema facade follow-on reduces
-      app/schemas/search.py to a 36-line compatibility facade, moves the local
-      schema definitions into focused search_core, search_history,
-      search_explanations, and search_replays owner modules, exact-ratchets the
-      focused owner family including search_harness.py and search_learning.py,
-      and routes the reduced root as a deferred reduced facade. Atomic closeout
-      commit still pending.
+    deployed_ref: 8b04845
+    notes: Implementation commit 8b04845 reduces app/schemas/search.py to a
+      36-line compatibility facade, moves the local schema definitions into
+      focused search_core, search_history, search_explanations, and
+      search_replays owner modules, exact-ratchets the focused owner family
+      including search_harness.py and search_learning.py, routes the reduced
+      root as a deferred reduced facade, and is now durably recorded through
+      the current docs-and-registry closeout.
   measurement:
     metric_name: search_schema_facade_line_count
     current_value: 36.0

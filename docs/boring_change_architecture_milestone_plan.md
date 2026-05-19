@@ -118,14 +118,15 @@ remaining boring-change gap is now split across four different risks:
   siblings remain at `419` and `93`, hotspot prevention now routes the root as
   a deferred reduced facade, and the routed queue now advances to
   `IC-DCEE88C7CA97` / `app/schemas/search.py`
-- the routed search-schema facade follow-on is now also resolved locally in
-  the current checkout for `IC-DCEE88C7CA97`: `app/schemas/search.py` now
-  closes at `36` lines over focused core, history, explanations, replay,
-  harness, and learning owners at `83`, `77`, `77`, `100`, `220`, and `280`
-  lines, `50` app importers intentionally remain on the shared public path,
-  hotspot prevention now routes the reduced root as a deferred reduced facade,
-  and the routed queue now advances to `IC-7D8AE7C83B8F` /
-  `tests/unit/test_db_model_import_compatibility.py`
+- the routed search-schema facade follow-on is now also resolved locally
+  through implementation commit `8b04845` plus durable docs-and-registry
+  closeout in the current checkout for `IC-DCEE88C7CA97`:
+  `app/schemas/search.py` now closes at `36` lines over focused core, history,
+  explanations, replay, harness, and learning owners at `83`, `77`, `77`,
+  `100`, `220`, and `280` lines, `50` app importers intentionally remain on
+  the shared public path, hotspot prevention now routes the reduced root as a
+  deferred reduced facade, and the routed queue now advances to
+  `IC-7D8AE7C83B8F` / `tests/unit/test_db_model_import_compatibility.py`
 
 This refreshed plan coordinates the remaining work by preserving the locally
 closed app-side packet, routing the remaining test, UI, and nonselected app
