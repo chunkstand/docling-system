@@ -164,8 +164,8 @@ through `docs/agent_task_context_residual_successor_split_milestone_plan.md`:
 `tests/unit/test_agent_task_context_semantic_graph_promotions.py` now close at
 `358` and `236` lines over new `294`- and `426`-line family-local support
 modules, `tests/unit/test_agent_task_context.py` remains at `328`, the strict
-hotspot-prevention gate stays green at `blocked=0` with only the two
-support-extraction closeout exceptions firing, hygiene still reports
+hotspot-prevention gate stays green at `blocked=0` without lingering
+Packet C-specific root exceptions, hygiene still reports
 `inherited budget debt: none`, architecture inspection remains
 `violation_count=0`, and the live improvement-case summary now reads
 `status_counts={"measured":1,"deployed":59,"open":1}`. Packet D

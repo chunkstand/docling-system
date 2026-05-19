@@ -109,6 +109,14 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         == "accepted_residual"
     )
     for path in [
+        "tests/unit/test_agent_task_context_reports_claim_support.py",
+        "tests/unit/test_agent_task_context_semantic_graph_promotions.py",
+        "tests/unit/agent_task_context_reports_claim_support_support.py",
+        "tests/unit/agent_task_context_semantic_graph_promotions_support.py",
+    ]:
+        assert policy.known_hotspots[path].exceptions == ()
+
+    for path in [
         "tests/unit/agent_task_context_reports_claim_support_support.py",
         "tests/unit/agent_task_context_semantic_graph_promotions_support.py",
     ]:

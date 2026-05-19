@@ -859,15 +859,6 @@ known_hotspots:
       - import_forwarder
       - compatibility_assertion
       - deletion
-    exceptions:
-      - exception_id: agent-task-context-reports-support-extraction-closeout
-        case_id: IC-3B4C9F2A76E1
-        owner_module: tests/unit/agent_task_context_reports_claim_support_support.py
-        follow_up_condition: Keep the reduced root limited to smoke assertions
-          after the shared payload and fake-session scaffolding moves into the
-          family-local support module.
-        match_tokens:
-          - from tests.unit.agent_task_context_reports_claim_support_support import (
   tests/unit/agent_task_context_reports_claim_support_support.py:
     target_role: agent-task context report and claim-support family-local support module
     preferred_owner_modules:
@@ -915,15 +906,6 @@ known_hotspots:
       - import_forwarder
       - compatibility_assertion
       - deletion
-    exceptions:
-      - exception_id: agent-task-context-graph-promotions-support-extraction-closeout
-        case_id: IC-3B4C9F2A76E1
-        owner_module: tests/unit/agent_task_context_semantic_graph_promotions_support.py
-        follow_up_condition: Keep the reduced root limited to smoke assertions
-          after the shared payload and fake-session scaffolding moves into the
-          family-local support module.
-        match_tokens:
-          - from tests.unit.agent_task_context_semantic_graph_promotions_support import (
   tests/unit/agent_task_context_semantic_graph_promotions_support.py:
     target_role: agent-task context semantic-graph promotion family-local support module
     preferred_owner_modules:

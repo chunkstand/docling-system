@@ -48,6 +48,24 @@ def test_reports_claim_support_root_allows_smoke_contract_assertions() -> None:
     assert report["findings"][0]["category"] == "compatibility_assertion"
 
 
+def test_reports_claim_support_root_allows_support_import_forwarders() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "tests/unit/test_agent_task_context_reports_claim_support.py",
+            [
+                "from tests.unit.agent_task_context_reports_claim_support_support import (",
+                "    build_task_context_payload,",
+                ")",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 0
+    assert report["findings"][0]["category"] == "import_forwarder"
+
+
 def test_graph_promotions_root_blocks_new_scenario_groups() -> None:
     report = build_hotspot_prevention_report(
         _diff_for(
@@ -88,6 +106,24 @@ def test_graph_promotions_root_allows_smoke_contract_assertions() -> None:
 
     assert report["summary"]["blocked_count"] == 0
     assert report["findings"][0]["category"] == "compatibility_assertion"
+
+
+def test_graph_promotions_root_allows_support_import_forwarders() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "tests/unit/test_agent_task_context_semantic_graph_promotions.py",
+            [
+                "from tests.unit.agent_task_context_semantic_graph_promotions_support import (",
+                "    build_task_context_payload,",
+                ")",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 0
+    assert report["findings"][0]["category"] == "import_forwarder"
 
 
 def test_agent_task_context_support_modules_allow_deletion_only_reduction() -> None:

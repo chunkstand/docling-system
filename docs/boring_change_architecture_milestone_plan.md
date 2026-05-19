@@ -74,7 +74,10 @@ the last two over-budget agent-task context successor tests to `358` and
 `236` lines over new `294`- and `426`-line support modules, moves the live
 counts to `open=1`, `verified=0`, and `deployed=59`, and leaves Packet D
 `IC-25C1F7B9E4DA` as the next queued packet while
-`top_routed_hotspot_paths=[]` remains unchanged.
+`top_routed_hotspot_paths=[]` remains unchanged. The later Packet C hardening
+pass then removes the temporary support-extraction exceptions, aligns the
+owner-case verification contract to the actual gate stack, and keeps the
+queue pointed at Packet D without reopening the reduced roots.
 
 ## Purpose
 

@@ -2687,12 +2687,26 @@ cases:
       tests/unit/test_agent_task_context_semantic_graph.py
       tests/unit/test_agent_task_context_semantic_graph_promotions.py
       tests/unit/test_hotspot_prevention_agent_task_context_routes.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
+    - uv run pytest -q tests/unit/test_agent_task_context.py
+      tests/unit/test_agent_task_context_reports_claim_support.py
+      tests/unit/test_agent_task_context_semantic_graph_promotions.py
+      tests/integration/test_technical_report_harness_integrity.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-inspect
+    - uv run docling-system-architecture-quality-report --summary
+    - uv run docling-system-improvement-case-validate
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
     acceptance_conditions:
     - tests/unit/test_agent_task_context.py remains a narrow compatibility and
       registry surface at or below 600 lines.
     - The reduced reports and semantic-graph promotion roots stay under 600
       lines and route future growth into focused siblings or family-local
       support modules instead of regrowing the residual surfaces.
+    - No Packet C-specific hotspot-prevention exceptions remain on the reduced
+      roots; import-forwarder maintenance is governed directly by the routed
+      policy and contract tests.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
@@ -2708,7 +2722,9 @@ cases:
       semantic-graph promotion scaffolding into 294-line and 426-line support
       modules, reduced the focused roots to 358 and 236 lines, and routed the
       reduced roots as deferred facades plus the support modules as accepted
-      residuals under the same owner case.
+      residuals under the same owner case. The later Packet C hardening pass
+      removed the temporary root exceptions and proved support-import
+      maintenance directly through the routed policy contracts.
   measurement:
     metric_name: test_agent_task_context_hotspot_line_count
     current_value: 328.0

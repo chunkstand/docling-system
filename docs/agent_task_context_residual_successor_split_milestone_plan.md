@@ -87,7 +87,7 @@ hygiene exact-ratchets all four files under `IC-3B4C9F2A76E1`.
 | --- | --- | --- | --- | --- | --- |
 | The split just moves the debt into a new helper sink. | support modules, hygiene policy | exact line ratchets plus support-module hotspot prevention | Either new support module lands above `600` lines. | Leave one support module above `600` and confirm Packet C cannot close. | Future Codex replaces one oversized test file with one oversized support file. |
 | The reduced roots regrow because future scenario additions still land there. | reduced roots, hotspot prevention | deferred reduced-facade routing plus focused route-behavior tests | New broad scenario groups or helper scaffolding are allowed in the reduced roots. | Remove the route entries and confirm the policy tests fail. | Future Codex quietly reopens the reduced roots instead of creating focused siblings. |
-| The closeout passes only because the hotspot-prevention gate is weakened. | hotspot policy, strict check | strict hotspot-prevention run with only narrow support-extraction exceptions | Packet C requires broad unscoped exceptions or blocked findings remain. | Add a wildcard-like exception and confirm policy review rejects it. | Future Codex can hide unrelated regrowth behind the Packet C exception. |
+| The closeout passes only because the hotspot-prevention gate is weakened. | hotspot policy, strict check | strict hotspot-prevention run plus import-forwarder contract coverage on the reduced roots | Packet C still depends on Packet-specific exceptions or broad unscoped waivers. | Reintroduce a wildcard-like exception and confirm policy review rejects it. | Future Codex can hide unrelated regrowth behind a stale Packet C exception instead of using the routed reduced-facade policy. |
 
 ## Required Verification Gates
 
@@ -115,7 +115,7 @@ hygiene exact-ratchets all four files under `IC-3B4C9F2A76E1`.
 
 - Stop if either new support module regrows above `600` lines.
 - Stop if the strict hotspot-prevention gate still blocks Packet C after the
-  narrow support-extraction exceptions are added.
+  reduced-root routing and import-forwarder allowances are in place.
 - Stop if the queue docs disagree about Packet D being the next packet.
 
 ## Local Commit Closeout Policy
