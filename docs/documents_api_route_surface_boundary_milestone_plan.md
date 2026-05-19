@@ -1,10 +1,11 @@
 # Documents API Route Surface Boundary Milestone Plan
 
 Date: 2026-05-19 local / 2026-05-19 UTC
-Status: resolved locally in the current checkout through the broader-reselect
-follow-on that closes `IC-23F2C79C8AA7` as a verified reduced route-smoke
-surface, exact-ratcheted the focused siblings, and routed the root off the
-active queue without shifting debt into another ungoverned test sink.
+Status: resolved through the 2026-05-19 verified-to-deployed registry closeout
+after the broader-reselect follow-on reduced `IC-23F2C79C8AA7` into a
+deployed route-smoke surface, exact-ratcheted the focused siblings, and
+routed the root off the active queue without shifting debt into another
+ungoverned test sink.
 Owner context: fresh broader reselect after
 `docs/retrieval_learning_ledger_smoke_surface_boundary_milestone_plan.md`
 left `top_routed_hotspot_paths=[]` and the remaining live open cases needed a
@@ -63,7 +64,7 @@ Out of scope:
 
 - `app/api/routers/documents.py`
 - `tests/unit/test_document_service.py`
-- any broader fresh reselect after this verified closeout
+- any broader fresh reselect after this deployed closeout
 
 ## 2026-05-19 Local Closeout Update
 
@@ -152,7 +153,7 @@ uv run docling-system-architecture-quality-report --summary
 
 ## Current Structural Evidence
 
-- `tests/unit/test_documents_api.py` is now a `155`-line document-route smoke
+- `tests/unit/test_documents_api.py` is now a `154`-line document-route smoke
   root instead of a `613`-line mixed owner.
 - The three new focused siblings stay at `253`, `137`, and `93` lines and
   keep route behavior grouped by access control, run surfaces, and latest-
@@ -163,8 +164,8 @@ uv run docling-system-architecture-quality-report --summary
   focused analyzer coverage for blocked broad scenario regrowth, blocked helper
   sinks, and allowed smoke-contract assertions without regrowing the governed
   hotspot-prevention roots.
-- `config/improvement_cases.yaml` now records `IC-23F2C79C8AA7` as verified at
-  the reduced `155`-line state instead of leaving the packet open against the
+- `config/improvement_cases.yaml` now records `IC-23F2C79C8AA7` as deployed at
+  the reduced `154`-line state instead of leaving the packet open against the
   old `613`-line measurement.
 
 ## Residual Risks And Next Routing
@@ -172,8 +173,8 @@ uv run docling-system-architecture-quality-report --summary
 - The live `top_routed_hotspot_paths` queue remains empty after this packet, so
   the next code-owning step still requires a fresh broader reselect from the
   remaining open cases rather than a stale routed follow-on.
-- `IC-23F2C79C8AA7` is now a verified reduced owner surface; a later registry-
-  hash sweep can mark it deployed without reopening the code-owning packet.
+- `IC-23F2C79C8AA7` is now a deployed reduced owner surface; no later registry
+  sweep is required to finish the packet.
 - Future document-route behavior should land in the focused access, runs,
   evaluations, artifact, or semantic siblings rather than broadening
   `tests/unit/test_documents_api.py` again.

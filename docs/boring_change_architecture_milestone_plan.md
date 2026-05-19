@@ -64,7 +64,11 @@ closeout now completes the first docs-only queue pass, deploys nine
 already-reduced `open` cases, moves the live counts to `open=2`,
 `verified=9`, and `deployed=49`, and leaves Packet B verified-to-deployed
 closeout as the next queued packet while `top_routed_hotspot_paths=[]`
-remains unchanged.
+remains unchanged. The later 2026-05-19 Packet B verified-to-deployed registry
+closeout then deploys the remaining nine verified cases, moves the live counts
+to `open=2`, `verified=0`, and `deployed=58`, and leaves Packet C
+`IC-3B4C9F2A76E1` as the next queued packet while
+`top_routed_hotspot_paths=[]` still remains unchanged.
 
 ## Purpose
 

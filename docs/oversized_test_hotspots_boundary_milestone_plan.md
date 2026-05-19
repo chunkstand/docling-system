@@ -3,8 +3,9 @@
 Date: 2026-05-14 local / 2026-05-14 UTC
 Status: resolved locally through closeout commit `65c0c67` after the
 Milestone 0 refresh; the scoped oversized-test hotspot issue is closed, the
-later 2026-05-18 technical-report harness residual gap-close now verifies
-`IC-D49E037D5657`, and the later 2026-05-18 agent-tasks API lifecycle-family
+later 2026-05-18 technical-report harness residual gap-close now deploys
+`IC-D49E037D5657` through the 2026-05-19 verified-to-deployed registry
+closeout, and the later 2026-05-18 agent-tasks API lifecycle-family
 closeout now also deploys `IC-D9A84C20546B` through implementation commit
 `790fa2d` plus durable docs-and-registry closeout commit `8ce05b7`
 Owner context: closeout under `IC-5F0E1C8B0D42`,

@@ -4,12 +4,13 @@ Date: 2026-05-19 local / 2026-05-19 UTC
 Status: active queue-coordination brief after
 `docs/documents_api_route_surface_boundary_milestone_plan.md` left the live
 `top_routed_hotspot_paths` queue empty. Packet A is now resolved through
-`docs/stale_open_registry_closeout_milestone_plan.md`, and Packet B is the
-next queued packet.
+`docs/stale_open_registry_closeout_milestone_plan.md`, Packet B is now
+resolved through `docs/verified_to_deployed_registry_closeout_milestone_plan.md`,
+and Packet C is the next queued packet.
 Owner context: broader coordination follow-on for the remaining improvement
 cases after the fresh broader reselect reduced `IC-23F2C79C8AA7`. The later
-stale-open registry closeout now leaves the repo with `open=2`, `verified=9`,
-and `deployed=49`.
+stale-open and verified-to-deployed registry closeouts now leave the repo with
+`open=2`, `verified=0`, and `deployed=58`.
 
 ## Purpose
 
@@ -138,6 +139,14 @@ The remaining `open` cases are now only:
 
 - `IC-3B4C9F2A76E1`
 - `IC-25C1F7B9E4DA`
+
+Packet B closeout result from the same 2026-05-19 checkout:
+
+```text
+uv run docling-system-improvement-case-summary
+  case_count=61
+  status_counts={"measured":1,"deployed":58,"open":2,"verified":0}
+```
 
 ## Goal
 
@@ -281,6 +290,11 @@ Packet A must:
 Outcome label: resolved
 
 Deploy the nine cases that are already verified and no longer need code work.
+
+Resolved on 2026-05-19 through
+`docs/verified_to_deployed_registry_closeout_milestone_plan.md`. The
+post-closeout live target landed at `open=2`, `verified=0`, and
+`deployed=58`.
 
 Packet B must:
 

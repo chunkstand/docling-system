@@ -1,8 +1,8 @@
 # Semantic Pass Lifecycle And Reads Boundary Milestone Plan
 
 Date: 2026-05-16 local / 2026-05-16 UTC
-Status: resolved locally in the current checkout as the latest resolved
-bounded semantic-owner follow-on before
+Status: resolved through the 2026-05-19 verified-to-deployed registry closeout
+as the latest resolved bounded semantic-owner follow-on before
 `docs/hotspot_prevention_family_boundary_milestone_plan.md`;
 Milestones 0 through 5 are now resolved locally, dedicated owner-case routing
 exists for `app/services/semantic_pass_lifecycle.py` and
@@ -15,8 +15,9 @@ helpers, review and projection ownership now lives in
 helpers, source-materialization and record-shaping ownership now lives in
 `app/services/semantic_pass_source_records.py` at `415` lines / `4` private
 helpers, and the broader `IC-9E6B8F5D62A1` case plus selected owner cases
-`IC-8304248AB64C` and `IC-ADCFFF108626` were later verified locally as closed
-by `docs/open_owner_backlog_resolution_milestone_plan.md`. The broader
+`IC-8304248AB64C` and `IC-ADCFFF108626` are now durably deployed after the
+later open-owner closeout and the 2026-05-19 verified-to-deployed registry
+closeout. The broader
 coordination brief now reselects from the routed hotspot/test queue in
 `docs/boring_change_architecture_milestone_plan.md`.
 Owner context: standalone residual semantic-owner packet after the semantics
@@ -39,11 +40,10 @@ That public surface is already narrow. This packet began with both
 `app/services/semantic_pass_reads.py` above the default `600`-line budget.
 The current checkout now keeps the lifecycle root at `529` lines and the
 read root at `372` lines, and Milestones 4 and 5 have completed the local
-closeout sweep for the selected owner family. The packet now records the final
-pre-commit state so the lifecycle/read owner cases, the broader semantic
-parent case, and the active handoff or routing docs all converge on the same
-retirement-ready state while the repo-wide cycle baseline stays at three
-components.
+closeout sweep for the selected owner family. The packet now records the
+deployed state so the lifecycle/read owner cases, the broader semantic parent
+case, and the active handoff or routing docs all converge on the same durable
+closeout while the repo-wide cycle baseline stays at three components.
 
 ## Current Evidence
 

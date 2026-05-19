@@ -1125,7 +1125,7 @@ cases:
   updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-8304248AB64C
   title: 'Architecture hotspot: app/services/semantic_pass_lifecycle.py'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/services/semantic_pass_lifecycle.py was the selected
     lifecycle hygiene residual, and the current checkout now reduces the root
@@ -1174,8 +1174,9 @@ cases:
       review-projection split, the lifecycle artifact closeout split, and the
       read-family closeout sweep that leaves the selected lifecycle owner
       family unchanged but keeps the packet aligned. The open-owner closeout
-      now verifies that the lifecycle root stays under budget locally with no
-      further code motion required.
+      verified that the lifecycle root stays under budget locally, and the
+      2026-05-19 verified-to-deployed registry closeout now records the case
+      as deployed with no further code motion required.
   measurement:
     metric_name: semantic_pass_lifecycle_owner_line_count
     current_value: 529.0
@@ -1191,12 +1192,13 @@ cases:
       lifecycle root is now under the default budget, the focused semantic
       unit gate remains green at 108 passed, the focused semantic integration
       slice remains green at 8 passed, and the full DB-backed suite closes at
-      2037 passed. The owner case is verified locally as closed.
+      2037 passed. The 2026-05-19 verified-to-deployed registry closeout now
+      records the owner case as deployed.
   created_at: '2026-05-15T18:10:00Z'
-  updated_at: '2026-05-18T23:45:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-ADCFFF108626
   title: 'Architecture hotspot: app/services/semantic_pass_reads.py'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/services/semantic_pass_reads.py was the selected
     read-owner hygiene residual, and the current checkout now reduces the root
@@ -1239,8 +1241,9 @@ cases:
       dedicated read-owner routing, hygiene ownership, handoff or
       broader-plan alignment, the read materialization or record-shaping
       split, and the read closeout or retirement sweep. The open-owner
-      closeout now verifies the read root under budget locally without
-      reopening the service split.
+      closeout verified the read root under budget locally, and the
+      2026-05-19 verified-to-deployed registry closeout now records the case
+      as deployed without reopening the service split.
   measurement:
     metric_name: semantic_pass_reads_owner_line_count
     current_value: 372.0
@@ -1254,10 +1257,11 @@ cases:
       5 private helpers. The selected read root is now under the default
       budget, the focused semantic unit gate remains green at 108 passed, the
       focused semantic integration slice remains green at 8 passed, and the
-      full DB-backed suite closes at 2037 passed. The owner case is verified
-      locally as closed.
+      full DB-backed suite closes at 2037 passed. The 2026-05-19
+      verified-to-deployed registry closeout now records the owner case as
+      deployed.
   created_at: '2026-05-15T18:10:00Z'
-  updated_at: '2026-05-18T23:45:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-4098E8370B88
   title: 'Architecture hotspot: app/services/agent_tasks.py'
   status: deployed
@@ -1683,7 +1687,7 @@ cases:
   updated_at: '2026-05-10T01:15:27.810985+00:00'
 - case_id: IC-D49E037D5657
   title: 'Architecture hotspot: tests/integration/test_technical_report_harness_roundtrip.py'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: tests/integration/test_technical_report_harness_roundtrip.py
     now measures 93 lines and remains the residual smoke surface over focused
@@ -1733,9 +1737,9 @@ cases:
   workflow_version: improvement_v1
   deployment:
     deployed_ref: "311b391"
-    notes: Verified locally during the 2026-05-18 technical-report harness
-      residual closeout. The residual smoke surface remains 93 lines while the
-      surrounding scenario families now live in
+    notes: The 2026-05-18 technical-report harness residual closeout verified
+      the residual smoke surface at 93 lines while the surrounding scenario
+      families now live in
       tests/integration/test_technical_report_harness_context_pack.py at 315,
       tests/integration/test_technical_report_harness_audit_surfaces.py at 398,
       tests/integration/test_technical_report_harness_audit_persistence.py at 313,
@@ -1744,7 +1748,9 @@ cases:
       tests/integration/test_technical_report_harness_source_evidence.py at 206,
       while tests/integration/technical_report_harness_support.py remains within
       the 400-line family-local support budget at 396. No routed 601-800
-      technical-report harness test owner remains after the split.
+      technical-report harness test owner remains after the split, and the
+      2026-05-19 verified-to-deployed registry closeout now records the case
+      as deployed.
   measurement:
     metric_name: test_technical_report_harness_roundtrip_hotspot_line_count
     current_value: 93.0
@@ -1756,10 +1762,10 @@ cases:
       family is now fully under budget without moving the debt into a new
       oversized support sink.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-18T23:59:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-23F2C79C8AA7
   title: 'Architecture hotspot: tests/unit/test_documents_api.py'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: tests/unit/test_documents_api.py remained the core
     document-route test surface at line_count=613 after the earlier verified
@@ -1817,20 +1823,21 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "311b391"
+    deployed_ref: "478030b"
     notes: Broader-reselect follow-on reduced tests/unit/test_documents_api.py
-      to a 155-line route-smoke surface by moving access, actor-capability,
+      to a 154-line route-smoke surface by moving access, actor-capability,
       run-history, and latest-evaluation coverage into
       tests/unit/test_documents_api_access.py,
       tests/unit/test_documents_api_runs.py, and
       tests/unit/test_documents_api_evaluations.py while routing the root as a
       deferred reduced facade and exact-ratcheting the full focused owner
-      family.
+      family. The 2026-05-19 verified-to-deployed registry closeout now
+      records `IC-23F2C79C8AA7` as deployed.
   measurement:
     metric_name: test_documents_api_hotspot_line_count
-    current_value: 155.0
+    current_value: 154.0
     measurement_window: 2026-05-19 documents API route surface local closeout
-    notes: tests/unit/test_documents_api.py now measures 155 lines. The
+    notes: tests/unit/test_documents_api.py now measures 154 lines. The
       focused document-route siblings measure 253, 137, 93, 286, and 394 lines
       in tests/unit/test_documents_api_access.py,
       tests/unit/test_documents_api_runs.py,
@@ -3515,7 +3522,7 @@ cases:
   updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-8AFAD4A415CA
   title: 'Architecture hotspot: app/services/runs.py'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/services/runs.py now measures 404 lines and is limited
     to the run-processing orchestration root over the extracted lease,
@@ -3555,14 +3562,15 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "d8841fd"
     notes: >-
       App large owner modules closeout reduced app/services/runs.py to a
       404-line compatibility-oriented root service over run_leases.py,
       run_persistence.py, and run_post_promotion.py while keeping the root
       monkeypatch seams for evaluation and post-promotion semantic execution
-      intact. The open-owner closeout now verifies that no further run-family
-      split is required.
+      intact. The open-owner closeout then verified that no further run-family
+      split is required, and the 2026-05-19 verified-to-deployed registry
+      closeout now records the case as deployed.
   measurement:
     metric_name: runs_owner_line_count
     current_value: 404.0
@@ -3573,10 +3581,10 @@ cases:
       run-processing hotspot is resolved without creating a new over-budget
       run owner.
   created_at: '2026-05-15T13:22:18Z'
-  updated_at: '2026-05-18T23:45:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-865AB8419D55
   title: 'Architecture hotspot: app/services/semantic_graph.py'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/services/semantic_graph.py now measures 185 lines and
     remains the public semantic graph facade over the extracted build,
@@ -3619,7 +3627,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "d8841fd"
     notes: >-
       App large owner modules closeout reduced app/services/semantic_graph.py
       to a 185-line compatibility facade over semantic_graph_core.py,
@@ -3627,7 +3635,9 @@ cases:
       semantic_graph_promotions.py, and semantic_graph_memory.py while
       preserving the root ontology and semantic-pass seams patched by the
       graph unit tests. The open-owner closeout then reduced the extracted
-      graph residuals under budget and verified the root as an honest facade.
+      graph residuals under budget and verified the root as an honest facade,
+      and the 2026-05-19 verified-to-deployed registry closeout now records
+      the case as deployed.
   measurement:
     metric_name: semantic_graph_owner_line_count
     current_value: 185.0
@@ -3641,7 +3651,7 @@ cases:
       semantic_graph_memory.py. The selected root surface is resolved and the
       routed residual family is now also under budget.
   created_at: '2026-05-15T13:22:18Z'
-  updated_at: '2026-05-18T23:45:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-649D7B4E3AB5
   title: 'Architecture hotspot: app/services/semantic_candidates.py'
   status: deployed
@@ -3701,7 +3711,7 @@ cases:
   updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-A92BA42C6D18
   title: 'Architecture hotspot: app/services/semantic_generation.py'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/services/semantic_generation.py now measures 91 lines
     and remains the public semantic generation facade over the extracted brief,
@@ -3743,7 +3753,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "d8841fd"
     notes: >-
       App large owner modules closeout reduced
       app/services/semantic_generation.py to a 91-line compatibility facade
@@ -3751,7 +3761,9 @@ cases:
       semantic_generation_draft.py, and semantic_generation_verify.py while
       preserving the root dependency seams patched by the generation unit
       tests. The open-owner closeout then reduced the extracted brief residual
-      under budget and verified the root as an honest facade.
+      under budget and verified the root as an honest facade, and the
+      2026-05-19 verified-to-deployed registry closeout now records the case
+      as deployed.
   measurement:
     metric_name: semantic_generation_owner_line_count
     current_value: 91.0
@@ -3765,10 +3777,10 @@ cases:
       selected root surface is resolved and the routed residual family is now
       also under budget.
   created_at: '2026-05-15T13:22:18Z'
-  updated_at: '2026-05-18T23:45:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-6F4E2B5A91C3
   title: 'Architecture hotspot: semantic generation owner-family modules'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/services/semantic_generation.py is now a 91-line
     facade, and the owner-family closeout reduces semantic_generation_brief.py
@@ -3804,11 +3816,13 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: Verified locally during the open-owner closeout. The packet keeps
-      app/services/semantic_generation.py import-stable, reduces
-      semantic_generation_brief.py below the default budget, and exact-ratchets
-      the new semantic_generation_brief_metrics.py sibling.
+    deployed_ref: "d8841fd"
+    notes: The open-owner closeout verified the semantic generation owner
+      family under budget while keeping app/services/semantic_generation.py
+      import-stable, reducing semantic_generation_brief.py below the default
+      budget, and exact-ratcheting the new semantic_generation_brief_metrics.py
+      sibling. The 2026-05-19 verified-to-deployed registry closeout now
+      records the case as deployed.
   measurement:
     metric_name: semantic_generation_owner_family_max_line_count
     current_value: 505.0
@@ -3817,10 +3831,10 @@ cases:
       semantic_generation_brief_metrics.py measures 145 lines after the root
       semantic generation facade remained at 91 lines.
   created_at: '2026-05-15T15:30:00Z'
-  updated_at: '2026-05-18T23:45:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-C8D41A2F77BE
   title: 'Architecture hotspot: semantic graph owner-family modules'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/services/semantic_graph.py is now a 185-line facade,
     and the owner-family closeout reduces semantic_graph_core.py to 492 lines
@@ -3857,12 +3871,13 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: Verified locally during the open-owner closeout. The packet keeps
-      app/services/semantic_graph.py import-stable, reduces the extracted core
-      and promotion owners below the default budget, and exact-ratchets the
-      new semantic_graph_support.py and semantic_graph_snapshot_lifecycle.py
-      siblings.
+    deployed_ref: "d8841fd"
+    notes: The open-owner closeout verified the semantic graph owner family
+      under budget while keeping app/services/semantic_graph.py import-stable,
+      reducing the extracted core and promotion owners below the default
+      budget, and exact-ratcheting the new semantic_graph_support.py and
+      semantic_graph_snapshot_lifecycle.py siblings. The 2026-05-19
+      verified-to-deployed registry closeout now records the case as deployed.
   measurement:
     metric_name: semantic_graph_owner_family_max_line_count
     current_value: 589.0

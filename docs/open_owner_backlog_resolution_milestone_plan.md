@@ -18,10 +18,14 @@ run-processing root, and the residual semantic graph or generation owner
 families under `IC-9812A0B138D9`, `IC-5B6430FCB929`, `IC-9E6B8F5D62A1`,
 `IC-8304248AB64C`, `IC-ADCFFF108626`, `IC-8AFAD4A415CA`,
 `IC-865AB8419D55`, `IC-A92BA42C6D18`, `IC-6F4E2B5A91C3`, and
-`IC-C8D41A2F77BE`. After closeout those selected cases now read as deployed or
-verified, and the later 2026-05-19 routing-source-of-truth refresh now records
-`IC-5B6430FCB929` / `app/api/main.py` as deployed through `d8841fd` and routes
-the bootstrap root off the active queue as an accepted residual boundary.
+`IC-C8D41A2F77BE`. After closeout those selected cases now read as deployed,
+and the later 2026-05-19 routing-source-of-truth refresh now records
+`IC-5B6430FCB929` / `app/api/main.py` as deployed through `d8841fd` while the
+later verified-to-deployed registry closeout records
+`IC-8304248AB64C`, `IC-ADCFFF108626`, `IC-8AFAD4A415CA`,
+`IC-865AB8419D55`, `IC-A92BA42C6D18`, `IC-6F4E2B5A91C3`, and
+`IC-C8D41A2F77BE` as deployed through the same closeout lane and routes the
+bootstrap root off the active queue as an accepted residual boundary.
 Next-packet selection therefore returns to the routed hotspot/test queue
 without reopening the small API bootstrap surface.
 

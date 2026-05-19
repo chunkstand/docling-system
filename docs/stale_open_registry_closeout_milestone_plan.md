@@ -4,8 +4,9 @@ Date: 2026-05-19 local / 2026-05-19 UTC
 Status: resolved through the 2026-05-19 docs-only stale-open registry
 closeout. Packet A of
 `docs/remaining_packet_queue_resolution_milestone_plan.md` is now complete,
-the nine retirement-ready `open` cases are recorded as deployed, and Packet B
-verified-to-deployed closeout is the next queued packet.
+the nine retirement-ready `open` cases are recorded as deployed, the later
+Packet B verified-to-deployed closeout is now also complete, and Packet C
+`IC-3B4C9F2A76E1` is the next queued packet.
 Owner context: docs-only closeout sweep for the stale `open` cases that were
 already under budget and already described as resolved, reduced, or
 retirement-ready in durable repo artifacts.
@@ -104,7 +105,6 @@ The packet now deploys these previously stale `open` cases:
 
 The queue truth now becomes:
 
-- Packet B: verified-to-deployed registry closeout
 - Packet C: `IC-3B4C9F2A76E1`
 - Packet D: `IC-25C1F7B9E4DA`
 - Packet E: final queue exhaustion or rebaseline
