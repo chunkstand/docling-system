@@ -54,7 +54,12 @@ and `deployed=40` while keeping `broad_facade_count=2`,
 broader reselect then closes `IC-23F2C79C8AA7` as a verified reduced
 documents-API route surface, moving the live counts to `open=11`,
 `verified=9`, and `deployed=40` while leaving `top_routed_hotspot_paths=[]`
-because the queue still has no active routed packet.
+because the queue still has no active routed packet. The later queue-freeze
+follow-on now records the explicit remaining order in
+`docs/remaining_packet_queue_resolution_milestone_plan.md`: Packet A stale-open
+registry closeout, Packet B verified-to-deployed closeout, Packet C
+`IC-3B4C9F2A76E1`, Packet D `IC-25C1F7B9E4DA`, and Packet E final queue
+exhaustion or rebaseline.
 
 ## Purpose
 

@@ -134,12 +134,14 @@ DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
 `docs/documents_api_route_surface_boundary_milestone_plan.md`
 Next routed bounded implementation brief:
-the broader reselect through `docs/boring_change_architecture_milestone_plan.md`,
+the queued follow-on in `docs/remaining_packet_queue_resolution_milestone_plan.md`,
 with the live `top_routed_hotspot_paths` queue still empty after the
 documents-API route-surface broader-reselect closeout
 Queued standalone follow-on:
-the same broader under-budget reselect, or any fresher narrow replacement
-selected by the live report
+Packet A stale-open registry closeout, then Packet B verified-to-deployed
+closeout, then Packet C `IC-3B4C9F2A76E1`, then Packet D
+`IC-25C1F7B9E4DA`, then Packet E final queue exhaustion or rebaseline as
+recorded in `docs/remaining_packet_queue_resolution_milestone_plan.md`
 Previous resolved bounded implementation brief:
 `docs/retrieval_learning_ledger_smoke_surface_boundary_milestone_plan.md`
 The 2026-05-18 DB-model residual owner-family packet is now durably recorded
@@ -321,6 +323,22 @@ hygiene check still reports `new hygiene regressions: none` plus
 `broad_facade_count=2`, `legibility_gap_count=0`, and
 `top_routed_hotspot_paths=[]`, and the full DB-backed suite passed again at
 `2119 passed`.
+The later queue-freeze planning pass now turns that broader reselect result
+into an explicit remaining backlog order in
+`docs/remaining_packet_queue_resolution_milestone_plan.md`. Packet A is a
+docs-only stale-open registry closeout for
+`IC-65AF4A6D8B1E`, `IC-FD18EE2D3309`, `IC-81C531769EB3`,
+`IC-9A0332D41F79`, `IC-33B4990DC366`, `IC-649D7B4E3AB5`,
+`IC-4B6E9F8D2A10`, `IC-81F2C6D4B9A7`, and `IC-2D5A7E9C4B18`. Packet B is a
+docs-only verified-to-deployed sweep for `IC-8304248AB64C`,
+`IC-ADCFFF108626`, `IC-D49E037D5657`, `IC-23F2C79C8AA7`,
+`IC-8AFAD4A415CA`, `IC-865AB8419D55`, `IC-A92BA42C6D18`,
+`IC-6F4E2B5A91C3`, and `IC-C8D41A2F77BE`. Only Packet C
+`IC-3B4C9F2A76E1` and Packet D `IC-25C1F7B9E4DA` remain genuinely
+code-owning because focused successor tests still exceed the default
+`600`-line budget. Treat that queue brief, this handoff, and
+`docs/agentic_architecture_index.md` as the new source of truth instead of
+repeating another free-form broader reselect.
 The 2026-05-18 durable architecture closeout now records the governance
 self-hosting, documents-service, cross-cutting verification, semantic/report
 residual, evaluation residual, UI residual, residual-large-file,
