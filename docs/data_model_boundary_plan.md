@@ -3,7 +3,7 @@
 Purpose: reduce `app/db/models.py` centrality without destabilizing Alembic,
 `Base.metadata.create_all(...)`, or active runtime imports.
 
-Status refreshed: 2026-05-11. `app/db/models.py` remains a governed
+Status refreshed: 2026-05-18. `app/db/models.py` remains a governed
 architecture hotspot, but several bounded model-domain splits are complete or
 verified locally: `platform support` owns `ApiIdempotencyKey` in
 `app/db/model_domains/platform.py`, `ingest` owns `IngestBatch`,
@@ -33,8 +33,20 @@ Memory Model-Domain Milestone 1 split. The compatibility-facade follow-up is
 also now verified locally: the remaining enum ownership lives in
 `app/db/_model_enums.py`, and `app.db.models` remains the public
 compatibility facade at 159 lines with a dedicated facade-structure gate and a
-private-surface import guard. Each model-domain milestone must finish
-with a local commit before another domain moves.
+private-surface import guard. The residual extracted-domain debt now lives in
+`app/db/model_domains/audit_and_evidence.py`,
+`app/db/model_domains/claim_support.py`, and
+`app/db/model_domains/semantic_memory.py`, and is now operationalized by
+`docs/db_models_residual_owner_family_milestone_plan.md` rather than by
+reopening the deployed `app/db/models.py` facade case. That residual packet is
+now resolved locally in the current checkout: `audit_and_evidence.py`,
+`semantic_memory.py`, and `claim_support.py` are now `31`, `53`, and `31`
+line composition surfaces over focused `audit_and_evidence_*`,
+`semantic_memory_*`, and `claim_support_*` owners; the shared DB-model unit
+and integration roots now close at `457` and `472` lines through focused
+family-local sibling files; and owner routing now lives under
+`IC-46C5B38A1D2E`, `IC-7D8AE7C83B8F`, and `IC-62C75B82F0AA`. Each model-domain
+milestone must finish with a local commit before another domain moves.
 
 ## Proposed Domains
 
@@ -534,7 +546,8 @@ Implemented result:
 - Verified with focused import and Postgres metadata gates before broader
   closeout verification.
 
-Current routed follow-up after the local semantic-memory split:
+Historical routed follow-up after the local semantic-memory split, now
+superseded by the later compatibility-facade and residual-owner packets:
 
 - broader owner case remains `IC-F2A8110185EB` / `app/db/models.py`
 - compatibility-facade / public-import-contract Milestone 1 is now implemented

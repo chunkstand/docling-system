@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+import app.services.semantic_governance_core as _semantic_governance_core
 from app.db.models import (
     AgentTaskArtifact,
     EvidenceManifest,
@@ -20,7 +21,6 @@ from app.db.models import (
     WorkspaceSemanticGraphState,
     WorkspaceSemanticState,
 )
-from app.services import semantic_governance_core as _semantic_governance_core
 
 
 def _active_semantic_basis(session: Session) -> dict[str, Any]:

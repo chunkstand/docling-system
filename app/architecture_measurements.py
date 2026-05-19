@@ -71,6 +71,9 @@ def record_architecture_measurement(
     for key in (
         "hotspot_count",
         "top_hotspot_paths",
+        "top_routed_hotspot_paths",
+        "routing_trap_paths",
+        "stale_facade_hotspot_count",
         "max_hotspot_risk_score",
         "agent_legibility_average_score",
         "broad_facade_count",
@@ -234,6 +237,11 @@ def summarize_architecture_measurements(
             "info_count": _delta(latest, previous, "info_count"),
             "contract_count": _delta(latest, previous, "contract_count"),
             "hotspot_count": _delta(latest, previous, "hotspot_count"),
+            "stale_facade_hotspot_count": _delta(
+                latest,
+                previous,
+                "stale_facade_hotspot_count",
+            ),
             "max_hotspot_risk_score": _delta(
                 latest,
                 previous,

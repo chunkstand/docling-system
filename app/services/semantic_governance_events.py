@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+import app.services.semantic_governance_context as _semantic_governance_context
+import app.services.semantic_governance_core as _semantic_governance_core
 from app.db.models import (
     SearchHarnessRelease,
     SearchHarnessReleaseReadinessAssessment,
@@ -10,8 +12,6 @@ from app.db.models import (
     SemanticGraphSnapshot,
     SemanticOntologySnapshot,
 )
-from app.services import semantic_governance_context as _semantic_governance_context
-from app.services import semantic_governance_core as _semantic_governance_core
 
 
 def record_ontology_snapshot_governance_events(

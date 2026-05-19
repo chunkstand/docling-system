@@ -12,6 +12,14 @@ from app.core.files import repo_root
 POLICY_SCHEMA_NAME = "hotspot_prevention_policy"
 SCHEMA_VERSION = "1.0"
 DEFAULT_POLICY_PATH = Path("config") / "hotspot_prevention.yaml"
+ROUTING_STATUSES = frozenset(
+    {
+        "active_owner",
+        "compatibility_facade_trap",
+        "deferred_reduced_facade",
+        "accepted_residual",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -43,6 +51,16 @@ class HotspotRule:
     block_new: tuple[str, ...]
     allow: tuple[str, ...]
     exceptions: tuple[HotspotException, ...] = ()
+    routing: HotspotRouting | None = None
+
+
+@dataclass(frozen=True)
+class HotspotRouting:
+    status: str
+    reason: str
+    route_to_case_ids: tuple[str, ...]
+    route_to_paths: tuple[str, ...]
+    route_to_plan_paths: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -89,6 +107,7 @@ def validate_policy_payload(
             continue
         _validate_rule_shape(raw_rule, field_prefix, issues)
         _validate_rule_exceptions(raw_rule, field_prefix, current_day, issues)
+        _validate_rule_routing(raw_rule, field_prefix, issues)
     return issues
 
 
@@ -184,6 +203,54 @@ def _validate_exception_expiry(
         issues.append(PolicyIssue(field=f"{exception_prefix}.expires_on", message="is expired"))
 
 
+def _validate_rule_routing(
+    raw_rule: dict[str, Any],
+    field_prefix: str,
+    issues: list[PolicyIssue],
+) -> None:
+    raw_routing = raw_rule.get("routing")
+    if raw_routing is None:
+        return
+    routing_prefix = f"{field_prefix}.routing"
+    if not isinstance(raw_routing, dict):
+        issues.append(PolicyIssue(field=routing_prefix, message="must be a map"))
+        return
+    status = str(raw_routing.get("status") or "").strip()
+    if status not in ROUTING_STATUSES:
+        allowed = ", ".join(sorted(ROUTING_STATUSES))
+        issues.append(
+            PolicyIssue(
+                field=f"{routing_prefix}.status",
+                message=f"must be one of: {allowed}",
+            )
+        )
+    if not str(raw_routing.get("reason") or "").strip():
+        issues.append(PolicyIssue(field=f"{routing_prefix}.reason", message="is required"))
+    if status == "active_owner":
+        return
+    if not string_list(raw_routing.get("route_to_case_ids")):
+        issues.append(
+            PolicyIssue(
+                field=f"{routing_prefix}.route_to_case_ids",
+                message="must contain at least one routed case id",
+            )
+        )
+    if not string_list(raw_routing.get("route_to_paths")):
+        issues.append(
+            PolicyIssue(
+                field=f"{routing_prefix}.route_to_paths",
+                message="must contain at least one routed path",
+            )
+        )
+    if not string_list(raw_routing.get("route_to_plan_paths")):
+        issues.append(
+            PolicyIssue(
+                field=f"{routing_prefix}.route_to_plan_paths",
+                message="must contain at least one routed plan path",
+            )
+        )
+
+
 def build_hotspot_policy(payload: dict[str, Any]) -> HotspotPolicy:
     issues = validate_policy_payload(payload)
     if issues:
@@ -201,6 +268,7 @@ def build_hotspot_policy(payload: dict[str, Any]) -> HotspotPolicy:
                 build_hotspot_exception(raw_exception)
                 for raw_exception in raw_rule.get("exceptions") or []
             ),
+            routing=build_hotspot_routing(raw_rule.get("routing")),
         )
     return HotspotPolicy(
         schema_name=str(payload["schema_name"]),
@@ -225,6 +293,18 @@ def build_hotspot_exception(raw_exception: dict[str, Any]) -> HotspotException:
         expires_on=parse_policy_date(raw_exception.get("expires_on")),
         follow_up_condition=str(raw_exception.get("follow_up_condition") or "").strip() or None,
         match_tokens=match_tokens or fallback_tokens,
+    )
+
+
+def build_hotspot_routing(raw_routing: dict[str, Any] | None) -> HotspotRouting | None:
+    if raw_routing is None:
+        return None
+    return HotspotRouting(
+        status=str(raw_routing.get("status") or "").strip(),
+        reason=str(raw_routing.get("reason") or "").strip(),
+        route_to_case_ids=string_list(raw_routing.get("route_to_case_ids")),
+        route_to_paths=string_list(raw_routing.get("route_to_paths")),
+        route_to_plan_paths=string_list(raw_routing.get("route_to_plan_paths")),
     )
 
 

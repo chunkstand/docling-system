@@ -12,6 +12,9 @@ from app.architecture_decisions import (
     ARCHITECTURE_DECISION_SCHEMA_NAME,
     build_architecture_decision_map,
 )
+from app.architecture_inspection_measurements import (
+    build_architecture_measurement_snapshot,
+)
 from app.architecture_inspection_policy import (
     DEFAULT_ARCHITECTURE_POLICY_PATH,
     apply_architecture_policy,
@@ -23,10 +26,7 @@ from app.architecture_inspection_rules import (
     collect_architecture_rule_violations,
     resolve_architecture_contract_map_path,
 )
-from app.architecture_inspection_types import (
-    ARCHITECTURE_SEVERITIES,
-    ArchitectureViolation,
-)
+from app.architecture_inspection_types import ArchitectureViolation
 from app.architecture_measurement_contracts import (
     ARCHITECTURE_GOVERNANCE_REPORT_FIELDS,
     ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME,
@@ -39,6 +39,10 @@ from app.architecture_measurement_contracts import (
     ARCHITECTURE_MEASUREMENT_SUMMARY_SCHEMA_NAME,
     DEFAULT_ARCHITECTURE_GOVERNANCE_REPORT_PATH,
     DEFAULT_ARCHITECTURE_MEASUREMENT_HISTORY_PATH,
+)
+from app.architecture_quality_contracts import (
+    ARCHITECTURE_QUALITY_REPORT_FIELDS,
+    ARCHITECTURE_QUALITY_SUMMARY_FIELDS,
 )
 from app.capability_contracts import (
     CAPABILITY_CONTRACT_MAP_SCHEMA_NAME,
@@ -212,6 +216,8 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
             "report_path": (
                 "build/architecture-governance/architecture_quality_report.json"
             ),
+            "report_fields": list(ARCHITECTURE_QUALITY_REPORT_FIELDS),
+            "summary_fields": list(ARCHITECTURE_QUALITY_SUMMARY_FIELDS),
             "decision_ids": decision_ids_by_contract.get(
                 "architecture_quality_report",
                 [],
@@ -256,58 +262,6 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
         ],
         "inspection_rules": inspection_rules,
     }
-
-
-def build_architecture_measurement_snapshot(
-    violations: list[ArchitectureViolation],
-    architecture_map: dict[str, Any],
-) -> dict[str, Any]:
-    severity_counts = {
-        severity: sum(1 for violation in violations if violation.severity == severity)
-        for severity in sorted(ARCHITECTURE_SEVERITIES - {"ignore"})
-    }
-    contracts = architecture_map["contracts"]
-    inspection_rules = architecture_map.get("inspection_rules", [])
-    rule_ids = [str(rule["rule_id"]) for rule in inspection_rules]
-    rule_violation_counts = {rule_id: 0 for rule_id in rule_ids}
-    for violation in violations:
-        rule_id = violation.rule_id or "unattributed"
-        rule_violation_counts[rule_id] = rule_violation_counts.get(rule_id, 0) + 1
-
-    contract_names = list(
-        dict.fromkeys(
-            [str(contract["name"]) for contract in contracts]
-            + [str(rule["contract"]) for rule in inspection_rules]
-            + [violation.contract for violation in violations]
-        )
-    )
-    contract_violation_counts = {contract_name: 0 for contract_name in contract_names}
-    for violation in violations:
-        contract_violation_counts[violation.contract] = (
-            contract_violation_counts.get(violation.contract, 0) + 1
-        )
-    return {
-        "schema_name": ARCHITECTURE_MEASUREMENT_SCHEMA_NAME,
-        "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
-        "severity_counts": severity_counts,
-        "non_ignored_violation_count": len(violations),
-        "contract_count": len(contracts),
-        "inspection_rule_count": len(rule_ids),
-        "rule_violation_counts": rule_violation_counts,
-        "contract_violation_counts": contract_violation_counts,
-        "api_route_count": next(
-            contract["item_count"]
-            for contract in contracts
-            if contract["name"] == "api_route_capabilities"
-        ),
-        "agent_action_count": next(
-            contract["item_count"]
-            for contract in contracts
-            if contract["name"] == "agent_action_catalog"
-        ),
-    }
-
-
 def build_architecture_inspection_report(
     project_root: Path | None = None,
     *,
@@ -327,7 +281,11 @@ def build_architecture_inspection_report(
         "valid": all(violation.severity != "error" for violation in violations),
         "violation_count": len(violations),
         "violations": [violation.to_dict() for violation in violations],
-        "measurement": build_architecture_measurement_snapshot(violations, architecture_map),
+        "measurement": build_architecture_measurement_snapshot(
+            violations,
+            architecture_map,
+            schema_version=ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+        ),
         "architecture_map": architecture_map,
     }
 

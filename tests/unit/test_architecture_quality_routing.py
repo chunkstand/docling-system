@@ -1,0 +1,129 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from app.architecture_quality import (
+    build_architecture_quality_report,
+    build_architecture_quality_summary,
+)
+from app.hotspot_prevention_policy import HotspotPolicy, HotspotRouting, HotspotRule
+
+
+def _inspection_report() -> dict:
+    return {
+        "valid": True,
+        "violation_count": 0,
+        "measurement": {},
+        "architecture_map": {"contracts": []},
+    }
+
+
+def _empty_policy() -> HotspotPolicy:
+    return HotspotPolicy(
+        schema_name="hotspot_prevention_policy",
+        schema_version="1.0",
+        known_hotspots={},
+    )
+
+
+def test_architecture_quality_report_excludes_routing_traps_from_routed_queue(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    app_dir = tmp_path / "app"
+    (app_dir / "db").mkdir(parents=True)
+    (app_dir / "services").mkdir(parents=True)
+    (app_dir / "db" / "models.py").write_text("MODEL = object()\n")
+    (app_dir / "services" / "agent_tasks.py").write_text(
+        "\n".join(
+            [
+                "def create_agent_task():",
+                "    return None",
+                "",
+                "def update_agent_task():",
+                "    return None",
+            ]
+        )
+    )
+
+    monkeypatch.setattr(
+        "app.architecture_quality.build_capability_contract_map",
+        lambda _root: {"facades": []},
+    )
+    monkeypatch.setattr(
+        "app.architecture_quality.collect_git_churn_metrics",
+        lambda _root: {
+            "app/db/models.py": {"changes_30d": 50, "changes_90d": 80},
+            "app/services/agent_tasks.py": {"changes_30d": 25, "changes_90d": 40},
+        },
+    )
+    monkeypatch.setattr(
+        "app.architecture_quality.load_hotspot_policy",
+        lambda project_root=None: HotspotPolicy(
+            schema_name="hotspot_prevention_policy",
+            schema_version="1.0",
+            known_hotspots={
+                "app/db/models.py": HotspotRule(
+                    relative_path="app/db/models.py",
+                    target_role="compatibility facade",
+                    preferred_owner_modules=("app/db/model_domains/",),
+                    block_new=("orm_class",),
+                    allow=("import_forwarder",),
+                    routing=HotspotRouting(
+                        status="compatibility_facade_trap",
+                        reason="Compatibility facade is already reduced.",
+                        route_to_case_ids=("IC-ROUTE-DB",),
+                        route_to_paths=("app/db/model_domains/audit_and_evidence.py",),
+                        route_to_plan_paths=("docs/db_models_residual_owner_family_milestone_plan.md",),
+                    ),
+                )
+            },
+        ),
+    )
+
+    report = build_architecture_quality_report(
+        tmp_path,
+        inspection_report=_inspection_report(),
+        include_hygiene=False,
+    )
+
+    assert report["summary"]["top_hotspot_paths"][0] == "app/db/models.py"
+    assert report["summary"]["top_routed_hotspot_paths"] == ["app/services/agent_tasks.py"]
+    assert report["summary"]["routing_trap_paths"] == ["app/db/models.py"]
+    assert report["summary"]["stale_facade_hotspot_count"] == 1
+    assert report["hotspots"][0]["routing_status"] == "compatibility_facade_trap"
+    assert report["hotspots"][0]["selected_for_routed_queue"] is False
+    assert report["hotspots"][0]["route_to_case_ids"] == ["IC-ROUTE-DB"]
+    assert report["raw_improvement_case_candidates"][0]["artifact_target_path"] == (
+        "app/db/models.py"
+    )
+    assert report["improvement_case_candidates"][0]["artifact_target_path"] == (
+        "app/services/agent_tasks.py"
+    )
+
+
+def test_architecture_quality_summary_includes_routed_fields(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "app").mkdir()
+    (tmp_path / "app" / "small.py").write_text("def ok():\n    return 1\n")
+
+    monkeypatch.setattr(
+        "app.architecture_quality.build_capability_contract_map",
+        lambda _root: {"facades": []},
+    )
+    monkeypatch.setattr("app.architecture_quality.collect_git_churn_metrics", lambda _root: {})
+    monkeypatch.setattr(
+        "app.architecture_quality.load_hotspot_policy",
+        lambda project_root=None: _empty_policy(),
+    )
+
+    summary = build_architecture_quality_summary(
+        tmp_path,
+        inspection_report=_inspection_report(),
+    )
+
+    assert summary["top_routed_hotspot_paths"] == ["app/small.py"]
+    assert summary["routing_trap_paths"] == []
+    assert summary["stale_facade_hotspot_count"] == 0

@@ -108,6 +108,9 @@ def test_architecture_quality_summary_is_compact(monkeypatch, tmp_path: Path) ->
 
     assert summary["schema_name"] == "architecture_quality_summary"
     assert "top_hotspot_paths" in summary
+    assert "top_routed_hotspot_paths" in summary
+    assert "routing_trap_paths" in summary
+    assert "stale_facade_hotspot_count" in summary
     assert "hotspots" not in summary
 
 

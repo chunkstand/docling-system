@@ -21,6 +21,7 @@ from app.services.evidence_common import trace_edge_spec_from_row as _trace_edge
 from app.services.evidence_common import trace_node_row_payload as _trace_node_row_payload
 from app.services.evidence_common import trace_node_spec_from_row as _trace_node_spec_from_row
 from app.services.evidence_records import evidence_export_payload as _evidence_export_payload
+from app.services.evidence_search_package_build import build_search_evidence_package
 from app.services.evidence_search_trace_graph import (
     search_trace_graph_sha256,
     search_trace_specs_from_package,
@@ -148,9 +149,7 @@ def search_evidence_trace_integrity_payload(
     try:
         if row.search_request_id is None:
             raise ValueError("Search evidence package export is missing search_request_id.")
-        from app.services.evidence_search_packages import get_search_evidence_package
-
-        recomputed_package = get_search_evidence_package(session, row.search_request_id)
+        recomputed_package = build_search_evidence_package(session, row.search_request_id)
         recomputed_package_sha256 = str(recomputed_package["package_sha256"])
         recomputed_nodes, recomputed_edges, recomputed_trace_sha256 = (
             search_trace_specs_from_package(recomputed_package)

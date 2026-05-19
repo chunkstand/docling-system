@@ -5,8 +5,8 @@ from dataclasses import asdict, dataclass, field, replace
 from typing import Protocol
 
 import app.services.search_query_features as _query_features
+import app.services.search_ranking as _search_ranking
 from app.schemas.search import SearchFilters, SearchRequest, SearchResult
-from app.services import search_ranking as _search_ranking
 from app.services.search_harness_overrides import load_applied_search_harness_overrides
 from app.services.search_query_features import QueryFeatureSet
 

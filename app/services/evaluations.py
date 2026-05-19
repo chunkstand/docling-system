@@ -7,6 +7,9 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+import app.services.evaluation_fixtures as fixture_owners
+import app.services.evaluation_reads as read_owners
+import app.services.evaluation_scoring as scoring_owners
 from app.core.config import get_settings as _get_settings
 from app.core.time import utcnow
 from app.db.models import (
@@ -16,9 +19,6 @@ from app.db.models import (
     DocumentRunEvaluationQuery,
 )
 from app.schemas.evaluations import EvaluationDetailResponse, EvaluationSummaryResponse
-from app.services import evaluation_fixtures as fixture_owners
-from app.services import evaluation_reads as read_owners
-from app.services import evaluation_scoring as scoring_owners
 from app.services.chat import answer_question as _answer_question
 from app.services.evaluation_execution import (
     EvaluationBatchResult,

@@ -7,10 +7,10 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 import app.services.search_query_features as _query_features
+import app.services.search_ranking as _search_ranking
+import app.services.search_retrieval_primitives as _search_retrieval_primitives
 from app.db.models import Document, DocumentChunk
 from app.schemas.search import SearchRequest
-from app.services import search_ranking as _search_ranking
-from app.services import search_retrieval_primitives as _search_retrieval_primitives
 from app.services.search_ranking import RankedResult
 
 QUERY_INTENT_PROSE_LOOKUP = _query_features.QUERY_INTENT_PROSE_LOOKUP

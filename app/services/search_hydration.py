@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy import Float, Select, and_, cast, func, select
 from sqlalchemy.orm import Session
 
+import app.services.search_ranking as _search_ranking
 from app.db.models import (
     Document,
     DocumentChunk,
@@ -13,7 +14,6 @@ from app.db.models import (
     RetrievalEvidenceSpan,
 )
 from app.schemas.search import SearchRequest
-from app.services import search_ranking as _search_ranking
 
 SEARCH_RESULT_SPAN_LIMIT = 5
 

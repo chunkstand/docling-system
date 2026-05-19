@@ -606,25 +606,27 @@ cases:
     commands:
     - git diff --check
     - uv run ruff check app/services/agent_task_actions.py
-      app/services/agent_actions/search_harness.py
-      app/services/agent_actions/semantic_governance_actions.py
+      app/services/agent_actions/search_harness*.py
+      app/services/agent_actions/semantic_governance*.py
       app/services/agent_actions/semantic_analysis_actions.py
       app/services/agent_actions/semantic_drafting_actions.py
       app/services/agent_actions/semantic_verification_actions.py
       app/services/agent_actions/report_actions.py
       app/services/agent_task_context.py
       app/services/agent_task_context_semantic.py
-      app/services/agent_task_context_search_harness.py
-      app/services/agent_task_context_semantic_governance.py
+      app/services/agent_task_context_search_harness*.py
+      app/services/agent_task_context_semantic_governance*.py
       app/services/agent_task_context_semantic_analysis.py
       app/services/agent_task_context_semantic_drafting.py
       app/services/agent_task_context_semantic_verification.py
       app/services/agent_task_context_technical_reports.py
       tests/unit/test_agent_action_contracts.py
       tests/unit/test_agent_task_actions.py
+      tests/unit/test_agent_task_actions_search_harness*.py
       tests/unit/test_agent_task_context.py
       tests/unit/test_agent_task_context_semantic.py
-      tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py
+      tests/unit/test_agent_task_context_semantic_governance*.py
+      tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks*.py
       tests/unit/test_agent_task_worker.py tests/unit/test_agent_tasks_api.py
       tests/unit/test_agent_task_actions_semantic_registry.py
       tests/unit/test_agent_task_actions_ontology.py
@@ -632,9 +634,18 @@ cases:
       tests/unit/test_agent_task_actions_semantic_graph.py
       tests/unit/test_agent_task_triage.py tests/unit/test_hotspot_prevention.py
     - uv run pytest -q tests/unit/test_agent_action_contracts.py
-      tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py
+      tests/unit/test_agent_task_actions.py
+      tests/unit/test_agent_task_actions_search_harness.py
+      tests/unit/test_agent_task_actions_search_harness_drafting.py
+      tests/unit/test_agent_task_actions_search_harness_apply.py
+      tests/unit/test_agent_task_context.py
       tests/unit/test_agent_task_context_semantic.py
+      tests/unit/test_agent_task_context_semantic_governance.py
+      tests/unit/test_agent_task_context_semantic_governance_ontology.py
       tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py
+      tests/unit/test_agent_tasks_creation.py
+      tests/unit/test_agent_tasks_lifecycle.py
+      tests/unit/test_agent_tasks_analytics.py
       tests/unit/test_agent_task_worker.py tests/unit/test_agent_tasks_api.py
       tests/unit/test_agent_task_actions_semantic_registry.py
       tests/unit/test_agent_task_actions_ontology.py
@@ -643,7 +654,7 @@ cases:
       tests/unit/test_agent_task_triage.py tests/unit/test_hotspot_prevention.py
     - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
       tests/integration/test_agent_task_semantic_orchestration_roundtrip.py
-      tests/integration/test_agent_task_triage_roundtrip.py
+      tests/integration/test_agent_task_triage_roundtrip*.py
       tests/integration/test_claim_support_judge_evaluation_roundtrip.py
     - uv run docling-system-agent-task-action-index
     - uv run docling-system-hotspot-prevention-check --strict
@@ -666,26 +677,39 @@ cases:
   workflow_version: improvement_v1
   deployment:
     deployed_ref: "7cf7465"
-    notes: Local agent-task orchestration Milestone 5 closeout keeps
+    notes: >-
+      Local agent-task orchestration Milestone 5 closeout keeps
       app/services/agent_task_actions.py as a 163-line / 1-private-helper
       composition and worker-execution facade, moves the remaining semantic
       action families into focused owner modules, tightens exact hygiene
       ceilings to the verified counts, preserves the public action catalog plus
-      action-index contracts, and is closed locally by commit 7cf7465.
+      action-index contracts, and is closed locally by commit 7cf7465. The
+      later agent-task residual owner-family follow-on now also reduces
+      app/services/agent_actions/search_harness.py to 444 lines with focused
+      drafting and triage owners at 453 and 386 lines plus
+      app/services/agent_actions/semantic_governance_actions.py to 565 lines
+      with focused ontology and graph owners at 281 and 251 lines. The
+      residual action-family roots are now under the default 600-line budget in
+      the local checkout while the facade contract remains unchanged.
   measurement:
     metric_name: agent_task_actions_hotspot_line_count
     current_value: 163.0
     measurement_window: 2026-05-12 local Milestone 5 verification
-    notes: Local Milestone 5 verification keeps
-      app/services/agent_task_actions.py at 163 lines / 1 private helper while
-      preserving the public action catalog, action index output, validation
-      defaults, and worker execution entrypoint. The architecture probe no
-      longer lists the facade among the top 12 churn hotspots, strict
-      hotspot-prevention mode now needs no exceptions, hygiene policy locks the
-      facade and the under-budget owner modules to exact verified ceilings, and
-      the next routed hotspot is IC-1D03DBFE8492 / app/services/search.py.
+    notes: >-
+      Local Milestone 5 verification keeps app/services/agent_task_actions.py
+      at 163 lines / 1 private helper while preserving the public action
+      catalog, action index output, validation defaults, and worker execution
+      entrypoint. The later residual owner-family verification keeps the
+      remaining action-family roots at 444, 565, 453, 386, 281, and 251 lines
+      for search_harness.py, semantic_governance_actions.py,
+      search_harness_drafting_actions.py,
+      search_harness_triage_actions.py,
+      semantic_governance_ontology_actions.py, and
+      semantic_governance_graph_actions.py respectively, so inherited action
+      ratchets under IC-A1E186A34097 are now under budget in the local
+      checkout.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-13T00:00:00+00:00'
+  updated_at: '2026-05-18T00:00:00+00:00'
 - case_id: IC-FD18EE2D3309
   title: 'Architecture hotspot: tests/unit/test_cli.py'
   status: open
@@ -1235,8 +1259,11 @@ cases:
   title: 'Architecture hotspot: app/services/agent_tasks.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: app/services/agent_tasks.py is an architecture hotspot with risk_score=297.15,
-    line_count=773, changes_90d=37, hygiene_finding_count=0.
+  observed_failure: app/services/agent_tasks.py previously mixed dependency validation,
+    lifecycle mutations, detail assembly, trace export, and outcome projection in
+    one 773-line hotspot service. The current checkout reduces the public root to
+    324 lines by moving those concern families into focused owners. The packet
+    is resolved locally and only the atomic closeout commit is still pending.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/agent_tasks.py
@@ -1250,22 +1277,217 @@ cases:
     description: Architecture quality owner surface for app/services/agent_tasks.py.
   verification:
     commands:
-    - uv run docling-system-architecture-quality-report
+    - git diff --check
+    - uv run ruff check app/services/agent_tasks.py app/services/agent_task_*.py
+      tests/unit/test_agent_tasks.py tests/unit/test_agent_tasks_creation.py
+      tests/unit/test_agent_tasks_lifecycle.py
+      tests/unit/test_agent_tasks_analytics.py
+      tests/unit/agent_task_service_support.py
+    - uv run pytest -q tests/unit/test_agent_tasks.py
+      tests/unit/test_agent_tasks_creation.py
+      tests/unit/test_agent_tasks_lifecycle.py
+      tests/unit/test_agent_tasks_analytics.py
+      tests/unit/test_agent_task_actions.py
+      tests/unit/test_agent_task_action_lookup.py
+      tests/unit/test_agent_task_triage.py
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
     acceptance_conditions:
-    - Hotspot risk decreases or the surface has a narrower owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    - app/services/agent_tasks.py remains a narrow public orchestration and
+      compatibility surface at 324 lines / 0 private helpers.
+    - Dependency validation, read-model projection, and lifecycle mutation
+      logic remain routed to focused owner modules instead of regrowing the
+      root surface.
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
-    notes: null
+    notes: Local agent-task residual owner-family implementation resolves the
+      routed hotspot in the current checkout by reducing
+      app/services/agent_tasks.py to 324 lines, moving dependency validation
+      into app/services/agent_task_dependencies.py at 176 lines, moving
+      read-model projection into app/services/agent_task_reads.py at 259
+      lines, moving lifecycle mutations into
+      app/services/agent_task_lifecycle.py at 197 lines, and keeping the
+      public service entrypoints stable. The atomic closeout commit is still
+      pending.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: agent_tasks_hotspot_line_count
+    current_value: 324.0
+    measurement_window: 2026-05-18 local agent-task residual owner-family verification
+    notes: The current local state keeps app/services/agent_tasks.py at 324
+      lines / 0 private helpers, with focused owners at 176, 259, and 197
+      lines for dependencies, reads, and lifecycle respectively. The broader
+      owner-family unit slice passed at 105 tests, the focused DB-backed
+      integration slice passed at 13 tests, and the final DB-backed suite
+      passed at 2044 tests in the current checkout.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-18T00:00:00+00:00'
+- case_id: IC-5D14C2A0B6F7
+  title: 'Architecture hotspot: tests/unit/test_agent_tasks.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: tests/unit/test_agent_tasks.py previously mixed task creation,
+    dependency validation, lifecycle transitions, outcome analytics, and shared
+    service-support scaffolding in one 1011-line unit surface.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-probe:largest-file:tests/unit/test_agent_tasks.py
+    notes: Refreshed during the 2026-05-18 agent-task residual owner-family
+      closeout from the live wc -l snapshot before and after the service split.
+  artifact:
+    artifact_type: test
+    target_path: tests/unit/test_agent_tasks.py
+    description: Residual compatibility smoke surface for agent-task service unit coverage.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check tests/unit/test_agent_tasks.py
+      tests/unit/test_agent_tasks_creation.py
+      tests/unit/test_agent_tasks_lifecycle.py
+      tests/unit/test_agent_tasks_analytics.py
+      tests/unit/agent_task_service_support.py
+    - uv run pytest -q tests/unit/test_agent_tasks.py
+      tests/unit/test_agent_tasks_creation.py
+      tests/unit/test_agent_tasks_lifecycle.py
+      tests/unit/test_agent_tasks_analytics.py
+    acceptance_conditions:
+    - tests/unit/test_agent_tasks.py remains a narrow compatibility smoke
+      surface at or below 600 lines.
+    - Creation, lifecycle, analytics, and shared support stay routed to focused
+      sibling files under the default 600-line budget.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: Local agent-task residual owner-family implementation resolves the
+      routed unit hotspot in the current checkout by reducing the residual
+      smoke file to 12 lines, moving creation, lifecycle, and analytics
+      coverage into focused siblings at 286, 276, and 366 lines, keeping
+      family-local shared support at 98 lines, and preserving broader unit
+      contract coverage. The atomic closeout commit is still pending.
+  measurement:
+    metric_name: test_agent_tasks_hotspot_line_count
+    current_value: 12.0
+    measurement_window: 2026-05-18 local agent-task residual owner-family verification
+    notes: The current local state keeps tests/unit/test_agent_tasks.py at 12
+      lines with focused sibling files at 286, 276, and 366 lines plus a
+      98-line family-local support module. The broader owner-family unit slice
+      passed at 105 tests in the current checkout.
+  created_at: '2026-05-18T00:00:00+00:00'
+  updated_at: '2026-05-18T00:00:00+00:00'
+- case_id: IC-2E0A91B39C5D
+  title: 'Architecture hotspot: tests/unit/test_agent_task_actions_search_harness.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: tests/unit/test_agent_task_actions_search_harness.py previously
+    mixed drafting, verification, apply, follow-up evidence, and error-path
+    coverage in one 815-line search-harness unit surface.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-probe:largest-file:tests/unit/test_agent_task_actions_search_harness.py
+    notes: Refreshed during the 2026-05-18 agent-task residual owner-family
+      closeout from the live wc -l snapshot before and after the search-harness split.
+  artifact:
+    artifact_type: test
+    target_path: tests/unit/test_agent_task_actions_search_harness.py
+    description: Residual compatibility smoke surface for search-harness action tests.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check tests/unit/test_agent_task_actions_search_harness.py
+      tests/unit/test_agent_task_actions_search_harness_drafting.py
+      tests/unit/test_agent_task_actions_search_harness_apply.py
+    - uv run pytest -q tests/unit/test_agent_task_actions_search_harness.py
+      tests/unit/test_agent_task_actions_search_harness_drafting.py
+      tests/unit/test_agent_task_actions_search_harness_apply.py
+      tests/unit/test_agent_task_triage.py
+      tests/unit/test_agent_task_context.py
+    acceptance_conditions:
+    - tests/unit/test_agent_task_actions_search_harness.py remains a narrow
+      compatibility smoke surface at or below 600 lines.
+    - Drafting and apply or triage coverage stays routed to focused sibling
+      files under the default 600-line budget.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: Local agent-task residual owner-family implementation resolves the
+      routed search-harness unit hotspot in the current checkout by reducing
+      the residual root to 10 lines and moving drafting and apply coverage
+      into focused siblings at 358 and 471 lines while preserving the broader
+      search-harness unit contract. The atomic closeout commit is still
+      pending.
+  measurement:
+    metric_name: test_agent_task_actions_search_harness_hotspot_line_count
+    current_value: 10.0
+    measurement_window: 2026-05-18 local agent-task residual owner-family verification
+    notes: The current local state keeps
+      tests/unit/test_agent_task_actions_search_harness.py at 10 lines with
+      focused siblings at 358 and 471 lines. The broader owner-family unit
+      slice passed at 105 tests in the current checkout.
+  created_at: '2026-05-18T00:00:00+00:00'
+  updated_at: '2026-05-18T00:00:00+00:00'
+- case_id: IC-8F77A1D2C6E4
+  title: 'Architecture hotspot: tests/integration/test_agent_task_triage_roundtrip.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: tests/integration/test_agent_task_triage_roundtrip.py previously
+    mixed search-harness triage, approval lifecycle, learning surfaces, and
+    failure-artifact coverage in one 1279-line integration surface.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-probe:largest-file:tests/integration/test_agent_task_triage_roundtrip.py
+    notes: Refreshed during the 2026-05-18 agent-task residual owner-family
+      closeout from the live wc -l snapshot before and after the triage split.
+  artifact:
+    artifact_type: test
+    target_path: tests/integration/test_agent_task_triage_roundtrip.py
+    description: Residual smoke surface for agent-task triage integration coverage.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check tests/integration/test_agent_task_triage_roundtrip.py
+      tests/integration/test_agent_task_triage_roundtrip_search_harness.py
+      tests/integration/test_agent_task_triage_roundtrip_search_harness_review.py
+      tests/integration/agent_task_triage_roundtrip_support.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_agent_task_triage_roundtrip.py
+      tests/integration/test_agent_task_triage_roundtrip_search_harness.py
+      tests/integration/test_agent_task_triage_roundtrip_search_harness_review.py
+      tests/integration/test_agent_task_semantic_orchestration_roundtrip.py
+      tests/integration/test_claim_support_judge_evaluation_roundtrip.py
+    acceptance_conditions:
+    - tests/integration/test_agent_task_triage_roundtrip.py remains a narrow
+      smoke surface at or below 800 lines.
+    - Focused search-harness scenario files remain under 800 lines and the
+      family-local support module remains under 400 lines.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: Local agent-task residual owner-family implementation resolves the
+      routed triage integration hotspot in the current checkout by reducing
+      the residual smoke file to 283 lines, keeping the family-local support
+      module at 185 lines, and moving the search-harness scenario families
+      into focused siblings at 449 and 409 lines. The atomic closeout commit
+      is still pending.
+  measurement:
+    metric_name: test_agent_task_triage_roundtrip_hotspot_line_count
+    current_value: 283.0
+    measurement_window: 2026-05-18 local agent-task residual owner-family verification
+    notes: The current local state keeps
+      tests/integration/test_agent_task_triage_roundtrip.py at 283 lines, the
+      search-harness scenario files at 449 and 409 lines, and the family-local
+      support module at 185 lines. The focused DB-backed integration slice
+      passed at 13 tests and the final DB-backed suite passed at 2044 tests in
+      the current checkout.
+  created_at: '2026-05-18T00:00:00+00:00'
+  updated_at: '2026-05-18T00:00:00+00:00'
 - case_id: IC-03D7EFA03213
   title: 'Architecture hotspot: tests/unit/test_search_api.py'
   status: open
@@ -1773,25 +1995,27 @@ cases:
     commands:
     - git diff --check
     - uv run ruff check app/services/agent_task_actions.py
-      app/services/agent_actions/search_harness.py
-      app/services/agent_actions/semantic_governance_actions.py
+      app/services/agent_actions/search_harness*.py
+      app/services/agent_actions/semantic_governance*.py
       app/services/agent_actions/semantic_analysis_actions.py
       app/services/agent_actions/semantic_drafting_actions.py
       app/services/agent_actions/semantic_verification_actions.py
       app/services/agent_actions/report_actions.py
       app/services/agent_task_context.py
       app/services/agent_task_context_semantic.py
-      app/services/agent_task_context_search_harness.py
-      app/services/agent_task_context_semantic_governance.py
+      app/services/agent_task_context_search_harness*.py
+      app/services/agent_task_context_semantic_governance*.py
       app/services/agent_task_context_semantic_analysis.py
       app/services/agent_task_context_semantic_drafting.py
       app/services/agent_task_context_semantic_verification.py
       app/services/agent_task_context_technical_reports.py
       tests/unit/test_agent_action_contracts.py
       tests/unit/test_agent_task_actions.py
+      tests/unit/test_agent_task_actions_search_harness*.py
       tests/unit/test_agent_task_context.py
       tests/unit/test_agent_task_context_semantic.py
-      tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py
+      tests/unit/test_agent_task_context_semantic_governance*.py
+      tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks*.py
       tests/unit/test_agent_task_worker.py tests/unit/test_agent_tasks_api.py
       tests/unit/test_agent_task_actions_semantic_registry.py
       tests/unit/test_agent_task_actions_ontology.py
@@ -1799,9 +2023,18 @@ cases:
       tests/unit/test_agent_task_actions_semantic_graph.py
       tests/unit/test_agent_task_triage.py tests/unit/test_hotspot_prevention.py
     - uv run pytest -q tests/unit/test_agent_action_contracts.py
-      tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py
+      tests/unit/test_agent_task_actions.py
+      tests/unit/test_agent_task_actions_search_harness.py
+      tests/unit/test_agent_task_actions_search_harness_drafting.py
+      tests/unit/test_agent_task_actions_search_harness_apply.py
+      tests/unit/test_agent_task_context.py
       tests/unit/test_agent_task_context_semantic.py
+      tests/unit/test_agent_task_context_semantic_governance.py
+      tests/unit/test_agent_task_context_semantic_governance_ontology.py
       tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py
+      tests/unit/test_agent_tasks_creation.py
+      tests/unit/test_agent_tasks_lifecycle.py
+      tests/unit/test_agent_tasks_analytics.py
       tests/unit/test_agent_task_worker.py tests/unit/test_agent_tasks_api.py
       tests/unit/test_agent_task_actions_semantic_registry.py
       tests/unit/test_agent_task_actions_ontology.py
@@ -1810,7 +2043,7 @@ cases:
       tests/unit/test_agent_task_triage.py tests/unit/test_hotspot_prevention.py
     - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
       tests/integration/test_agent_task_semantic_orchestration_roundtrip.py
-      tests/integration/test_agent_task_triage_roundtrip.py
+      tests/integration/test_agent_task_triage_roundtrip*.py
       tests/integration/test_claim_support_judge_evaluation_roundtrip.py
     - uv run docling-system-agent-task-action-index
     - uv run docling-system-hotspot-prevention-check --strict
@@ -1841,21 +2074,32 @@ cases:
       families into focused owner modules, tightens exact hygiene ceilings for
       the narrowed modules, and leaves only inherited line-budget ratchets on
       the already-owned oversized context modules. Local closeout commit:
-      7cf7465.
+      7cf7465. The later residual owner-family follow-on now also reduces
+      app/services/agent_task_context_search_harness.py to 263 lines with
+      focused drafting and triage builders at 468 and 172 lines plus
+      app/services/agent_task_context_semantic_governance.py to 397 lines with
+      focused ontology and graph builders at 405 and 367 lines. The remaining
+      inherited over-budget context ratchets under IC-E52B6C7B22FD are now
+      limited to semantic analysis and technical-reports context owners.
   measurement:
     metric_name: agent_task_context_hotspot_line_count
     current_value: 121.0
     measurement_window: 2026-05-12 local Milestone 5 verification
-    notes: Local Milestone 5 verification preserves the public context
-      entrypoints while reducing app/services/agent_task_context.py to 121
-      lines / 0 private helpers. The architecture probe no longer lists the
-      facade among the top 12 churn hotspots, strict hotspot-prevention mode
-      now runs with zero exceptions, and the remaining oversized extracted
-      context modules are explicit inherited ratchets rather than unresolved
-      central-owner ambiguity. The next routed hotspot is
-      IC-1D03DBFE8492 / app/services/search.py.
+    notes: >-
+      Local Milestone 5 verification preserves the public context entrypoints
+      while reducing app/services/agent_task_context.py to 121 lines / 0
+      private helpers. The later residual owner-family verification keeps the
+      remaining selected context-family roots at 263, 397, 468, 172, 405, and
+      367 lines for app/services/agent_task_context_search_harness.py,
+      app/services/agent_task_context_semantic_governance.py,
+      app/services/agent_task_context_search_harness_drafting.py,
+      app/services/agent_task_context_search_harness_triage.py,
+      app/services/agent_task_context_semantic_governance_ontology.py, and
+      app/services/agent_task_context_semantic_governance_graph.py
+      respectively. Only semantic_analysis and technical_reports remain as
+      inherited over-budget context owners under this deployed facade case.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-13T00:00:00+00:00'
+  updated_at: '2026-05-18T00:00:00+00:00'
 - case_id: IC-DCEE88C7CA97
   title: 'Architecture hotspot: app/schemas/search.py'
   status: open
@@ -2208,6 +2452,8 @@ cases:
       tests/unit/test_agent_task_context_semantic_generation.py
       tests/unit/test_agent_task_context_reports_claim_support.py
       tests/unit/test_agent_task_context_semantic_governance.py
+      tests/unit/test_agent_task_context_semantic_governance_ontology.py
+      tests/unit/agent_task_context_semantic_governance_support.py
       tests/unit/test_agent_task_context_semantic_graph.py
       tests/unit/test_agent_task_context_semantic_graph_promotions.py
     - uv run pytest -q tests/unit/test_agent_task_context.py
@@ -2215,6 +2461,7 @@ cases:
       tests/unit/test_agent_task_context_semantic_generation.py
       tests/unit/test_agent_task_context_reports_claim_support.py
       tests/unit/test_agent_task_context_semantic_governance.py
+      tests/unit/test_agent_task_context_semantic_governance_ontology.py
       tests/unit/test_agent_task_context_semantic_graph.py
       tests/unit/test_agent_task_context_semantic_graph_promotions.py
     acceptance_conditions:
@@ -2230,9 +2477,13 @@ cases:
     notes: Oversized-test hotspot closeout reduced tests/unit/test_agent_task_context.py
       to 328 lines and moved the freshness, semantic-generation, reports/claim-support,
       semantic-governance, semantic-graph, and semantic-graph promotion families
-      into focused files. The broader family remains reduced and open because
-      three extracted files still measure 636, 630, and 653 lines against the
-      default 600-line budget.
+      into focused files. The later agent-task residual owner-family follow-on
+      then reduced the semantic-governance branch to a 97-line smoke file plus
+      251-line ontology coverage and a 307-line family-local support module.
+      The broader family remains reduced and open because
+      tests/unit/test_agent_task_context_reports_claim_support.py and
+      tests/unit/test_agent_task_context_semantic_graph_promotions.py still
+      measure 636 and 653 lines against the default 600-line budget.
   measurement:
     metric_name: test_agent_task_context_hotspot_line_count
     current_value: 328.0
@@ -2240,9 +2491,10 @@ cases:
     notes: The residual compatibility file now measures 328 lines; the focused
       freshness, semantic-generation, reports/claim-support, semantic-governance,
       semantic-graph, and semantic-graph promotion files measure 569, 384, 636,
-      630, 584, and 653 lines respectively.
+      97, 584, and 653 lines respectively, with focused semantic-governance
+      ontology coverage at 251 lines and family-local support at 307 lines.
   created_at: '2026-05-14T00:00:00+00:00'
-  updated_at: '2026-05-14T00:00:00+00:00'
+  updated_at: '2026-05-18T00:00:00+00:00'
 - case_id: IC-908E7A1D2C44
   title: 'Architecture hotspot: tests/integration/test_retrieval_learning_ledger.py'
   status: deployed
@@ -2352,16 +2604,17 @@ cases:
   updated_at: '2026-05-14T00:00:00+00:00'
 - case_id: IC-08C078FD4F45
   title: 'Architecture hotspot: app/architecture_inspection.py'
-  status: open
+  status: verified
   cause_class: unclear_ownership
   observed_failure: app/architecture_inspection.py and the broader
-    architecture-governance residual family still exceed the configured
+    architecture-governance residual family previously exceeded the configured
     hygiene budget after explicit owner-case routing and the import-cycle
     reduction, with
     app/architecture_inspection.py, app/architecture_inspection_rules.py,
-    app/services/improvement_case_intake.py, and
-    app/services/improvement_cases.py measuring 412, 604, 818, and 876 lines
-    respectively.
+    app/services/improvement_case_intake.py,
+    app/services/improvement_cases.py, and
+    tests/unit/test_improvement_case_intake.py measuring 370, 604, 796, 720,
+    and 758 lines respectively before the 2026-05-18 self-hosting closeout.
   source:
     source_type: hygiene_finding
     source_ref: hygiene:file-budget:app/architecture_inspection.py
@@ -2369,11 +2622,30 @@ cases:
       bootstrap and revalidated after architecture-governance checkpoint
       4338d4e removed the targeted import cycle and the architecture-governance
       Milestone 4 closeout commit 7a4c5b0 resolved the scoped cycle packet
-      locally. Family
+      locally. Refreshed again during the 2026-05-18 residual large-file
+      backlog Milestone 0 rebaseline after
+      tests/unit/test_improvement_case_intake.py entered the live >800 queue.
+      Refreshed again during the cross-cutting large-file residual closeout
+      after app/services/improvement_cases.py dropped below 800, the new
+      app/services/improvement_case_observations.py sibling landed, and the
+      local app.services.improvement_case_observations /
+      app.services.improvement_cases Python cycle was removed. Refreshed again
+      during the 2026-05-18 governance self-hosting closeout after the
+      registry, models, report-import, and rule-contract siblings landed and
+      the governed roots closed under budget. Family
       members=app/architecture_inspection.py,
       app/architecture_inspection_rules.py,
       app/services/improvement_case_intake.py,
-      app/services/improvement_cases.py.
+      app/services/improvement_cases.py,
+      tests/unit/test_improvement_case_intake.py,
+      app/services/improvement_case_architecture_quality.py,
+      app/services/improvement_case_models.py,
+      app/services/improvement_case_observations.py,
+      app/services/improvement_case_registry.py,
+      app/services/improvement_case_report_imports.py,
+      app/architecture_inspection_rule_contracts.py,
+      tests/unit/test_improvement_case_intake_contracts.py,
+      tests/unit/test_improvement_case_intake_reports.py.
   artifact:
     artifact_type: contract
     target_path: app/architecture_inspection.py
@@ -2387,9 +2659,10 @@ cases:
       --format markdown --top 20
     acceptance_conditions:
     - app/architecture_inspection.py, app/architecture_inspection_rules.py,
-      app/services/improvement_case_intake.py, and
-      app/services/improvement_cases.py are reduced or split until each
-      governed owner surface is within the configured budget without
+      app/services/improvement_case_intake.py,
+      app/services/improvement_cases.py, and
+      tests/unit/test_improvement_case_intake.py are reduced or split until
+      each governed owner surface is within the configured budget without
       reintroducing milestone-owned routing or runtime metadata reachthrough.
     - The architecture-governance cycle follow-on preserves the contract-only
       metadata seams while the remaining oversized owner files are reduced.
@@ -2400,20 +2673,35 @@ cases:
     deployed_ref: null
     notes: Created during the hygiene owner-case routing Milestone 1 bootstrap.
       Architecture-governance checkpoint 4338d4e removed the targeted import
-      cycle, and architecture-governance closeout commit 7a4c5b0 resolved the
-      scoped packet locally, but the broader family remains open until the
-      residual governed files are reduced within budget.
+      cycle, architecture-governance closeout commit 7a4c5b0 resolved the
+      scoped packet locally, and the 2026-05-18 governance self-hosting
+      closeout reduced the governed roots to 370/514/552/82/218 while keeping
+      the improvement-case observation cycle removed. Family-local siblings now
+      close at 122/184/475/279/277/101/122/551 with exact hygiene ratchets,
+      focused governance verification stayed green, and the packet is locally
+      verified. Atomic closeout commit still pending because the worktree is
+      broadly dirty.
   measurement:
     metric_name: architecture_governance_family_max_line_count
-    current_value: 876.0
-    measurement_window: 2026-05-14 architecture-governance Milestone 1 import contract
-    notes: app/architecture_inspection.py measures 412 lines,
-      app/architecture_inspection_rules.py 604,
-      app/services/improvement_case_intake.py 818, and
-      app/services/improvement_cases.py 876 after checkpoint 4338d4e removed
-      the targeted architecture-governance cycle.
+    current_value: 552.0
+    measurement_window: 2026-05-18 improvement-case governance self-hosting closeout
+    notes: app/architecture_inspection.py measures 370 lines,
+      app/architecture_inspection_rules.py 514,
+      app/services/improvement_case_intake.py 552,
+      app/services/improvement_cases.py 82, and
+      tests/unit/test_improvement_case_intake.py 218 after the self-hosting
+      closeout. Family-local siblings now measure
+      app/services/improvement_case_architecture_quality.py 122,
+      app/services/improvement_case_models.py 184,
+      app/services/improvement_case_registry.py 475,
+      app/services/improvement_case_observations.py 279,
+      app/services/improvement_case_report_imports.py 277,
+      app/architecture_inspection_rule_contracts.py 101,
+      tests/unit/test_improvement_case_intake_contracts.py 122, and
+      tests/unit/test_improvement_case_intake_reports.py 551 with exact
+      hygiene ratchets.
   created_at: '2026-05-14T16:09:02Z'
-  updated_at: '2026-05-14T20:55:20Z'
+  updated_at: '2026-05-18T00:00:00Z'
 - case_id: IC-0F89DBB1CF9F
   title: 'Architecture contract gap: runtime health orchestration'
   status: deployed
@@ -3162,3 +3450,679 @@ cases:
       facade was reduced to 185 lines.
   created_at: '2026-05-15T15:30:00Z'
   updated_at: '2026-05-15T15:30:00Z'
+- case_id: IC-46C5B38A1D2E
+  title: 'Architecture hotspot: residual db-model owner-family modules'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/db/models.py is already a deployed 159-line compatibility
+    facade, but the extracted residual owners app/db/model_domains/audit_and_evidence.py,
+    app/db/model_domains/semantic_memory.py, and app/db/model_domains/claim_support.py
+    remained at 1053, 979, and 829 lines while still borrowing facade-only routing
+    from IC-F2A8110185EB.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/db/model_domains/audit_and_evidence.py
+    notes: Refreshed during the 2026-05-18 db-model residual owner-family
+      implementation from the live wc -l and architecture-probe snapshot after
+      the app/db/models.py compatibility-facade closeout.
+  artifact:
+    artifact_type: contract
+    target_path: app/db/model_domains/semantic_memory.py
+    description: Residual db-model owner-family anchor after the app/db/models.py
+      facade split.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check app/db/model_domains/audit_and_evidence.py
+      app/db/model_domains/audit_and_evidence_*.py
+      app/db/model_domains/semantic_memory.py
+      app/db/model_domains/semantic_memory_*.py
+      app/db/model_domains/claim_support.py
+      app/db/model_domains/claim_support_*.py
+      tests/unit/test_db_models_facade_contract.py
+      tests/unit/test_db_model_import_compatibility.py
+      tests/unit/test_db_model_import_compatibility_*.py
+      tests/integration/test_db_model_metadata.py
+      tests/integration/test_db_model_metadata_*.py
+    - uv run pytest -q tests/unit/test_db_models_facade_contract.py
+      tests/unit/test_db_model_import_compatibility.py
+      tests/unit/test_db_model_import_compatibility_*.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_db_model_metadata.py
+      tests/integration/test_db_model_metadata_*.py
+    - uv run --extra dev alembic heads
+    - uv run --extra dev alembic current
+    - uv run --extra dev alembic upgrade head
+    - uv run --extra dev alembic check
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - app/db/models.py remains the deployed 159-line compatibility facade, and
+      each governed residual db-model owner-family surface stays within its
+      configured budget.
+    - Exact app.db.models import compatibility, Base.metadata registration, and
+      Postgres create-all or Alembic contracts remain unchanged.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: >-
+      Local db-model residual owner-family implementation resolves the routed
+      extracted-domain debt in the current checkout by reducing
+      audit_and_evidence.py to 31 lines over focused family-local owners at
+      207, 214, 388, and 317 lines, reducing semantic_memory.py to 53 lines
+      over focused family-local owners at 129, 223, 193, 238, 143, and 156
+      lines, reducing claim_support.py to 31 lines over focused family-local
+      owners at 197, 264, 241, and 190 lines, and keeping app/db/models.py
+      frozen as the public compatibility facade. The focused db-model unit
+      slice passed at 609 tests and the focused DB-backed metadata slice passed
+      at 335 tests; the atomic closeout commit is still pending.
+  measurement:
+    metric_name: db_model_owner_family_max_line_count
+    current_value: 388.0
+    measurement_window: 2026-05-18 local db-model residual owner-family verification
+    notes: >-
+      The current local state keeps audit_and_evidence.py at 31 lines,
+      semantic_memory.py at 53 lines, and claim_support.py at 31 lines while
+      the largest family-local owner is
+      audit_and_evidence_technical_reports.py at 388 lines. The shared unit
+      root now measures 457 lines and the shared integration root now measures
+      472 lines after moving family-local ownership checks into focused
+      siblings.
+  created_at: '2026-05-18T00:00:00Z'
+  updated_at: '2026-05-18T00:00:00Z'
+- case_id: IC-7D8AE7C83B8F
+  title: 'Architecture hotspot: tests/unit/test_db_model_import_compatibility.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: tests/unit/test_db_model_import_compatibility.py previously
+    mixed cross-domain ownership assertions, domain-table column contracts, and
+    shared facade smoke coverage in one 612-line unit surface.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-probe:largest-file:tests/unit/test_db_model_import_compatibility.py
+    notes: Refreshed during the 2026-05-18 db-model residual owner-family
+      implementation from the live wc -l snapshot before and after the
+      family-local harness split.
+  artifact:
+    artifact_type: test
+    target_path: tests/unit/test_db_model_import_compatibility.py
+    description: Residual compatibility smoke surface for shared db-model import
+      and metadata coverage.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check tests/unit/test_db_model_import_compatibility.py
+      tests/unit/test_db_model_import_compatibility_*.py
+      tests/unit/test_db_models_facade_contract.py
+    - uv run pytest -q tests/unit/test_db_models_facade_contract.py
+      tests/unit/test_db_model_import_compatibility.py
+      tests/unit/test_db_model_import_compatibility_*.py
+    acceptance_conditions:
+    - tests/unit/test_db_model_import_compatibility.py remains a narrow shared
+      smoke surface at or below 600 lines.
+    - Domain-local ownership and column-contract coverage stay routed to focused
+      sibling files under the default 600-line budget.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: Local db-model residual owner-family implementation resolves the
+      routed shared unit hotspot in the current checkout by reducing the root
+      unit surface to 457 lines and moving audit-and-evidence, claim-support,
+      and semantic-memory ownership or column checks into focused siblings at
+      45, 45, and 51 lines while preserving the broader import-compatibility
+      contract. The atomic closeout commit is still pending.
+  measurement:
+    metric_name: test_db_model_import_compatibility_hotspot_line_count
+    current_value: 457.0
+    measurement_window: 2026-05-18 local db-model residual owner-family verification
+    notes: The current local state keeps tests/unit/test_db_model_import_compatibility.py
+      at 457 lines with focused family-local siblings at 45, 45, and 51 lines.
+      The focused db-model unit slice passed at 609 tests in the current checkout.
+  created_at: '2026-05-18T00:00:00Z'
+  updated_at: '2026-05-18T00:00:00Z'
+- case_id: IC-62C75B82F0AA
+  title: 'Architecture hotspot: tests/integration/test_db_model_metadata.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: tests/integration/test_db_model_metadata.py previously
+    mixed domain-table create-all contract assertions with the shared index,
+    unique-constraint, and vector-dimension gates in one 562-line DB-backed
+    integration surface.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-probe:largest-file:tests/integration/test_db_model_metadata.py
+    notes: Refreshed during the 2026-05-18 db-model residual owner-family
+      implementation from the live wc -l snapshot before and after the
+      family-local metadata split.
+  artifact:
+    artifact_type: test
+    target_path: tests/integration/test_db_model_metadata.py
+    description: Residual shared Postgres metadata smoke surface for db-model
+      create-all verification.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check tests/integration/test_db_model_metadata.py
+      tests/integration/test_db_model_metadata_*.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_db_model_metadata.py
+      tests/integration/test_db_model_metadata_*.py
+    acceptance_conditions:
+    - tests/integration/test_db_model_metadata.py remains a narrow shared
+      create-all smoke surface at or below 600 lines.
+    - Domain-local Postgres column-contract coverage stays routed to focused
+      sibling files under the default 600-line budget.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: Local db-model residual owner-family implementation resolves the
+      routed shared DB-backed metadata hotspot in the current checkout by
+      reducing the root integration surface to 472 lines and moving
+      audit-and-evidence, claim-support, and semantic-memory column checks
+      into focused siblings at 43 lines each while preserving the broader
+      Postgres create-all contract. The atomic closeout commit is still pending.
+  measurement:
+    metric_name: test_db_model_metadata_hotspot_line_count
+    current_value: 472.0
+    measurement_window: 2026-05-18 local db-model residual owner-family verification
+    notes: The current local state keeps tests/integration/test_db_model_metadata.py
+      at 472 lines with focused family-local siblings at 43 lines each. The
+      focused DB-backed metadata slice passed at 335 tests in the current checkout.
+  created_at: '2026-05-18T00:00:00Z'
+  updated_at: '2026-05-18T00:00:00Z'
+- case_id: IC-4B6E9F8D2A10
+  title: 'Architecture hotspot: evaluation residual owner-family modules'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/evaluations.py is already a deployed
+    283-line compatibility facade under IC-BF180637814C. The 2026-05-18
+    next-pass split removed the evaluation family from the live >800 backlog,
+    and the later gap-close pass retired the remaining same-family 601-800
+    residuals under the default 600-line budget. The registry stays open only
+    until the atomic closeout commit records the locally verified retirement.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/services/evaluation_fixtures.py
+    notes: Refreshed during the 2026-05-18 residual large-file backlog
+      Milestone 0 rebaseline from the live architecture probe and wc -l
+      snapshot after the evaluations service boundary closeout. Family
+      members=app/services/evaluation_fixtures.py,
+      app/services/evaluation_fixture_auto_generation.py,
+      app/services/evaluation_fixture_materialization.py,
+      app/services/evaluation_scoring.py,
+      app/services/evaluation_scoring_answers.py,
+      app/services/evaluation_scoring_structural.py,
+      app/services/eval_workbench.py,
+      app/services/eval_workbench_refresh.py,
+      app/services/eval_workbench_inspection.py,
+      tests/unit/test_evaluation_fixtures.py,
+      tests/unit/test_evaluation_fixture_persistence.py,
+      tests/unit/test_evaluation_fixtures_auto_queries.py,
+      tests/unit/test_evaluation_fixtures_auto_query_filtering.py.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/evaluation_fixtures.py
+    description: Residual evaluation owner-family anchor after the
+      app/services/evaluations.py facade split.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check app/services/evaluation_fixtures.py
+      app/services/evaluation_fixture_auto_generation.py
+      app/services/evaluation_fixture_materialization.py
+      app/services/evaluation_scoring.py
+      app/services/evaluation_scoring_answers.py
+      app/services/evaluation_scoring_structural.py
+      app/services/eval_workbench.py
+      app/services/eval_workbench_refresh.py
+      app/services/eval_workbench_inspection.py
+      tests/unit/test_evaluation_service.py
+      tests/unit/test_evaluation_fixtures.py
+      tests/unit/test_evaluation_fixture_persistence.py
+      tests/unit/test_evaluation_fixtures_auto_queries.py
+      tests/unit/test_evaluation_fixtures_auto_query_filtering.py
+      tests/unit/test_evaluation_scoring.py tests/unit/test_evaluation_reads.py
+      tests/unit/test_eval_workbench_service.py
+      tests/unit/test_eval_workbench_api.py
+    - uv run pytest -q tests/unit/test_evaluation_service.py
+      tests/unit/test_evaluation_fixtures.py
+      tests/unit/test_evaluation_fixture_persistence.py
+      tests/unit/test_evaluation_fixtures_auto_queries.py
+      tests/unit/test_evaluation_fixtures_auto_query_filtering.py
+      tests/unit/test_evaluation_scoring.py tests/unit/test_evaluation_reads.py
+      tests/unit/test_eval_workbench_service.py
+      tests/unit/test_eval_workbench_api.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_postgres_roundtrip.py
+      tests/integration/test_eval_workbench_roundtrip.py
+      tests/integration/test_multivector_retrieval.py
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - app/services/evaluations.py remains the deployed narrow facade while the
+      governed evaluation residual owners drop below the >800-line backlog and
+      keep stronger focused unit and DB-backed integration coverage.
+    - Any new evaluation owner or test root left between 601 and 800 lines is
+      routed in the same milestone with explicit hygiene ownership.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: Created during the residual large-file backlog Milestone 0
+      rebaseline to route the extracted evaluation owner family through
+      docs/evaluation_residual_owner_family_milestone_plan.md instead of
+      leaving it under the deployed evaluations facade case. The next pass
+      reduces the original >800 roots to app/services/evaluation_fixtures.py
+      376 / 14, app/services/evaluation_scoring.py 698 / 23,
+      app/services/eval_workbench.py 726 / 17, and
+      tests/unit/test_evaluation_fixtures.py 751 / 0. The later gap-close pass
+      then retires the same-family 601-800 residuals in place, with auto-fixture
+      retrieval-backed materialization now lives in
+      app/services/evaluation_fixture_materialization.py at 67 / 2, answer-case
+      scoring now lives in app/services/evaluation_scoring_answers.py at
+      175 / 1, workbench refresh and upsert ownership now lives in
+      app/services/eval_workbench_refresh.py at 431 / 7, fixture persistence
+      tests now live in tests/unit/test_evaluation_fixture_persistence.py at
+      310 / 0, and late auto-query filtering coverage now lives in
+      tests/unit/test_evaluation_fixtures_auto_query_filtering.py at 378 / 0.
+      The governed family now has no file above the default 600-line budget in
+      the local checkout and remains open only as an uncommitted retirement-
+      ready route.
+  measurement:
+    metric_name: evaluation_owner_family_max_line_count
+    current_value: 570.0
+    measurement_window: 2026-05-18 local evaluation residual owner-family gap-close pass
+    notes: app/services/evaluation_fixtures.py now measures 376 lines / 14
+      private helpers, app/services/evaluation_fixture_auto_generation.py
+      570 / 16, app/services/evaluation_fixture_materialization.py 67 / 2,
+      app/services/evaluation_scoring.py 530 / 22,
+      app/services/evaluation_scoring_answers.py 175 / 1,
+      app/services/evaluation_scoring_structural.py 218 / 2,
+      app/services/eval_workbench.py 322 / 10,
+      app/services/eval_workbench_refresh.py 431 / 7,
+      app/services/eval_workbench_inspection.py 252 / 2,
+      tests/unit/test_evaluation_fixtures.py 445 / 0,
+      tests/unit/test_evaluation_fixture_persistence.py 310 / 0,
+      tests/unit/test_evaluation_fixtures_auto_queries.py 390 / 0, and
+      tests/unit/test_evaluation_fixtures_auto_query_filtering.py 378 / 0.
+      The governed family now has no file above the default 600-line budget in
+      the local checkout; the case remains open only until an atomic closeout
+      commit records the verified retirement.
+  created_at: '2026-05-18T00:00:00Z'
+  updated_at: '2026-05-18T00:00:00Z'
+- case_id: IC-81F2C6D4B9A7
+  title: 'Architecture hotspot: UI module residual owner family'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/ui/app.js is already a narrow 107-line shipped
+    bootstrap under IC-1B643BA0AD90. The 2026-05-18 UI follow-on split removed
+    the routed UI family from the live >800 backlog, rewired the shipped HTML
+    entrypoints to focused module siblings, and kept every governed UI module
+    at or below the default 600-line budget. The registry stays open only
+    until the atomic closeout commit records the locally verified retirement.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/ui/modules/agents.js
+    notes: Refreshed during the 2026-05-18 UI residual owner-family closeout
+      from the live architecture probe and wc -l snapshot after the helper
+      module split. Family members=app/ui/modules/shared_runtime.js,
+      app/ui/modules/shared.js, app/ui/modules/shared_search_rendering.js,
+      app/ui/modules/agents_collections.js,
+      app/ui/modules/agents_claim_support_replay.js,
+      app/ui/modules/agents_report_harness.js, and app/ui/modules/agents.js.
+  artifact:
+    artifact_type: contract
+    target_path: app/ui/modules/agents.js
+    description: Residual UI module owner-family anchor after the app/ui/app.js
+      bootstrap split.
+  verification:
+    commands:
+    - git diff --check
+    - node --check app/ui/modules/shared_runtime.js
+    - node --check app/ui/modules/shared.js
+    - node --check app/ui/modules/shared_search_rendering.js
+    - node --check app/ui/modules/agents_collections.js
+    - node --check app/ui/modules/agents_claim_support_replay.js
+    - node --check app/ui/modules/agents_report_harness.js
+    - node --check app/ui/modules/agents.js
+    - node --check app/ui/app.js
+    - uv run pytest -q tests/unit/test_ui.py tests/unit/test_ui_static_assets.py
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - app/ui/app.js remains the narrow shipped bootstrap while the governed UI
+      module family no longer appears in the >800-line backlog and no governed
+      UI root exceeds the default 600-line budget.
+    - Newly introduced UI siblings are exact-ratcheted in the same milestone
+      so the split does not shift debt into a new ungoverned JavaScript sink.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: Created during the residual large-file backlog Milestone 0
+      rebaseline to route the post-bootstrap UI module monoliths through
+      docs/ui_module_residual_owner_family_milestone_plan.md rather than the
+      already-narrow app/ui/app.js case. The local closeout now moves auth and
+      fetch ownership into app/ui/modules/shared_runtime.js at 307 lines,
+      search-result and harness-card rendering into
+      app/ui/modules/shared_search_rendering.js at 115 lines, active-task list
+      ownership into app/ui/modules/agents_collections.js at 56 lines,
+      claim-support replay ownership into
+      app/ui/modules/agents_claim_support_replay.js at 313 lines, and report
+      harness ownership into app/ui/modules/agents_report_harness.js at 318
+      lines while keeping app/ui/modules/shared.js at 517 lines,
+      app/ui/modules/agents.js at 599 lines, and app/ui/app.js at 107 lines.
+      All shipped HTML entrypoints now load the split module graph before the
+      bootstrap, and the case remains open only as an uncommitted retirement-
+      ready route.
+  measurement:
+    metric_name: ui_module_owner_family_max_line_count
+    current_value: 599.0
+    measurement_window: 2026-05-18 local UI residual owner-family closeout
+    notes: app/ui/modules/shared_runtime.js now measures 307 lines,
+      app/ui/modules/shared.js 517, app/ui/modules/shared_search_rendering.js
+      115, app/ui/modules/agents_collections.js 56,
+      app/ui/modules/agents_claim_support_replay.js 313,
+      app/ui/modules/agents_report_harness.js 318, and
+      app/ui/modules/agents.js 599. The governed UI family now has no file
+      above the default 600-line budget in the local checkout, app/ui/app.js
+      remains the 107-line bootstrap, and the focused UI suite passed at
+      10 tests.
+  created_at: '2026-05-18T00:00:00Z'
+  updated_at: '2026-05-18T00:00:00Z'
+- case_id: IC-2D5A7E9C4B18
+  title: 'Architecture hotspot: semantic and technical-report residual owner family'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: the semantic and technical-report residual family is now
+    reduced and locally retirement-ready in the current checkout.
+    app/services/semantic_orchestration.py closes at 543 lines with triage
+    ownership moved into app/services/semantic_orchestration_triage.py at 570,
+    app/services/technical_reports.py closes at 574 with verification and
+    task-output ownership moved into
+    app/services/technical_report_verification.py at 485 and
+    app/services/technical_report_task_context.py at 33, and
+    app/services/audit_bundle_training_runs.py closes at 554 with payload and
+    provenance ownership moved into
+    app/services/audit_bundle_training_run_payloads.py at 159 and
+    app/services/audit_bundle_training_run_provenance.py at 258. The split
+    unit roots now close at tests/unit/test_technical_reports.py = 486 and
+    tests/unit/test_technical_report_verification.py = 125 without weakening
+    the report or audit assertions.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/services/technical_reports.py
+    notes: Refreshed during the 2026-05-18 semantic/report residual closeout
+      pass from the live focused line-count snapshot after the code split and
+      focused verification. Family members=app/services/semantic_orchestration.py,
+      app/services/semantic_orchestration_triage.py,
+      app/services/technical_reports.py,
+      app/services/technical_report_verification.py,
+      app/services/technical_report_task_context.py,
+      app/services/audit_bundle_training_runs.py,
+      app/services/audit_bundle_training_run_payloads.py,
+      app/services/audit_bundle_training_run_provenance.py,
+      tests/unit/test_technical_reports.py,
+      tests/unit/test_technical_report_verification.py.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/technical_reports.py
+    description: Residual semantic and technical-report owner-family anchor
+      now locally retirement-ready pending an atomic closeout commit.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check app/services/semantic_orchestration.py
+      app/services/semantic_orchestration_triage.py
+      app/services/technical_reports.py
+      app/services/technical_report_verification.py
+      app/services/technical_report_task_context.py
+      app/services/audit_bundle_training_runs.py
+      app/services/audit_bundle_training_run_payloads.py
+      app/services/audit_bundle_training_run_provenance.py
+      tests/unit/test_semantic_orchestration.py
+      tests/unit/test_technical_reports.py
+      tests/unit/test_technical_report_verification.py
+      tests/unit/test_audit_bundle_training_runs.py
+      tests/unit/test_audit_bundles_facade_contract.py
+      tests/unit/test_audit_bundle_validation_receipts.py
+    - uv run pytest -q tests/unit/test_semantic_orchestration.py
+      tests/unit/test_technical_reports.py
+      tests/unit/test_technical_report_verification.py
+      tests/unit/test_audit_bundle_training_runs.py
+      tests/unit/test_audit_bundles_facade_contract.py
+      tests/unit/test_audit_bundle_validation_receipts.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_agent_task_semantic_orchestration_roundtrip.py
+      tests/integration/test_technical_report_harness_roundtrip.py
+      tests/integration/test_technical_report_harness_audit_surfaces.py
+    - uv run pytest -q tests/unit/test_agent_task_context.py
+      tests/unit/test_agent_task_context_reports_claim_support.py
+      tests/integration/test_technical_report_harness_integrity.py
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - The governed semantic, technical-report, and audit-training owners fall
+      below the >800-line backlog without spilling implementation into
+      documents.py, eval_workbench.py, or unrelated agent-task context owners.
+    - No new cycle appears, and any new 601-800 line owner created by the
+      packet is routed in the same milestone with explicit hygiene ownership.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: >-
+      The 2026-05-18 semantic/report residual closeout pass split semantic
+      triage into app/services/semantic_orchestration_triage.py, split report
+      verification and task-output ownership into
+      app/services/technical_report_verification.py and
+      app/services/technical_report_task_context.py, split retrieval-training
+      audit payload and provenance ownership into
+      app/services/audit_bundle_training_run_payloads.py and
+      app/services/audit_bundle_training_run_provenance.py, and moved
+      verification-only report assertions into
+      tests/unit/test_technical_report_verification.py. The governed family
+      now has no file above the default 600-line budget, the focused unit
+      slice passed at 26 tests, the DB-backed integration slice passed at 4
+      tests, and the dependent downstream report-context and harness-integrity
+      slice passed at 7 tests with 1 expected skip, proving the split did not
+      move debt into adjacent owners. The next routed packet is
+      docs/cross_cutting_large_file_residual_milestone_plan.md. This case
+      remains open only until that locally verified closeout lands in an
+      atomic commit.
+  measurement:
+    metric_name: semantic_report_owner_family_max_line_count
+    current_value: 574.0
+    measurement_window: 2026-05-18 semantic/report residual closeout pass
+    notes: >-
+      The current local state keeps
+      app/services/semantic_orchestration.py at 543 lines / 6 private
+      helpers, app/services/semantic_orchestration_triage.py at 570 / 5,
+      app/services/technical_reports.py at 574 / 0,
+      app/services/technical_report_verification.py at 485 / 1,
+      app/services/technical_report_task_context.py at 33 / 0,
+      app/services/audit_bundle_training_runs.py at 554 / 1,
+      app/services/audit_bundle_training_run_payloads.py at 159 / 0, and
+      app/services/audit_bundle_training_run_provenance.py at 258 / 0. The
+      split report test roots now measure 486 / 6 and 125 / 0. No governed
+      semantic/report owner remains above 600 lines in the local checkout.
+      The downstream report-context and harness-integrity slice also stayed
+      green at 7 passed and 1 skipped, so the packet is retirement-ready
+      pending an atomic closeout commit.
+  created_at: '2026-05-18T00:00:00Z'
+  updated_at: '2026-05-18T21:13:23Z'
+- case_id: IC-6C3E1A7B9D52
+  title: 'Architecture hotspot: cross-cutting service and verification residual family'
+  status: verified
+  cause_class: unclear_ownership
+  observed_failure: The live >800 cross-cutting service and verification
+    backlog is removed locally, the documents-service sink is now closed to a
+    49-line compatibility facade with document-local owners at 233, 324, and
+    276 lines, and the routed verification residuals are now also closed
+    below the default 600-line hygiene target. The current narrowed family
+    measures tests/unit/test_agent_task_verifications.py at 324,
+    tests/integration/test_postgres_roundtrip.py at 331,
+    tests/unit/test_docling_parser.py at 540,
+    tests/integration/test_search_harness_releases.py at 269, and
+    tests/integration/test_claim_support_policy_activation_roundtrip.py at
+    437, with family-local siblings and support now carrying the moved parser,
+    search-harness readiness, and claim-support waiver coverage. The adjacent
+    architecture-governance family remains explicitly routed under
+    IC-08C078FD4F45.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/services/documents.py
+    notes: Refreshed during the 2026-05-18 residual large-file backlog
+      Milestone 0 rebaseline from the live architecture probe and wc -l
+      snapshot. Refreshed again during the parent cross-cutting closeout after
+      the live architecture probe dropped to zero code files above 800 and the
+      narrowed file set stabilized around app/services/document_run_views.py,
+      tests/unit/test_agent_task_verifications_drafts.py,
+      tests/integration/test_postgres_roundtrip_semantics.py,
+      tests/integration/test_postgres_roundtrip_failures.py,
+      tests/unit/test_docling_parser_table_supplements.py,
+      tests/integration/search_harness_release_support.py, and
+      tests/integration/test_claim_support_policy_activation_retired_identity.py.
+      Refreshed again during the documents-service boundary closeout after
+      app/services/documents.py reduced to 49 lines with exact ratchets on
+      app/services/document_ingest.py at 233, app/services/document_run_queue.py
+      at 324, app/services/document_run_views.py at 276, and
+      app/services/documents.py at 49. Refreshed again during the
+      cross-cutting verification closeout after tests/unit/test_docling_parser.py
+      reduced to 540 lines with new logical-table coverage in
+      tests/unit/test_docling_parser_logical_tables.py at 160, after
+      tests/integration/test_search_harness_releases.py reduced to 269 with
+      search-harness release audit or readiness support in
+      tests/integration/search_harness_release_support.py at 242,
+      tests/integration/search_harness_release_audit_support.py at 296, and
+      tests/integration/test_search_harness_release_readiness.py at 224, and
+      after tests/integration/test_claim_support_policy_activation_roundtrip.py
+      reduced to 437 with waiver coverage in
+      tests/integration/test_claim_support_policy_activation_waivers.py at 349.
+      Family members=app/services/documents.py,
+      tests/unit/test_agent_task_verifications.py,
+      tests/integration/test_postgres_roundtrip.py,
+      tests/unit/test_docling_parser.py,
+      tests/integration/test_search_harness_releases.py,
+      tests/integration/test_claim_support_policy_activation_roundtrip.py.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/documents.py
+    description: Cross-cutting service and verification residual owner-family anchor.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check app/services/documents.py app/services/document_ingest.py
+      app/services/document_run_queue.py app/services/document_run_views.py
+      app/services/improvement_cases.py app/services/improvement_case_observations.py
+      tests/unit/test_document_service.py tests/unit/test_documents_api.py
+      tests/unit/test_documents_api_artifacts.py tests/unit/test_documents_api_semantics.py
+      tests/unit/test_agent_task_verifications.py tests/unit/test_agent_task_verifications_drafts.py
+      tests/unit/agent_task_verification_support.py tests/unit/test_docling_parser.py
+      tests/unit/test_docling_parser_logical_tables.py tests/unit/test_docling_parser_table_supplements.py
+      tests/unit/test_improvement_case_intake.py tests/unit/test_improvement_case_intake_contracts.py
+      tests/integration/test_postgres_roundtrip.py
+      tests/integration/test_postgres_roundtrip_semantics.py tests/integration/test_postgres_roundtrip_failures.py
+      tests/integration/postgres_roundtrip_support.py tests/integration/test_search_harness_releases.py
+      tests/integration/test_search_harness_release_readiness.py
+      tests/integration/search_harness_release_support.py tests/integration/search_harness_release_audit_support.py
+      tests/integration/test_claim_support_policy_activation_roundtrip.py
+      tests/integration/test_claim_support_policy_activation_waivers.py
+      tests/integration/test_claim_support_policy_activation_retired_identity.py
+    - uv run pytest -q tests/unit/test_document_service.py
+      tests/unit/test_documents_api.py
+      tests/unit/test_documents_api_artifacts.py
+      tests/unit/test_documents_api_semantics.py
+      tests/unit/test_agent_task_verifications.py
+      tests/unit/test_agent_task_verifications_drafts.py
+      tests/unit/test_docling_parser.py
+      tests/unit/test_docling_parser_logical_tables.py
+      tests/unit/test_docling_parser_table_supplements.py
+      tests/unit/test_improvement_case_intake.py
+      tests/unit/test_improvement_case_intake_contracts.py
+      tests/unit/test_improvement_cases.py
+      tests/unit/test_improvement_case_lifecycle.py
+      tests/unit/test_agent_trace_review.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_postgres_roundtrip.py
+      tests/integration/test_postgres_roundtrip_semantics.py
+      tests/integration/test_postgres_roundtrip_failures.py
+      tests/integration/test_search_harness_releases.py
+      tests/integration/test_search_harness_release_readiness.py
+      tests/integration/test_claim_support_policy_activation_roundtrip.py
+      tests/integration/test_claim_support_policy_activation_waivers.py
+      tests/integration/test_claim_support_policy_activation_retired_identity.py
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - app/services/documents.py remains a narrow compatibility facade while
+      the governed cross-cutting verification roots all close at or below the
+      default 600-line hygiene target without weakening assertions or
+      integration coverage.
+    - The paired architecture-governance surfaces remain explicitly routed
+      under IC-08C078FD4F45, and any new 601-800 line residual is routed in
+      the same milestone with explicit hygiene ownership.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: The parent cross-cutting large-file packet, the documents-service
+      boundary packet, and the cross-cutting verification packet are all
+      resolved locally in the current checkout. The document owner quartet now
+      closes at 49/233/324/276, the selected verification roots now close at
+      324/331/540/269/437, the new family-local siblings and support are
+      exact-ratcheted in hygiene, and the governance self-hosting packet under
+      IC-08C078FD4F45 is now also resolved locally. The next routed follow-on
+      must be reselected from docs/boring_change_architecture_milestone_plan.md.
+      Atomic closeout commit still pending because the worktree is broadly
+      dirty.
+  measurement:
+    metric_name: cross_cutting_large_file_family_max_line_count
+    current_value: 567.0
+    measurement_window: 2026-05-18 cross-cutting verification closeout
+    notes: app/services/documents.py measures 49 lines,
+      app/services/document_ingest.py 233,
+      app/services/document_run_queue.py 324,
+      app/services/document_run_views.py 276,
+      tests/unit/test_agent_task_verifications.py 324,
+      tests/integration/test_postgres_roundtrip.py 331,
+      tests/unit/test_agent_task_verifications_drafts.py 567,
+      tests/unit/test_docling_parser.py 540,
+      tests/integration/test_search_harness_releases.py 269, and
+      tests/integration/test_claim_support_policy_activation_roundtrip.py 437
+      after the verification closeout moved parser logical-table, search-harness
+      readiness, and claim-support waiver scenarios into family-local siblings
+      and support without creating a new >400 support sink.
+  created_at: '2026-05-18T00:00:00Z'
+  updated_at: '2026-05-18T23:59:00Z'

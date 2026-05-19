@@ -25,8 +25,13 @@ def test_index_serves_overview_ui() -> None:
     assert "/ui/evals.html" in response.text
     assert "/ui/semantics.html" in response.text
     assert "/ui/agents.html" in response.text
+    assert "/ui/modules/shared_runtime.js" in response.text
     assert "/ui/modules/shared.js" in response.text
+    assert "/ui/modules/shared_search_rendering.js" in response.text
     assert "/ui/modules/landing.js" in response.text
+    assert "/ui/modules/agents_collections.js" in response.text
+    assert "/ui/modules/agents_claim_support_replay.js" in response.text
+    assert "/ui/modules/agents_report_harness.js" in response.text
     assert "/ui/app.js" in response.text
 
 
@@ -137,16 +142,26 @@ def test_agent_ui_exposes_technical_report_harness_observability() -> None:
     client = TestClient(app)
 
     shared_response = client.get("/ui/modules/shared.js")
+    search_rendering_response = client.get("/ui/modules/shared_search_rendering.js")
+    claim_support_response = client.get("/ui/modules/agents_claim_support_replay.js")
+    report_harness_response = client.get("/ui/modules/agents_report_harness.js")
     agents_response = client.get("/ui/modules/agents.js")
 
     assert shared_response.status_code == 200
+    assert search_rendering_response.status_code == 200
+    assert claim_support_response.status_code == 200
+    assert report_harness_response.status_code == 200
     assert agents_response.status_code == 200
     assert "TECHNICAL_REPORT_TASK_TYPES" in shared_response.text
+    assert "renderHarnessCards" in search_rendering_response.text
+    assert "queueClaimSupportReplay" in claim_support_response.text
+    assert "refreshClaimSupportReplayStatus" in claim_support_response.text
     assert "/agent-tasks/actions" in agents_response.text
     assert "/agent-tasks/analytics/workflow-versions" in agents_response.text
-    assert "renderReportHarnessPacket" in agents_response.text
-    assert "missing_wake_context_count" in agents_response.text
-    assert "unresolved_evidence_card_ref_count" in agents_response.text
+    assert "renderReportHarnessPacket" in report_harness_response.text
+    assert "missing_wake_context_count" in report_harness_response.text
+    assert "unresolved_evidence_card_ref_count" in report_harness_response.text
+    assert "loadAgentsPage" in agents_response.text
 
 
 def test_semantics_ui_wires_backfill_status_and_slice_actions() -> None:

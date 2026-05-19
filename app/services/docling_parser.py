@@ -9,11 +9,11 @@ from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling.document_converter import DocumentConverter, PdfFormatOption
 
+import app.services.docling_parser_conversion as _docling_parser_conversion
+import app.services.docling_parser_normalization as _docling_parser_normalization
+import app.services.docling_parser_tables as _docling_parser_tables
 import app.services.docling_parser_types as _docling_parser_types
 from app.core.config import get_settings
-from app.services import docling_parser_conversion as _docling_parser_conversion
-from app.services import docling_parser_normalization as _docling_parser_normalization
-from app.services import docling_parser_tables as _docling_parser_tables
 
 FIGURE_ARTIFACT_SCHEMA_VERSION = _docling_parser_types.FIGURE_ARTIFACT_SCHEMA_VERSION
 TABLE_ARTIFACT_SCHEMA_VERSION = _docling_parser_types.TABLE_ARTIFACT_SCHEMA_VERSION
@@ -45,7 +45,7 @@ def _apply_registered_table_supplements(
     resolved_rules = (
         registry_rules
         if registry_rules is not None
-        else _docling_parser_tables.get_table_supplement_registry()
+        else _docling_parser_conversion.get_table_supplement_registry()
     )
     normalized_source_filename = Path(source_filename).name if source_filename else None
     result = tables

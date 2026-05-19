@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from app.core import hashes as _hashes
-from app.services import semantic_governance_audit as _audit
-from app.services import semantic_governance_context as _context
-from app.services import semantic_governance_core as _core
-from app.services import semantic_governance_events as _events
+import app.core.hashes as _hashes
+import app.services.semantic_governance_audit as _audit
+import app.services.semantic_governance_context as _context
+import app.services.semantic_governance_core as _core
+import app.services.semantic_governance_events as _events
 
 _payload_sha256 = _hashes.payload_sha256
 _event_hash_basis = _core._event_hash_basis

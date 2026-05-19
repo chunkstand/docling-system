@@ -1,0 +1,475 @@
+from __future__ import annotations
+
+from collections import Counter
+from pathlib import Path
+from uuid import uuid4
+
+import yaml
+
+from app.core.files import repo_root
+from app.core.time import utcnow
+from app.services.improvement_case_models import (
+    CONVERTED_IMPROVEMENT_STATUSES,
+    DEFAULT_IMPROVEMENT_CASES_PATH,
+    DEPLOYED_IMPROVEMENT_STATUSES,
+    IMPROVEMENT_ARTIFACT_TYPES,
+    IMPROVEMENT_CASE_SCHEMA_NAME,
+    IMPROVEMENT_CASE_SCHEMA_VERSION,
+    IMPROVEMENT_CASE_STATUSES,
+    IMPROVEMENT_CAUSE_CLASSES,
+    IMPROVEMENT_SOURCE_TYPES,
+    MEASURED_IMPROVEMENT_STATUSES,
+    VERIFIED_IMPROVEMENT_STATUSES,
+    ImprovementCase,
+    ImprovementCaseArtifact,
+    ImprovementCaseContractIssue,
+    ImprovementCaseDeployment,
+    ImprovementCaseMeasurement,
+    ImprovementCaseRegistry,
+    ImprovementCaseSource,
+    ImprovementCaseVerification,
+)
+
+
+def resolve_improvement_cases_path(
+    path: str | Path | None = None,
+    *,
+    project_root: Path | None = None,
+) -> Path:
+    raw_path = Path(path) if path is not None else DEFAULT_IMPROVEMENT_CASES_PATH
+    if raw_path.is_absolute():
+        return raw_path
+    return (project_root or repo_root()) / raw_path
+
+
+def empty_improvement_case_registry() -> ImprovementCaseRegistry:
+    return ImprovementCaseRegistry()
+
+
+def load_improvement_case_registry(
+    path: str | Path | None = None,
+    *,
+    project_root: Path | None = None,
+) -> ImprovementCaseRegistry:
+    resolved_path = resolve_improvement_cases_path(path, project_root=project_root)
+    if not resolved_path.exists():
+        return empty_improvement_case_registry()
+    payload = yaml.safe_load(resolved_path.read_text()) or {}
+    return ImprovementCaseRegistry.model_validate(payload)
+
+
+def load_improvement_case_registry_for_validation(
+    path: str | Path | None = None,
+    *,
+    project_root: Path | None = None,
+) -> tuple[ImprovementCaseRegistry, list[ImprovementCaseContractIssue]]:
+    try:
+        return load_improvement_case_registry(path, project_root=project_root), []
+    except Exception as exc:
+        return empty_improvement_case_registry(), [
+            ImprovementCaseContractIssue(
+                case_id=None,
+                field="registry",
+                message=f"Unable to load improvement case registry: {exc}",
+            )
+        ]
+
+
+def write_improvement_case_registry(
+    registry: ImprovementCaseRegistry,
+    path: str | Path | None = None,
+    *,
+    project_root: Path | None = None,
+) -> Path:
+    resolved_path = resolve_improvement_cases_path(path, project_root=project_root)
+    resolved_path.parent.mkdir(parents=True, exist_ok=True)
+    resolved_path.write_text(
+        yaml.safe_dump(
+            registry.model_dump(mode="json"),
+            sort_keys=False,
+            allow_unicode=True,
+        )
+    )
+    return resolved_path
+
+
+def _empty_text(value: object) -> bool:
+    return not isinstance(value, str) or not value.strip()
+
+
+def _case_issue(
+    case: ImprovementCase,
+    field: str,
+    message: str,
+) -> ImprovementCaseContractIssue:
+    return ImprovementCaseContractIssue(case_id=case.case_id, field=field, message=message)
+
+
+def _has_artifact_payload(case: ImprovementCase) -> bool:
+    return any(
+        isinstance(value, str) and value.strip()
+        for value in (
+            case.artifact.artifact_type,
+            case.artifact.target_path,
+            case.artifact.description,
+        )
+    )
+
+
+def _artifact_path_issues(
+    case: ImprovementCase,
+    *,
+    project_root: Path,
+) -> list[ImprovementCaseContractIssue]:
+    if _empty_text(case.artifact.target_path):
+        return [
+            _case_issue(
+                case,
+                "artifact.target_path",
+                "Executable artifact target path is required.",
+            )
+        ]
+
+    raw_target_path = Path(case.artifact.target_path)
+    if raw_target_path.is_absolute():
+        return [
+            _case_issue(
+                case,
+                "artifact.target_path",
+                "Executable artifact target path must be repo-relative.",
+            )
+        ]
+
+    resolved_target_path = (project_root / raw_target_path).resolve()
+    try:
+        resolved_target_path.relative_to(project_root.resolve())
+    except ValueError:
+        return [
+            _case_issue(
+                case,
+                "artifact.target_path",
+                "Executable artifact target path must stay inside the repo.",
+            )
+        ]
+
+    if not resolved_target_path.exists():
+        return [
+            _case_issue(
+                case,
+                "artifact.target_path",
+                "Executable artifact target path does not exist.",
+            )
+        ]
+    return []
+
+
+def validate_improvement_case_registry(
+    registry: ImprovementCaseRegistry,
+    *,
+    project_root: Path | None = None,
+) -> list[ImprovementCaseContractIssue]:
+    issues: list[ImprovementCaseContractIssue] = []
+    root = (project_root or repo_root()).resolve()
+    if registry.schema_name != IMPROVEMENT_CASE_SCHEMA_NAME:
+        issues.append(
+            ImprovementCaseContractIssue(
+                case_id=None,
+                field="schema_name",
+                message=(
+                    f"Expected schema_name '{IMPROVEMENT_CASE_SCHEMA_NAME}', "
+                    f"got '{registry.schema_name}'."
+                ),
+            )
+        )
+    if registry.schema_version != IMPROVEMENT_CASE_SCHEMA_VERSION:
+        issues.append(
+            ImprovementCaseContractIssue(
+                case_id=None,
+                field="schema_version",
+                message=(
+                    f"Expected schema_version '{IMPROVEMENT_CASE_SCHEMA_VERSION}', "
+                    f"got '{registry.schema_version}'."
+                ),
+            )
+        )
+
+    case_ids = [case.case_id for case in registry.cases]
+    duplicates = {case_id for case_id, count in Counter(case_ids).items() if count > 1}
+    for case_id in sorted(duplicates):
+        issues.append(
+            ImprovementCaseContractIssue(
+                case_id=case_id,
+                field="case_id",
+                message="Improvement case IDs must be unique.",
+            )
+        )
+
+    for case in registry.cases:
+        if _empty_text(case.case_id):
+            issues.append(_case_issue(case, "case_id", "Case ID is required."))
+        if _empty_text(case.title):
+            issues.append(_case_issue(case, "title", "Title is required."))
+        if _empty_text(case.observed_failure):
+            issues.append(
+                _case_issue(case, "observed_failure", "Observed failure is required.")
+            )
+        if _empty_text(case.workflow_version):
+            issues.append(
+                _case_issue(case, "workflow_version", "Workflow version is required.")
+            )
+        if case.status not in IMPROVEMENT_CASE_STATUSES:
+            issues.append(
+                _case_issue(case, "status", f"Unknown improvement case status '{case.status}'.")
+            )
+        if case.cause_class not in IMPROVEMENT_CAUSE_CLASSES:
+            issues.append(
+                _case_issue(case, "cause_class", f"Unknown cause class '{case.cause_class}'.")
+            )
+        if case.source.source_type not in IMPROVEMENT_SOURCE_TYPES:
+            issues.append(
+                _case_issue(
+                    case,
+                    "source.source_type",
+                    f"Unknown source type '{case.source.source_type}'.",
+                )
+            )
+        requires_artifact = case.status in CONVERTED_IMPROVEMENT_STATUSES
+        has_artifact_payload = _has_artifact_payload(case)
+        if (requires_artifact or has_artifact_payload) and (
+            case.artifact.artifact_type not in IMPROVEMENT_ARTIFACT_TYPES
+        ):
+            issues.append(
+                _case_issue(
+                    case,
+                    "artifact.artifact_type",
+                    f"Unknown artifact type '{case.artifact.artifact_type}'.",
+                )
+            )
+        if requires_artifact or has_artifact_payload:
+            issues.extend(_artifact_path_issues(case, project_root=root))
+        if (requires_artifact or has_artifact_payload) and _empty_text(
+            case.artifact.description
+        ):
+            issues.append(
+                _case_issue(
+                    case,
+                    "artifact.description",
+                    "Executable artifact description is required.",
+                )
+            )
+
+        has_verification_command = any(command.strip() for command in case.verification.commands)
+        has_acceptance_condition = any(
+            condition.strip() for condition in case.verification.acceptance_conditions
+        )
+        if requires_artifact and not has_verification_command and not has_acceptance_condition:
+            issues.append(
+                _case_issue(
+                    case,
+                    "verification",
+                    "At least one verification command or acceptance condition is required.",
+                )
+            )
+        if (
+            case.status in VERIFIED_IMPROVEMENT_STATUSES
+            and not case.verification.catches_old_failure
+        ):
+            issues.append(
+                _case_issue(
+                    case,
+                    "verification.catches_old_failure",
+                    "Verification must explicitly catch the old failure.",
+                )
+            )
+        if (
+            case.status in VERIFIED_IMPROVEMENT_STATUSES
+            and not case.verification.allows_good_changes
+        ):
+            issues.append(
+                _case_issue(
+                    case,
+                    "verification.allows_good_changes",
+                    "Verification must explicitly allow good changes.",
+                )
+            )
+        if case.status in DEPLOYED_IMPROVEMENT_STATUSES and _empty_text(
+            case.deployment.deployed_ref
+        ):
+            issues.append(
+                _case_issue(
+                    case,
+                    "deployment.deployed_ref",
+                    "Deployed, measured, and closed cases must include a deployment ref.",
+                )
+            )
+        if case.status in MEASURED_IMPROVEMENT_STATUSES and (
+            _empty_text(case.measurement.metric_name) or case.measurement.current_value is None
+        ):
+            issues.append(
+                _case_issue(
+                    case,
+                    "measurement",
+                    "Measured and closed cases must include a metric name and value.",
+                )
+            )
+    return issues
+
+
+def build_improvement_case_manifest(
+    registry: ImprovementCaseRegistry,
+) -> list[dict[str, object]]:
+    return [
+        {
+            "case_id": case.case_id,
+            "title": case.title,
+            "status": case.status,
+            "cause_class": case.cause_class,
+            "artifact_type": case.artifact.artifact_type,
+            "artifact_target_path": case.artifact.target_path,
+            "verification_commands": case.verification.commands,
+            "acceptance_conditions": case.verification.acceptance_conditions,
+            "source_type": case.source.source_type,
+            "workflow_version": case.workflow_version,
+            "deployed_ref": case.deployment.deployed_ref,
+            "metric_name": case.measurement.metric_name,
+            "metric_value": case.measurement.current_value,
+        }
+        for case in registry.cases
+    ]
+
+
+def summarize_improvement_cases(registry: ImprovementCaseRegistry) -> dict[str, object]:
+    cases = registry.cases
+    measured_cases = [
+        case
+        for case in cases
+        if case.measurement.metric_name is not None and case.measurement.current_value is not None
+    ]
+    open_unconverted_cases = [case for case in cases if case.status == "open"]
+    converted_unverified_cases = [case for case in cases if case.status == "converted"]
+    verified_undeployed_cases = [case for case in cases if case.status == "verified"]
+    repeated_cause_classes = {
+        cause_class: count
+        for cause_class, count in Counter(case.cause_class for case in cases).items()
+        if cause_class and count > 1
+    }
+    oldest_open_case = min(
+        open_unconverted_cases,
+        key=lambda case: case.created_at or "",
+        default=None,
+    )
+    return {
+        "schema_name": "improvement_case_summary",
+        "schema_version": "1.0",
+        "case_count": len(cases),
+        "status_counts": dict(Counter(case.status for case in cases)),
+        "cause_class_counts": dict(Counter(case.cause_class for case in cases)),
+        "artifact_type_counts": dict(
+            Counter(case.artifact.artifact_type for case in cases if case.artifact.artifact_type)
+        ),
+        "workflow_version_counts": dict(Counter(case.workflow_version for case in cases)),
+        "source_type_counts": dict(Counter(case.source.source_type for case in cases)),
+        "measured_case_count": len(measured_cases),
+        "actionable_buckets": {
+            "open_unconverted_count": len(open_unconverted_cases),
+            "converted_unverified_count": len(converted_unverified_cases),
+            "verified_undeployed_count": len(verified_undeployed_cases),
+            "oldest_open_case_id": oldest_open_case.case_id if oldest_open_case else None,
+            "repeated_cause_classes": repeated_cause_classes,
+        },
+    }
+
+
+def filter_improvement_cases(
+    registry: ImprovementCaseRegistry,
+    *,
+    status: str | None = None,
+    cause_class: str | None = None,
+    artifact_type: str | None = None,
+    workflow_version: str | None = None,
+) -> ImprovementCaseRegistry:
+    cases = registry.cases
+    if status is not None:
+        cases = [case for case in cases if case.status == status]
+    if cause_class is not None:
+        cases = [case for case in cases if case.cause_class == cause_class]
+    if artifact_type is not None:
+        cases = [case for case in cases if case.artifact.artifact_type == artifact_type]
+    if workflow_version is not None:
+        cases = [case for case in cases if case.workflow_version == workflow_version]
+    return ImprovementCaseRegistry(
+        schema_name=registry.schema_name,
+        schema_version=registry.schema_version,
+        cases=cases,
+    )
+
+
+def record_improvement_case(
+    *,
+    path: str | Path | None = None,
+    title: str,
+    observed_failure: str,
+    cause_class: str,
+    artifact_type: str | None = None,
+    artifact_target_path: str | None = None,
+    artifact_description: str | None = None,
+    verification_commands: list[str] | None = None,
+    acceptance_conditions: list[str] | None = None,
+    source_type: str = "operator_note",
+    source_ref: str | None = None,
+    status: str = "converted",
+    workflow_version: str = "improvement_v1",
+    case_id: str | None = None,
+    deployed_ref: str | None = None,
+    metric_name: str | None = None,
+    metric_value: float | None = None,
+    measurement_window: str | None = None,
+    project_root: Path | None = None,
+) -> ImprovementCase:
+    root = project_root or repo_root()
+    registry = load_improvement_case_registry(path, project_root=root)
+    now = utcnow().isoformat()
+    commands = verification_commands or []
+    conditions = acceptance_conditions or []
+    has_verification_evidence = bool(commands or conditions)
+    case = ImprovementCase(
+        case_id=case_id or f"IC-{utcnow().strftime('%Y%m%d')}-{uuid4().hex[:8]}",
+        title=title,
+        status=status,
+        cause_class=cause_class,
+        observed_failure=observed_failure,
+        source=ImprovementCaseSource(source_type=source_type, source_ref=source_ref),
+        artifact=ImprovementCaseArtifact(
+            artifact_type=artifact_type or "",
+            target_path=artifact_target_path or "",
+            description=artifact_description or "",
+        ),
+        verification=ImprovementCaseVerification(
+            commands=commands,
+            acceptance_conditions=conditions,
+            catches_old_failure=has_verification_evidence,
+            allows_good_changes=has_verification_evidence,
+        ),
+        workflow_version=workflow_version,
+        deployment=ImprovementCaseDeployment(deployed_ref=deployed_ref),
+        measurement=ImprovementCaseMeasurement(
+            metric_name=metric_name,
+            current_value=metric_value,
+            measurement_window=measurement_window,
+        ),
+        created_at=now,
+        updated_at=now,
+    )
+    candidate_registry = ImprovementCaseRegistry(
+        schema_name=registry.schema_name,
+        schema_version=registry.schema_version,
+        cases=[*registry.cases, case],
+    )
+    issues = validate_improvement_case_registry(candidate_registry, project_root=root)
+    if issues:
+        issue_lines = "; ".join(
+            f"{issue.case_id or 'registry'} {issue.field}: {issue.message}" for issue in issues
+        )
+        raise ValueError(f"Invalid improvement case registry: {issue_lines}")
+    write_improvement_case_registry(candidate_registry, path, project_root=root)
+    return case

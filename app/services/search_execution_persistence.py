@@ -5,6 +5,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+import app.services.search_ranking as _search_ranking
 from app.core.time import utcnow
 from app.db.models import (
     SearchRequestRecord,
@@ -12,7 +13,6 @@ from app.db.models import (
     SearchRequestResultSpan,
 )
 from app.schemas.search import SearchRequest
-from app.services import search_ranking as _search_ranking
 from app.services.evidence_operator_runs import record_knowledge_operator_run
 
 SEARCH_RESULT_SPAN_LIMIT = 5

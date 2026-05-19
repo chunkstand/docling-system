@@ -166,14 +166,14 @@ def test_queue_local_directory_ingest_creates_durable_batch_and_tracks_run_progr
         lambda: [allowed_root],
     )
     monkeypatch.setattr(
-        "app.services.documents.allowed_ingest_roots",
+        "app.services.document_ingest.allowed_ingest_roots",
         lambda: [allowed_root],
     )
     monkeypatch.setattr(
-        "app.services.documents.get_settings",
+        "app.services.document_ingest.get_settings",
         _documents_settings_stub,
     )
-    monkeypatch.setattr("app.services.documents._pdf_page_count", lambda _path: 1)
+    monkeypatch.setattr("app.services.document_ingest._pdf_page_count", lambda _path: 1)
 
     with postgres_integration_harness.session_factory() as session:
         batch = queue_local_ingest_directory(
@@ -230,14 +230,14 @@ def test_queue_local_directory_ingest_reports_completed_with_errors_when_runs_fa
         lambda: [allowed_root],
     )
     monkeypatch.setattr(
-        "app.services.documents.allowed_ingest_roots",
+        "app.services.document_ingest.allowed_ingest_roots",
         lambda: [allowed_root],
     )
     monkeypatch.setattr(
-        "app.services.documents.get_settings",
+        "app.services.document_ingest.get_settings",
         _documents_settings_stub,
     )
-    monkeypatch.setattr("app.services.documents._pdf_page_count", lambda _path: 1)
+    monkeypatch.setattr("app.services.document_ingest._pdf_page_count", lambda _path: 1)
 
     with postgres_integration_harness.session_factory() as session:
         batch = queue_local_ingest_directory(
@@ -278,14 +278,14 @@ def test_queue_local_directory_ingest_resolves_failed_item_after_successful_repr
         lambda: [allowed_root],
     )
     monkeypatch.setattr(
-        "app.services.documents.allowed_ingest_roots",
+        "app.services.document_ingest.allowed_ingest_roots",
         lambda: [allowed_root],
     )
     monkeypatch.setattr(
-        "app.services.documents.get_settings",
+        "app.services.document_ingest.get_settings",
         _documents_settings_stub,
     )
-    monkeypatch.setattr("app.services.documents._pdf_page_count", lambda _path: 1)
+    monkeypatch.setattr("app.services.document_ingest._pdf_page_count", lambda _path: 1)
 
     with postgres_integration_harness.session_factory() as session:
         batch = queue_local_ingest_directory(

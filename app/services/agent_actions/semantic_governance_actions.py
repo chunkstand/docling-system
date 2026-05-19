@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+import app.services.agent_actions.semantic_governance_graph_actions as graph_owner
+import app.services.agent_actions.semantic_governance_ontology_actions as ontology_owner
 from app.db.models import AgentTask, AgentTaskSideEffectLevel
 from app.schemas import agent_task_semantic_graph as graph_schemas
 from app.schemas.agent_task_semantics import (
@@ -168,90 +170,16 @@ def _draft_ontology_extension_executor(
     task: AgentTask,
     payload: DraftOntologyExtensionTaskInput,
 ) -> dict:
-    source_task = session.get(AgentTask, payload.source_task_id)
-    if source_task is None:
-        raise ValueError(f"Ontology extension source task not found: {payload.source_task_id}")
-
-    if source_task.task_type == "triage_semantic_pass":
-        source_context = resolve_required_dependency_task_output_context(
-            session,
-            task_id=task.id,
-            depends_on_task_id=payload.source_task_id,
-            dependency_kind="source_task",
-            expected_task_type="triage_semantic_pass",
-            expected_schema_name="triage_semantic_pass_output",
-            expected_schema_version="1.0",
-            dependency_error_message=(
-                "Ontology extension draft must declare the semantic triage task as "
-                "a source_task dependency."
-            ),
-            rerun_message=(
-                "Semantic triage task must be rerun after the context migration "
-                "before ontology drafting."
-            ),
-        )
-        triage_output = TriageSemanticPassTaskOutput.model_validate(source_context.output)
-        draft_payload = draft_ontology_extension(
-            session,
-            triage_output.gap_report.model_dump(mode="json"),
-            source_task_id=payload.source_task_id,
-            source_task_type=source_task.task_type,
-            proposed_ontology_version=payload.proposed_ontology_version,
-            rationale=payload.rationale,
-            candidate_ids=payload.candidate_ids,
-        )
-    elif source_task.task_type == "discover_semantic_bootstrap_candidates":
-        source_context = resolve_required_dependency_task_output_context(
-            session,
-            task_id=task.id,
-            depends_on_task_id=payload.source_task_id,
-            dependency_kind="source_task",
-            expected_task_type="discover_semantic_bootstrap_candidates",
-            expected_schema_name="discover_semantic_bootstrap_candidates_output",
-            expected_schema_version="1.0",
-            dependency_error_message=(
-                "Ontology extension draft must declare the bootstrap discovery task "
-                "as a source_task dependency."
-            ),
-            rerun_message=(
-                "Bootstrap discovery task must be rerun after the context migration "
-                "before ontology drafting."
-            ),
-        )
-        bootstrap_output = (
-            graph_schemas.DiscoverSemanticBootstrapCandidatesTaskOutput.model_validate(
-                source_context.output
-            )
-        )
-        draft_payload = draft_ontology_extension_from_bootstrap_report(
-            session,
-            bootstrap_output.report.model_dump(mode="json"),
-            source_task_id=payload.source_task_id,
-            source_task_type=source_task.task_type,
-            proposed_ontology_version=payload.proposed_ontology_version,
-            rationale=payload.rationale,
-            candidate_ids=payload.candidate_ids,
-        )
-    else:
-        raise ValueError(
-            "Ontology extension drafting only supports triage_semantic_pass or "
-            "discover_semantic_bootstrap_candidates source tasks."
-        )
-
-    artifact = create_agent_task_artifact(
+    return ontology_owner.draft_ontology_extension_task(
         session,
-        task_id=task.id,
-        artifact_kind="ontology_extension_draft",
-        payload=draft_payload,
-        storage_service=StorageService(),
-        filename="ontology_extension_draft.json",
+        task,
+        payload,
+        resolve_required_dependency_task_output_context_func=resolve_required_dependency_task_output_context,
+        draft_ontology_extension_func=draft_ontology_extension,
+        draft_ontology_extension_from_bootstrap_report_func=draft_ontology_extension_from_bootstrap_report,
+        create_agent_task_artifact_func=create_agent_task_artifact,
+        storage_service_factory=StorageService,
     )
-    return {
-        "draft": draft_payload,
-        "artifact_id": str(artifact.id),
-        "artifact_kind": artifact.artifact_kind,
-        "artifact_path": artifact.storage_path,
-    }
 
 
 def _verify_draft_semantic_registry_update_executor(
@@ -281,80 +209,16 @@ def _verify_draft_ontology_extension_executor(
     task: AgentTask,
     payload: VerifyDraftOntologyExtensionTaskInput,
 ) -> dict:
-    draft_context = resolve_required_dependency_task_output_context(
+    return ontology_owner.verify_draft_ontology_extension_task(
         session,
-        task_id=task.id,
-        depends_on_task_id=payload.target_task_id,
-        dependency_kind="target_task",
-        expected_task_type="draft_ontology_extension",
-        expected_schema_name="draft_ontology_extension_output",
-        expected_schema_version="1.0",
-        dependency_error_message=(
-            "Ontology extension verification must declare the requested ontology draft "
-            "as a target_task dependency."
-        ),
-        rerun_message=(
-            "Target ontology draft must be rerun after the context migration before verification."
-        ),
+        task,
+        payload,
+        resolve_required_dependency_task_output_context_func=resolve_required_dependency_task_output_context,
+        verify_draft_ontology_extension_func=verify_draft_ontology_extension,
+        create_agent_task_verification_record_func=create_agent_task_verification_record,
+        create_agent_task_artifact_func=create_agent_task_artifact,
+        storage_service_factory=StorageService,
     )
-    output = DraftOntologyExtensionTaskOutput.model_validate(draft_context.output)
-    (
-        document_deltas,
-        summary,
-        metrics,
-        reasons,
-        outcome,
-        success_metrics,
-    ) = verify_draft_ontology_extension(
-        session,
-        output.draft.model_dump(mode="json"),
-        document_ids=payload.document_ids,
-        max_regressed_document_count=payload.max_regressed_document_count,
-        max_failed_expectation_increase=payload.max_failed_expectation_increase,
-        min_improved_document_count=payload.min_improved_document_count,
-    )
-    details = {
-        "thresholds": {
-            "max_regressed_document_count": payload.max_regressed_document_count,
-            "max_failed_expectation_increase": payload.max_failed_expectation_increase,
-            "min_improved_document_count": payload.min_improved_document_count,
-        },
-        "summary": summary,
-        "target_task_id": str(draft_context.task_id),
-        "target_task_type": draft_context.task_type,
-        "proposed_ontology_version": output.draft.proposed_ontology_version,
-    }
-    record = create_agent_task_verification_record(
-        session,
-        target_task_id=draft_context.task_id,
-        verification_task_id=task.id,
-        verifier_type="ontology_extension_draft_gate",
-        outcome=outcome,
-        metrics=metrics,
-        reasons=reasons,
-        details=details,
-    )
-    result = {
-        "draft": output.draft.model_dump(mode="json"),
-        "document_deltas": document_deltas,
-        "summary": summary,
-        "success_metrics": success_metrics,
-        "verification": record.model_dump(mode="json"),
-    }
-    artifact = create_agent_task_artifact(
-        session,
-        task_id=task.id,
-        artifact_kind="ontology_extension_draft_verification",
-        payload=result,
-        storage_service=StorageService(),
-        filename="ontology_extension_draft_verification.json",
-    )
-    return {
-        **result,
-        "artifact_id": str(artifact.id),
-        "artifact_kind": artifact.artifact_kind,
-        "artifact_path": artifact.storage_path,
-    }
 
 
 def _apply_semantic_registry_update_executor(
@@ -454,77 +318,15 @@ def _apply_ontology_extension_executor(
     task: AgentTask,
     payload: ApplyOntologyExtensionTaskInput,
 ) -> dict:
-    draft_context = resolve_required_dependency_task_output_context(
+    return ontology_owner.apply_ontology_extension_task(
         session,
-        task_id=task.id,
-        depends_on_task_id=payload.draft_task_id,
-        dependency_kind="draft_task",
-        expected_task_type="draft_ontology_extension",
-        expected_schema_name="draft_ontology_extension_output",
-        expected_schema_version="1.0",
-        dependency_error_message=(
-            "Apply ontology task must declare the requested ontology draft as "
-            "a draft_task dependency."
-        ),
-        rerun_message=(
-            "Ontology draft task must be rerun after the context migration before "
-            "it can be applied."
-        ),
+        task,
+        payload,
+        resolve_required_dependency_task_output_context_func=resolve_required_dependency_task_output_context,
+        apply_ontology_extension_func=apply_ontology_extension,
+        create_agent_task_artifact_func=create_agent_task_artifact,
+        storage_service_factory=StorageService,
     )
-    verification_context = resolve_required_dependency_task_output_context(
-        session,
-        task_id=task.id,
-        depends_on_task_id=payload.verification_task_id,
-        dependency_kind="verification_task",
-        expected_task_type="verify_draft_ontology_extension",
-        expected_schema_name="verify_draft_ontology_extension_output",
-        expected_schema_version="1.0",
-        dependency_error_message=(
-            "Apply ontology task must declare the requested ontology verification "
-            "as a verification_task dependency."
-        ),
-        rerun_message=(
-            "Ontology verification task must be rerun after the context migration "
-            "before it can be applied."
-        ),
-    )
-    draft_output = DraftOntologyExtensionTaskOutput.model_validate(draft_context.output)
-    verification_output = VerifyDraftOntologyExtensionTaskOutput.model_validate(
-        verification_context.output
-    )
-    verification = verification_output.verification
-    if verification.outcome != "passed":
-        raise ValueError("Only passed ontology extension verifications can be applied.")
-    if verification.target_task_id != payload.draft_task_id:
-        raise ValueError("Verification task does not target the requested ontology draft task.")
-
-    apply_payload = apply_ontology_extension(
-        session,
-        draft_output.draft.model_dump(mode="json"),
-        source_task_id=task.id,
-        source_task_type=task.task_type,
-        reason=payload.reason,
-    )
-    apply_payload.update(
-        {
-            "draft_task_id": str(payload.draft_task_id),
-            "verification_task_id": str(payload.verification_task_id),
-        }
-    )
-    artifact = create_agent_task_artifact(
-        session,
-        task_id=task.id,
-        artifact_kind="applied_ontology_extension",
-        payload=apply_payload,
-        storage_service=StorageService(),
-        filename="applied_ontology_extension.json",
-    )
-    return {
-        **apply_payload,
-        "artifact_id": str(artifact.id),
-        "artifact_kind": artifact.artifact_kind,
-        "artifact_path": artifact.storage_path,
-    }
 
 
 def _draft_graph_promotions_executor(
@@ -532,89 +334,15 @@ def _draft_graph_promotions_executor(
     task: AgentTask,
     payload: graph_schemas.DraftGraphPromotionsTaskInput,
 ) -> dict:
-    source_task = session.get(AgentTask, payload.source_task_id)
-    if source_task is None:
-        raise ValueError(f"Graph promotion source task not found: {payload.source_task_id}")
-    if source_task.task_type == "build_shadow_semantic_graph":
-        source_context = resolve_required_dependency_task_output_context(
-            session,
-            task_id=task.id,
-            depends_on_task_id=payload.source_task_id,
-            dependency_kind="source_task",
-            expected_task_type="build_shadow_semantic_graph",
-            expected_schema_name="build_shadow_semantic_graph_output",
-            expected_schema_version="1.0",
-            dependency_error_message=(
-                "Graph promotion drafts must declare the requested shadow graph task "
-                "as a source_task dependency."
-            ),
-            rerun_message=(
-                "Source shadow graph task must be rerun after the context migration "
-                "before drafting."
-            ),
-        )
-        source_output = graph_schemas.BuildShadowSemanticGraphTaskOutput.model_validate(
-            source_context.output
-        )
-        draft_payload = draft_graph_promotions(
-            session,
-            source_payload=source_output.shadow_graph.model_dump(mode="json"),
-            source_task_id=payload.source_task_id,
-            source_task_type=source_context.task_type,
-            proposed_graph_version=payload.proposed_graph_version,
-            rationale=payload.rationale,
-            edge_ids=list(payload.edge_ids),
-            min_score=payload.min_score,
-        )
-    elif source_task.task_type == "triage_semantic_graph_disagreements":
-        source_context = resolve_required_dependency_task_output_context(
-            session,
-            task_id=task.id,
-            depends_on_task_id=payload.source_task_id,
-            dependency_kind="source_task",
-            expected_task_type="triage_semantic_graph_disagreements",
-            expected_schema_name="triage_semantic_graph_disagreements_output",
-            expected_schema_version="1.0",
-            dependency_error_message=(
-                "Graph promotion drafts must declare the requested graph triage task "
-                "as a source_task dependency."
-            ),
-            rerun_message=(
-                "Source graph triage task must be rerun after the context migration "
-                "before drafting."
-            ),
-        )
-        source_output = graph_schemas.TriageSemanticGraphDisagreementsTaskOutput.model_validate(
-            source_context.output
-        )
-        draft_payload = draft_graph_promotions(
-            session,
-            source_payload=source_output.disagreement_report.model_dump(mode="json"),
-            source_task_id=payload.source_task_id,
-            source_task_type=source_context.task_type,
-            proposed_graph_version=payload.proposed_graph_version,
-            rationale=payload.rationale,
-            edge_ids=list(payload.edge_ids),
-            min_score=payload.min_score,
-        )
-    else:
-        raise ValueError(
-            f"Unsupported source task for graph promotion draft: {source_task.task_type}"
-        )
-    artifact = create_agent_task_artifact(
+    return graph_owner.draft_graph_promotions_task(
         session,
-        task_id=task.id,
-        artifact_kind="semantic_graph_promotion_draft",
-        payload=draft_payload,
-        storage_service=StorageService(),
-        filename="semantic_graph_promotion_draft.json",
+        task,
+        payload,
+        resolve_required_dependency_task_output_context_func=resolve_required_dependency_task_output_context,
+        draft_graph_promotions_func=draft_graph_promotions,
+        create_agent_task_artifact_func=create_agent_task_artifact,
+        storage_service_factory=StorageService,
     )
-    return {
-        "draft": draft_payload,
-        "artifact_id": str(artifact.id),
-        "artifact_kind": artifact.artifact_kind,
-        "artifact_path": artifact.storage_path,
-    }
 
 
 def _verify_draft_graph_promotions_executor(
@@ -622,65 +350,16 @@ def _verify_draft_graph_promotions_executor(
     task: AgentTask,
     payload: graph_schemas.VerifyDraftGraphPromotionsTaskInput,
 ) -> dict:
-    target_context = resolve_required_dependency_task_output_context(
+    return graph_owner.verify_draft_graph_promotions_task(
         session,
-        task_id=task.id,
-        depends_on_task_id=payload.target_task_id,
-        dependency_kind="target_task",
-        expected_task_type="draft_graph_promotions",
-        expected_schema_name="draft_graph_promotions_output",
-        expected_schema_version="1.0",
-        dependency_error_message=(
-            "Graph promotion verification must declare the requested graph draft "
-            "as a target_task dependency."
-        ),
-        rerun_message=(
-            "Target graph promotion draft must be rerun after the context migration "
-            "before verification."
-        ),
+        task,
+        payload,
+        resolve_required_dependency_task_output_context_func=resolve_required_dependency_task_output_context,
+        verify_draft_graph_promotions_func=verify_draft_graph_promotions,
+        create_agent_task_verification_record_func=create_agent_task_verification_record,
+        create_agent_task_artifact_func=create_agent_task_artifact,
+        storage_service_factory=StorageService,
     )
-    draft_output = graph_schemas.DraftGraphPromotionsTaskOutput.model_validate(
-        target_context.output
-    )
-    summary, metrics, reasons, outcome, success_metrics = verify_draft_graph_promotions(
-        session,
-        draft_output.draft.model_dump(mode="json"),
-        min_supporting_document_count=payload.min_supporting_document_count,
-        max_conflict_count=payload.max_conflict_count,
-        require_current_ontology_snapshot=payload.require_current_ontology_snapshot,
-    )
-    verification_record = create_agent_task_verification_record(
-        session,
-        target_task_id=payload.target_task_id,
-        verification_task_id=task.id,
-        verifier_type="semantic_graph_promotion_gate",
-        outcome=outcome,
-        metrics=metrics,
-        reasons=reasons,
-        details=summary,
-    )
-    artifact = create_agent_task_artifact(
-        session,
-        task_id=task.id,
-        artifact_kind="semantic_graph_promotion_verification",
-        payload={
-            "draft": draft_output.draft.model_dump(mode="json"),
-            "summary": summary,
-            "success_metrics": success_metrics,
-            "verification": verification_record.model_dump(mode="json"),
-        },
-        storage_service=StorageService(),
-        filename="semantic_graph_promotion_verification.json",
-    )
-    return {
-        "draft": draft_output.draft.model_dump(mode="json"),
-        "summary": summary,
-        "success_metrics": success_metrics,
-        "verification": verification_record.model_dump(mode="json"),
-        "artifact_id": str(artifact.id),
-        "artifact_kind": artifact.artifact_kind,
-        "artifact_path": artifact.storage_path,
-    }
 
 
 def _apply_graph_promotions_executor(
@@ -688,72 +367,15 @@ def _apply_graph_promotions_executor(
     task: AgentTask,
     payload: graph_schemas.ApplyGraphPromotionsTaskInput,
 ) -> dict:
-    draft_context = resolve_required_dependency_task_output_context(
+    return graph_owner.apply_graph_promotions_task(
         session,
-        task_id=task.id,
-        depends_on_task_id=payload.draft_task_id,
-        dependency_kind="draft_task",
-        expected_task_type="draft_graph_promotions",
-        expected_schema_name="draft_graph_promotions_output",
-        expected_schema_version="1.0",
-        dependency_error_message=(
-            "Apply graph promotions must declare the requested graph draft task "
-            "as a draft_task dependency."
-        ),
-        rerun_message=(
-            "Graph promotion draft task must be rerun after the context migration before apply."
-        ),
+        task,
+        payload,
+        resolve_required_dependency_task_output_context_func=resolve_required_dependency_task_output_context,
+        apply_graph_promotions_func=apply_graph_promotions,
+        create_agent_task_artifact_func=create_agent_task_artifact,
+        storage_service_factory=StorageService,
     )
-    verification_context = resolve_required_dependency_task_output_context(
-        session,
-        task_id=task.id,
-        depends_on_task_id=payload.verification_task_id,
-        dependency_kind="verification_task",
-        expected_task_type="verify_draft_graph_promotions",
-        expected_schema_name="verify_draft_graph_promotions_output",
-        expected_schema_version="1.0",
-        dependency_error_message=(
-            "Apply graph promotions must declare the requested graph verification task "
-            "as a verification_task dependency."
-        ),
-        rerun_message=(
-            "Graph promotion verification task must be rerun after the context "
-            "migration before apply."
-        ),
-    )
-    draft_output = graph_schemas.DraftGraphPromotionsTaskOutput.model_validate(draft_context.output)
-    verification_output = graph_schemas.VerifyDraftGraphPromotionsTaskOutput.model_validate(
-        verification_context.output
-    )
-    if verification_output.verification.outcome != "passed":
-        raise ValueError("Only passed graph promotion verifications can be applied.")
-    apply_payload = apply_graph_promotions(
-        session,
-        draft_output.draft.model_dump(mode="json"),
-        source_task_id=task.id,
-        source_task_type=task.task_type,
-        reason=payload.reason,
-    )
-    apply_payload.update(
-        {
-            "draft_task_id": str(payload.draft_task_id),
-            "verification_task_id": str(payload.verification_task_id),
-        }
-    )
-    artifact = create_agent_task_artifact(
-        session,
-        task_id=task.id,
-        artifact_kind="applied_semantic_graph_snapshot",
-        payload=apply_payload,
-        storage_service=StorageService(),
-        filename="applied_semantic_graph_snapshot.json",
-    )
-    return {
-        **apply_payload,
-        "artifact_id": str(artifact.id),
-        "artifact_kind": artifact.artifact_kind,
-        "artifact_path": artifact.storage_path,
-    }
 
 
 def build_semantic_governance_action_definitions() -> dict[str, AgentTaskActionDefinition]:

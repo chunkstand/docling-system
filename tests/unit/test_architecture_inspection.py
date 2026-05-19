@@ -33,6 +33,10 @@ from app.architecture_measurement_contracts import (
     ARCHITECTURE_MEASUREMENT_HISTORY_SCHEMA_NAME,
     ARCHITECTURE_MEASUREMENT_SUMMARY_FIELDS,
 )
+from app.architecture_quality_contracts import (
+    ARCHITECTURE_QUALITY_REPORT_FIELDS,
+    ARCHITECTURE_QUALITY_SUMMARY_FIELDS,
+)
 
 EXPECTED_ARCHITECTURE_RULE_IDS = {
     "agent-action-catalog-contracts",
@@ -90,6 +94,11 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
         for contract in contract_map["contracts"]
         if contract["name"] == "agent_action_catalog"
     )
+    quality_contract = next(
+        contract
+        for contract in contract_map["contracts"]
+        if contract["name"] == "architecture_quality_report"
+    )
 
     assert contract_map["schema_name"] == ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME
     assert contract_map["system_style"] == "modular_monolith"
@@ -138,6 +147,8 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
     assert measurement_contract["delta_fields"] == list(ARCHITECTURE_MEASUREMENT_DELTA_FIELDS)
     assert measurement_contract["report_schema_name"] == ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME
     assert measurement_contract["report_fields"] == list(ARCHITECTURE_GOVERNANCE_REPORT_FIELDS)
+    assert quality_contract["report_fields"] == list(ARCHITECTURE_QUALITY_REPORT_FIELDS)
+    assert quality_contract["summary_fields"] == list(ARCHITECTURE_QUALITY_SUMMARY_FIELDS)
     assert (
         measurement_contract["ci_report_path"]
         == "build/architecture-governance/architecture_governance_report.json"

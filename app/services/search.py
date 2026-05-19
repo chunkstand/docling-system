@@ -11,9 +11,9 @@ import app.services.search_harnesses as _search_harnesses
 import app.services.search_hydration as _search_hydration
 import app.services.search_metadata_supplement as _search_metadata_supplement
 import app.services.search_query_features as _query_features
+import app.services.search_ranking as _search_ranking
 import app.services.search_retrieval_primitives as _search_retrieval_primitives
 from app.schemas.search import SearchRequest, SearchResult
-from app.services import search_ranking as _search_ranking
 from app.services.embeddings import EmbeddingProvider, get_embedding_provider  # noqa: F401
 from app.services.retrieval_spans import (  # noqa: F401
     ensure_retrieval_evidence_spans_for_search,

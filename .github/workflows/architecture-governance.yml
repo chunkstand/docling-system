@@ -62,6 +62,12 @@ jobs:
       - name: Capability contracts
         run: uv run docling-system-capability-contracts
 
+      - name: Python import-boundary gate
+        run: >
+          uv run pytest -q
+          tests/unit/test_architecture_governance_imports.py
+          tests/unit/test_python_cycle_imports.py
+
       - name: Runtime health contract
         run: |
           docker compose config --quiet

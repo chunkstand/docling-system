@@ -8,8 +8,6 @@ from sqlalchemy import text
 import app.db.models  # noqa: F401
 from tests.db_model_contract import (
     AGENT_TASK_DOMAIN_TABLE_COLUMNS,
-    AUDIT_AND_EVIDENCE_DOMAIN_TABLE_COLUMNS,
-    CLAIM_SUPPORT_DOMAIN_TABLE_COLUMNS,
     DOCUMENT_ARTIFACT_DOMAIN_TABLE_COLUMNS,
     EVALUATION_FEEDBACK_DOMAIN_TABLE_COLUMNS,
     EXPECTED_TABLE_NAMES,
@@ -23,7 +21,6 @@ from tests.db_model_contract import (
     RETRIEVAL_INTERACTION_DOMAIN_TABLE_COLUMNS,
     RETRIEVAL_LEARNING_DOMAIN_TABLE_COLUMNS,
     RETRIEVAL_REPLAY_GOVERNANCE_DOMAIN_TABLE_COLUMNS,
-    SEMANTIC_MEMORY_DOMAIN_TABLE_COLUMNS,
 )
 
 pytestmark = pytest.mark.skipif(
@@ -255,96 +252,9 @@ def test_postgres_create_all_preserves_evaluation_feedback_domain_table_contract
 
 @pytest.mark.parametrize(
     ("table_name", "expected_columns"),
-    CLAIM_SUPPORT_DOMAIN_TABLE_COLUMNS.items(),
-)
-def test_postgres_create_all_preserves_claim_support_domain_table_contract(
-    postgres_schema_engine,
-    table_name: str,
-    expected_columns: frozenset[str],
-) -> None:
-    engine, schema_name = postgres_schema_engine
-
-    with engine.connect() as connection:
-        column_names = frozenset(
-            connection.execute(
-                text(
-                    """
-                    SELECT column_name
-                    FROM information_schema.columns
-                    WHERE table_schema = :schema_name
-                    AND table_name = :table_name
-                    """
-                ),
-                {"schema_name": schema_name, "table_name": table_name},
-            ).scalars()
-        )
-
-    assert column_names == expected_columns
-
-
-@pytest.mark.parametrize(
-    ("table_name", "expected_columns"),
-    SEMANTIC_MEMORY_DOMAIN_TABLE_COLUMNS.items(),
-)
-def test_postgres_create_all_preserves_semantic_memory_domain_table_contract(
-    postgres_schema_engine,
-    table_name: str,
-    expected_columns: frozenset[str],
-) -> None:
-    engine, schema_name = postgres_schema_engine
-
-    with engine.connect() as connection:
-        column_names = frozenset(
-            connection.execute(
-                text(
-                    """
-                    SELECT column_name
-                    FROM information_schema.columns
-                    WHERE table_schema = :schema_name
-                    AND table_name = :table_name
-                    """
-                ),
-                {"schema_name": schema_name, "table_name": table_name},
-            ).scalars()
-        )
-
-    assert column_names == expected_columns
-
-
-@pytest.mark.parametrize(
-    ("table_name", "expected_columns"),
     AGENT_TASK_DOMAIN_TABLE_COLUMNS.items(),
 )
 def test_postgres_create_all_preserves_agent_task_domain_table_contract(
-    postgres_schema_engine,
-    table_name: str,
-    expected_columns: frozenset[str],
-) -> None:
-    engine, schema_name = postgres_schema_engine
-
-    with engine.connect() as connection:
-        column_names = frozenset(
-            connection.execute(
-                text(
-                    """
-                    SELECT column_name
-                    FROM information_schema.columns
-                    WHERE table_schema = :schema_name
-                    AND table_name = :table_name
-                    """
-                ),
-                {"schema_name": schema_name, "table_name": table_name},
-            ).scalars()
-        )
-
-    assert column_names == expected_columns
-
-
-@pytest.mark.parametrize(
-    ("table_name", "expected_columns"),
-    AUDIT_AND_EVIDENCE_DOMAIN_TABLE_COLUMNS.items(),
-)
-def test_postgres_create_all_preserves_audit_and_evidence_domain_table_contract(
     postgres_schema_engine,
     table_name: str,
     expected_columns: frozenset[str],

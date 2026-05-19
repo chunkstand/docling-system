@@ -197,11 +197,24 @@ artifact to
 `build/architecture-governance/architecture_quality_report.json` when importing
 its improvement-case candidates.
 
-Current 2026-05-10 summary: architecture inspection is valid with zero
-violations, the capability map is valid across 6 facades and 110 functions, and
-the quality summary identifies 10 top hotspots. The leading follow-up surfaces are
-`app/db/models.py`, `app/services/evidence.py`, `app/cli.py`,
-`app/services/agent_task_actions.py`, and `app/services/search.py`.
+Current 2026-05-18 summary: architecture inspection is valid with zero
+violations, the capability map is valid across 6 facades and 111 functions, and
+the raw quality summary still identifies 10 top hotspots. The raw measurement
+list still begins with `app/db/models.py`, `app/cli.py`,
+`app/services/agent_task_actions.py`, `app/services/evidence.py`, and
+`app/schemas/agent_tasks.py`, but the routed queue now separates those reduced
+facades from the true next owner surfaces: `top_routed_hotspot_paths` now begin
+with `tests/integration/test_claim_support_judge_evaluation_roundtrip.py`,
+`tests/integration/test_technical_report_harness_roundtrip.py`, and
+`app/api/main.py`, while `routing_trap_paths` plus
+`stale_facade_hotspot_count=7` preserve the compact stale-facade evidence
+explicitly. The default 20-hotspot report artifact extends that routed-trap
+list to `10` paths by also capturing
+`app/services/agent_task_context.py`, `app/services/search.py`, and
+`app/services/claim_support_policy_impacts.py`. The full report also preserves
+`raw_improvement_case_candidates` for auditability while
+`improvement_case_candidates` now reflects the routed owner queue used by the
+improvement-case import surface.
 
 Trace-first agent review is owned by `app.agent_trace_review`. It emits the
 `agent_trace_review_report` contract for failed agent tasks, failed

@@ -1,6 +1,6 @@
 # Session Handoff
 
-Date: 2026-05-16 local / 2026-05-16 UTC
+Date: 2026-05-18 local / 2026-05-18 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
@@ -92,58 +92,157 @@ roots now measure `199`, `15`, `404`, `120`, `91`, `39`, and `185` lines for
 `docling_parser.py`, `quality.py`, `runs.py`, `semantic_candidates.py`,
 `semantic_generation.py`, `semantic_governance.py`, and `semantic_graph.py`
 respectively. The broader current working tree has since been revalidated
-after the evidence-owner closeout: `git diff --check` passed,
-`uv run ruff check app/services app/api tests/unit tests/integration config`
-passed, `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` passed at
-`2018 passed`, `uv run docling-system-hotspot-prevention-check --strict`
-reported `changed_hotspots=0` and `blocked=0`,
+after the cycle closeout: `git diff --check` passed, the touched-file Ruff
+slice passed, `uv run pytest -q tests/unit/test_architecture_governance_imports.py
+tests/unit/test_python_cycle_imports.py` passed at `6 passed`, the focused
+provenance slice passed at `18 passed`, the broader cycle-focused owner slice
+passed at `111 passed`, `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles`
+now reports `0` Python cycle components with `27` code files above `800`
+lines, `uv run docling-system-hotspot-prevention-check --strict` reported
+`changed_hotspots=2`, `blocked=0`, `allowed=2`,
 `uv run docling-system-improvement-case-validate` returned `valid=true`,
-`uv run docling-system-improvement-case-summary` reported `case_count=49`,
-`status_counts.open=33`, and `measured_case_count=44`,
+`uv run docling-system-improvement-case-summary` reported `case_count=52`,
+`status_counts.open=36`, `status_counts.deployed=15`, and
+`measured_case_count=48`,
 `uv run docling-system-hygiene-check` reported `new hygiene regressions: none`,
-`uv run docling-system-architecture-quality-report --summary` reported
+`uv run docling-system-architecture-quality-report --summary` still reports
 `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
 `hotspot_count=10`, and `max_hotspot_risk_score=496.06`,
 `uv run docling-system-architecture-inspect` remained `valid=true` with
-`violation_count=0`, and the architecture probe now reports `3` Python cycle
-components with `29` code files above `800` lines while no selected closed
-owner regrew above its ratchet.
-Latest active bounded implementation brief:
-`pending post-hotspot-prevention packet selection via docs/boring_change_architecture_milestone_plan.md`
+`violation_count=0`, `uv run docling-system-architecture-decisions` remained
+`valid=true`, `uv run docling-system-capability-contracts` remained
+`valid=true`, and the full DB-backed suite passed at `2044 passed`. Later local
+closeouts for the agent-task residual and DB-model residual packets advanced
+the live checkpoint again: the architecture probe now reports `17` code files
+above `800` with `0` Python cycle components, the improvement-case summary now
+reports `case_count=55`, `status_counts.open=39`,
+`status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
+DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
-`docs/hotspot_prevention_family_boundary_milestone_plan.md`
-Milestones 0 and 1 of `docs/boring_change_architecture_milestone_plan.md` are
-now resolved locally in the current checkout. The hotspot-prevention family
-packet is now resolved locally: `app/hotspot_prevention_classifier.py` is
-`360` lines / `1` private helper, the companion classifier owners now live in
-`app/hotspot_prevention_claim_support_rules.py` at `436 / 1`,
-`app/hotspot_prevention_classifier_service_rules.py` at `384 / 0`,
-`app/hotspot_prevention_classifier_boundary_rules.py` at `209 / 0`, and
-`app/hotspot_prevention_classifier_support.py` at `571 / 1`, and the test
-owner family now lives in `tests/unit/test_hotspot_prevention.py` at `595 / 0`
-plus `tests/unit/test_hotspot_prevention_family_rules.py` at `318 / 0`,
-`tests/unit/test_hotspot_prevention_wrapper_rules.py` at `296 / 0`, and
-`tests/unit/hotspot_prevention_test_support.py` at `50 / 2`. Focused
-verification is green: the hotspot-prevention Ruff slice passed, `uv run
-pytest -q tests/unit/test_hotspot_prevention.py
-tests/unit/test_hotspot_prevention_family_rules.py
-tests/unit/test_hotspot_prevention_wrapper_rules.py` passed at `40 passed`,
-`uv run docling-system-hotspot-prevention-check --strict` returned
-`changed_hotspots=0` and `blocked=0`, `uv run
-docling-system-improvement-case-validate` returned `valid=true`, `uv run
-docling-system-improvement-case-summary` still reports `case_count=49`,
-`status_counts.open=33`, `status_counts.deployed=15`, and
-`measured_case_count=44`, `uv run docling-system-hygiene-check` still reports
-`new hygiene regressions: none`, `uv run
-docling-system-architecture-quality-report --summary` still reports
-`hotspot_count=10` with `max_hotspot_risk_score=496.06`, and the architecture
-probe still reports `3` Python cycle components while dropping the code-file
-backlog from `29` to `27` files above `800`. The broader coordination brief
-remains `docs/boring_change_architecture_milestone_plan.md`, and its next
-fresh bounded packet should be selected from the refreshed post-closeout
-baseline. Current evidence favors a residual test-large-owner packet before
-reopening app or UI backlog because the hotspot-prevention family no longer
-appears in the `>800`-line queue.
+`docs/improvement_case_governance_self_hosting_milestone_plan.md`
+Next routed bounded implementation brief:
+to be reselected from `docs/boring_change_architecture_milestone_plan.md`
+Queued standalone follow-on:
+none selected yet beyond the broader boring-change rebaseline
+Previous resolved bounded implementation brief:
+`docs/cross_cutting_verification_roots_milestone_plan.md`
+The broader coordination brief still remains
+`docs/boring_change_architecture_milestone_plan.md`, and the live
+code-owning queue now requires a fresh under-budget reselect from that brief.
+The 2026-05-18 durable architecture closeout now records the governance
+self-hosting, documents-service, cross-cutting verification, semantic/report
+residual, evaluation residual, UI residual, residual-large-file,
+queue-alignment, routed-hotspot, Python-cycle, agent-task residual, and
+DB-model residual packets. Historical sections below may still use
+pre-closeout "resolved locally" wording from their in-progress drafting
+passes; treat this queue block plus `docs/agentic_architecture_index.md` as
+the durable routing truth for the current repo state.
+The governance self-hosting packet is now durably recorded in that closeout:
+`app/architecture_inspection.py` closes at `370` lines,
+`app/architecture_inspection_rules.py` at `514`,
+`app/services/improvement_case_intake.py` at `552`,
+`app/services/improvement_cases.py` at `82`, and
+`tests/unit/test_improvement_case_intake.py` at `218`, while family-local
+siblings close at `122`, `184`, `475`, `279`, `277`, `101`, `122`, and `551`
+across `app/services/improvement_case_architecture_quality.py`,
+`app/services/improvement_case_models.py`,
+`app/services/improvement_case_registry.py`,
+`app/services/improvement_case_observations.py`,
+`app/services/improvement_case_report_imports.py`,
+`app/architecture_inspection_rule_contracts.py`,
+`tests/unit/test_improvement_case_intake_contracts.py`, and
+`tests/unit/test_improvement_case_intake_reports.py`. The local
+`app.services.improvement_case_observations` /
+`app.services.improvement_cases` cycle remains removed, `IC-08C078FD4F45` is
+now locally verified in `config/improvement_cases.yaml`,
+`config/hygiene_policy.yaml` exact-ratchets the full post-split family, the
+focused governance unit packet passed at `80 passed`, `git diff --check`
+passed, the packet-local Ruff gate passed, and the architecture probe still
+reports `0` code files above `800` with `0` Python cycle components. The
+documents-service and cross-cutting verification packets are also durably
+recorded in this closeout: `app/services/documents.py` closes at `49`
+lines as a compatibility
+facade, with ingest ownership moved into
+`app/services/document_ingest.py` at `233`, run-queue plus reprocess ownership
+moved into `app/services/document_run_queue.py` at `324`, and read plus
+run-summary ownership preserved in
+`app/services/document_run_views.py` at `276`; `tests/unit/test_agent_task_verifications.py`
+closes at `324` with draft coverage split into
+`tests/unit/test_agent_task_verifications_drafts.py` at `567`;
+`tests/integration/test_postgres_roundtrip.py` closes at `331` with semantic
+and failure-path coverage moved into
+`tests/integration/test_postgres_roundtrip_semantics.py` at `503` and
+`tests/integration/test_postgres_roundtrip_failures.py` at `181`;
+`tests/unit/test_docling_parser.py` closes at `540` with logical-table
+coverage moved into
+`tests/unit/test_docling_parser_logical_tables.py` at `160` and supplement
+coverage in `tests/unit/test_docling_parser_table_supplements.py` at `391`;
+`tests/integration/test_search_harness_releases.py` closes at `269` with
+readiness coverage moved into
+`tests/integration/test_search_harness_release_readiness.py` at `224` and
+family-local support narrowed to
+`tests/integration/search_harness_release_support.py` at `242` plus
+`tests/integration/search_harness_release_audit_support.py` at `296`; and
+`tests/integration/test_claim_support_policy_activation_roundtrip.py` closes at
+`437` with waiver coverage moved into
+`tests/integration/test_claim_support_policy_activation_waivers.py` at `349`
+and retired-identity coverage moved into
+`tests/integration/test_claim_support_policy_activation_retired_identity.py`
+at `85`. The live architecture probe now reports `0` code files above `800`
+with `0` Python cycle components, focused document-service verification passed
+at `75` unit tests and `5` DB-backed integration tests, the cross-cutting
+verification packet passed at `28` unit tests and `19` DB-backed integration
+tests, the cycle-focused import gate passed at `6` unit tests, `git diff --check`
+passed, `uv run docling-system-improvement-case-validate` returned `valid=true`,
+`uv run docling-system-improvement-case-summary` now reports `case_count=59`
+with `status_counts={"measured":1,"deployed":15,"open":41,"verified":2}`,
+`uv run docling-system-hygiene-check` reported `new hygiene regressions: none`,
+`uv run docling-system-architecture-quality-report --summary` kept
+`max_hotspot_risk_score=486.06`, and the broader queue now requires a fresh
+under-budget reselect instead of a queued governance follow-on. The
+semantic/report residual packet is also durably recorded in this closeout:
+`app/services/semantic_orchestration.py` closes at `543` lines with triage
+ownership moved into `app/services/semantic_orchestration_triage.py` at `570`;
+`app/services/technical_reports.py` closes at `574` with verification and
+task-output ownership moved into
+`app/services/technical_report_verification.py` at `485` and
+`app/services/technical_report_task_context.py` at `33`; and
+`app/services/audit_bundle_training_runs.py` closes at `554` with payload and
+provenance ownership moved into
+`app/services/audit_bundle_training_run_payloads.py` at `159` and
+`app/services/audit_bundle_training_run_provenance.py` at `258`. The split
+report unit roots now close at `486` and `125` lines through
+`tests/unit/test_technical_reports.py` and
+`tests/unit/test_technical_report_verification.py`, so no governed
+semantic/report owner remains above the default `600`-line budget. The focused
+unit slice passed at `26 passed`, the DB-backed integration slice passed at
+`4 passed`, and the downstream report-context and harness-integrity slice also
+passed at `7 passed, 1 skipped` across
+`tests/unit/test_agent_task_context.py`,
+`tests/unit/test_agent_task_context_reports_claim_support.py`, and
+`tests/integration/test_technical_report_harness_integrity.py`, so the split
+did not just move debt into adjacent owners. `uv run docling-system-improvement-case-validate`
+returned `valid=true`, `uv run docling-system-improvement-case-summary`
+reported `case_count=59`, `status_counts.open=43`,
+`status_counts.deployed=15`, and `measured_case_count=55`,
+`uv run docling-system-architecture-quality-report --summary`
+still reports `hotspot_count=10` / `max_hotspot_risk_score=496.06`, and the
+architecture probe later advances to `0` code files above `800` with
+`0` Python cycle components after the cross-cutting large-file closeout. The
+evaluation residual packet is now durably recorded at `376`, `570`, `67`,
+`530`, `175`, `218`, `322`,
+`431`, `252`, `445`, `310`, `390`, and `378` lines across the evaluation
+fixtures, scoring, workbench, and family-local test roots, and the UI
+residual packet is now durably recorded at `307`, `517`, `115`, `56`, `313`,
+`318`, and `599` lines across the shipped UI family. The parent
+`docs/residual_large_file_backlog_milestone_plan.md` is now durably recorded
+with zero code files above `800`, and
+`docs/closeout_state_queue_alignment_milestone_plan.md` is now also durably
+recorded: the queue docs agree on the same next code-owning packet, the stale
+`docs/shared_verification_roots_milestone_plan.md` branch is historical only,
+and the remaining closeout path is a narrow docs-only staging slice rather
+than one omnibus packet sweep. The older shared-verification packet stays
+historical unless a later explicit rebaseline selects it again.
 The semantic pass lifecycle or reads follow-on now remains the prior resolved
 bounded implementation brief:
 `docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md`: it refreshes

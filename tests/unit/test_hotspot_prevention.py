@@ -28,8 +28,13 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "app/cli.py",
         "app/db/models.py",
         "app/schemas/agent_tasks.py",
+        "app/services/agent_actions/search_harness.py",
+        "app/services/agent_actions/semantic_governance_actions.py",
         "app/services/agent_task_actions.py",
         "app/services/agent_task_context.py",
+        "app/services/agent_task_context_search_harness.py",
+        "app/services/agent_task_context_semantic_governance.py",
+        "app/services/agent_tasks.py",
         "app/services/claim_support_evaluations.py",
         "app/services/claim_support_policy_governance.py",
         "app/services/claim_support_policy_impact_replay.py",
@@ -56,6 +61,17 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
     for rule in policy.known_hotspots.values():
         assert rule.preferred_owner_modules
         assert rule.block_new
+    assert policy.known_hotspots["app/db/models.py"].routing is not None
+    assert (
+        policy.known_hotspots["app/db/models.py"].routing.status
+        == "compatibility_facade_trap"
+    )
+    assert policy.known_hotspots["app/cli.py"].routing is not None
+    assert (
+        policy.known_hotspots["app/cli.py"].routing.status == "deferred_reduced_facade"
+    )
+    assert policy.known_hotspots["tests/unit/test_cli.py"].routing is not None
+    assert policy.known_hotspots["app/services/search.py"].routing is not None
 
 
 def test_policy_validation_rejects_missing_owner_and_unowned_exception() -> None:
@@ -114,6 +130,42 @@ def test_policy_validation_rejects_expired_exceptions() -> None:
         "known_hotspots.app/services/evidence.py.exceptions[0].expires_on",
         "is expired",
     ) in {(issue.field, issue.message) for issue in issues}
+
+
+def test_policy_validation_rejects_trap_routing_without_successors() -> None:
+    payload = {
+        "schema_name": POLICY_SCHEMA_NAME,
+        "schema_version": "1.0",
+        "known_hotspots": {
+            "app/services/evidence.py": {
+                "target_role": "compatibility facade",
+                "preferred_owner_modules": ["app/services/evidence_*.py"],
+                "routing": {
+                    "status": "compatibility_facade_trap",
+                    "reason": "Facade is already reduced.",
+                },
+                "block_new": ["private_helper"],
+                "allow": ["import_forwarder"],
+            }
+        },
+    }
+
+    issues = validate_policy_payload(payload)
+
+    assert {
+        (
+            "known_hotspots.app/services/evidence.py.routing.route_to_case_ids",
+            "must contain at least one routed case id",
+        ),
+        (
+            "known_hotspots.app/services/evidence.py.routing.route_to_paths",
+            "must contain at least one routed path",
+        ),
+        (
+            "known_hotspots.app/services/evidence.py.routing.route_to_plan_paths",
+            "must contain at least one routed plan path",
+        ),
+    } <= {(issue.field, issue.message) for issue in issues}
 
 
 def test_analyzer_flags_obvious_implementation_growth_for_each_hotspot() -> None:

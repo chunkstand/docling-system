@@ -5,6 +5,22 @@ known_hotspots:
     target_role: compatibility facade for ORM models
     preferred_owner_modules:
       - app/db/model_domains/
+    routing:
+      status: compatibility_facade_trap
+      reason: The public app.db.models facade is intentionally high fan-in, but the routed owner-family work now lives in the extracted domain modules and shared compatibility tests rather than back in app/db/models.py itself.
+      route_to_case_ids:
+        - IC-46C5B38A1D2E
+        - IC-7D8AE7C83B8F
+        - IC-62C75B82F0AA
+      route_to_paths:
+        - app/db/model_domains/audit_and_evidence.py
+        - app/db/model_domains/semantic_memory.py
+        - app/db/model_domains/claim_support.py
+        - tests/unit/test_db_model_import_compatibility.py
+        - tests/integration/test_db_model_metadata.py
+      route_to_plan_paths:
+        - docs/db_models_compatibility_facade_milestone_plan.md
+        - docs/db_models_residual_owner_family_milestone_plan.md
     block_new:
       - orm_class
       - enum
@@ -25,6 +41,22 @@ known_hotspots:
       - app/schemas/agent_task_semantic_generation.py
       - app/schemas/agent_task_semantic_graph.py
       - app/schemas/agent_task_semantics.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The schema facade is already reduced to a narrow re-export surface, so future routing should target the focused schema owners or broader residual backlog work instead of reopening app/schemas/agent_tasks.py by default.
+      route_to_case_ids:
+        - IC-24F3558D6091
+      route_to_paths:
+        - app/schemas/agent_task_core.py
+        - app/schemas/agent_task_claim_support.py
+        - app/schemas/agent_task_reports.py
+        - app/schemas/agent_task_search_workflows.py
+        - app/schemas/agent_task_semantic_generation.py
+        - app/schemas/agent_task_semantic_graph.py
+        - app/schemas/agent_task_semantics.py
+      route_to_plan_paths:
+        - docs/agent_task_schema_aggregation_boundary_milestone_plan.md
+        - docs/residual_large_file_backlog_milestone_plan.md
     block_new:
       - schema_definition
       - broad_reexport_batch
@@ -37,6 +69,19 @@ known_hotspots:
     target_role: compatibility facade for evidence capabilities
     preferred_owner_modules:
       - app/services/evidence_*.py
+    routing:
+      status: compatibility_facade_trap
+      reason: The evidence facade is already a narrow compatibility seam; routed follow-on work belongs in the extracted evidence owner-family modules and packets, not in app/services/evidence.py itself.
+      route_to_case_ids:
+        - IC-65AF4A6D8B1E
+      route_to_paths:
+        - app/services/evidence_claim_support_replay_alerts.py
+        - app/services/evidence_technical_report_exports.py
+        - app/services/evidence_semantic_trace.py
+        - app/services/evidence_audit_views.py
+      route_to_plan_paths:
+        - docs/evidence_hotspot_owner_milestone_plan.md
+        - docs/evidence_residual_owner_family_milestone_plan.md
     block_new:
       - private_helper
       - payload_builder
@@ -64,6 +109,18 @@ known_hotspots:
       - app/services/evidence_provenance_export_graph_core.py
       - app/services/evidence_provenance_export_graph_report.py
       - app/services/evidence_provenance_export_lifecycle.py
+    routing:
+      status: compatibility_facade_trap
+      reason: The provenance-export facade is already reduced to forwarding and import-compatibility behavior, so routed ownership belongs to the extracted graph and lifecycle modules.
+      route_to_case_ids:
+        - IC-65AF4A6D8B1E
+      route_to_paths:
+        - app/services/evidence_provenance_export_graph_core.py
+        - app/services/evidence_provenance_export_graph_report.py
+        - app/services/evidence_provenance_export_lifecycle.py
+      route_to_plan_paths:
+        - docs/evidence_provenance_exports_boundary_milestone_plan.md
+        - docs/evidence_residual_owner_family_milestone_plan.md
     block_new:
       - provenance_graph_logic
       - report_trace_lineage_logic
@@ -78,6 +135,20 @@ known_hotspots:
     target_role: console script compatibility and dispatch surface
     preferred_owner_modules:
       - app/cli_commands/
+    routing:
+      status: deferred_reduced_facade
+      reason: app/cli.py is now a forwarding facade under budget, so routed follow-on work should prefer the command-owner modules and residual CLI test families rather than treating app/cli.py as the next implementation root.
+      route_to_case_ids:
+        - IC-9812A0B138D9
+        - IC-FD18EE2D3309
+      route_to_paths:
+        - app/cli_commands/runtime.py
+        - app/cli_commands/search_harness.py
+        - tests/unit/test_cli_search_harness.py
+        - tests/unit/test_cli_runtime.py
+      route_to_plan_paths:
+        - docs/cli_command_dispatch_boundary_milestone_plan.md
+        - docs/residual_large_file_backlog_milestone_plan.md
     block_new:
       - command_implementation
       - broad_parser_logic
@@ -92,6 +163,17 @@ known_hotspots:
     target_role: action registry compatibility and execution entrypoint
     preferred_owner_modules:
       - app/services/agent_actions/
+    routing:
+      status: compatibility_facade_trap
+      reason: The public action registry is now a narrow execution facade; routed follow-on work belongs in the extracted search-harness and semantic-governance action owners, not back in app/services/agent_task_actions.py.
+      route_to_case_ids:
+        - IC-A1E186A34097
+      route_to_paths:
+        - app/services/agent_actions/search_harness.py
+        - app/services/agent_actions/semantic_governance_actions.py
+      route_to_plan_paths:
+        - docs/agent_task_orchestration_boundary_milestone_plan.md
+        - docs/agent_task_residual_owner_family_milestone_plan.md
     block_new:
       - executor_implementation
       - action_family_helper
@@ -105,6 +187,19 @@ known_hotspots:
     target_role: context builder lookup and context artifact entrypoint
     preferred_owner_modules:
       - app/services/agent_task_context_*.py
+    routing:
+      status: compatibility_facade_trap
+      reason: The public context facade is already narrowed, so future routing should target the extracted context owner modules instead of reopening app/services/agent_task_context.py as the default packet.
+      route_to_case_ids:
+        - IC-E52B6C7B22FD
+      route_to_paths:
+        - app/services/agent_task_context_search_harness.py
+        - app/services/agent_task_context_semantic_governance.py
+        - app/services/agent_task_context_semantic_analysis.py
+        - app/services/agent_task_context_technical_reports.py
+      route_to_plan_paths:
+        - docs/agent_task_orchestration_boundary_milestone_plan.md
+        - docs/agent_task_residual_owner_family_milestone_plan.md
     block_new:
       - context_builder_implementation
       - context_family_helper
@@ -114,10 +209,116 @@ known_hotspots:
       - alias_forwarder
       - explicit_forwarding_function
       - deletion
+  app/services/agent_tasks.py:
+    target_role: public agent-task service orchestration and compatibility surface
+    preferred_owner_modules:
+      - app/services/agent_task_dependencies.py
+      - app/services/agent_task_reads.py
+      - app/services/agent_task_lifecycle.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The root agent-task service is already reduced in the local checkout, so routed follow-on work belongs in the focused dependency, read, and lifecycle owners rather than reopening app/services/agent_tasks.py by default.
+      route_to_case_ids:
+        - IC-4098E8370B88
+      route_to_paths:
+        - app/services/agent_task_dependencies.py
+        - app/services/agent_task_reads.py
+        - app/services/agent_task_lifecycle.py
+      route_to_plan_paths:
+        - docs/agent_task_residual_owner_family_milestone_plan.md
+        - docs/residual_large_file_backlog_milestone_plan.md
+    block_new:
+      - dependency_validation_logic
+      - lifecycle_mutation_logic
+      - detail_projection_logic
+      - trace_export_logic
+      - broad_helper
+    allow:
+      - explicit_forwarding_function
+      - compatibility_alias
+      - orchestration_entrypoint
+      - deletion
+  app/services/agent_actions/search_harness.py:
+    target_role: search-harness action registry and compatibility surface
+    preferred_owner_modules:
+      - app/services/agent_actions/search_harness_drafting_actions.py
+      - app/services/agent_actions/search_harness_triage_actions.py
+    block_new:
+      - drafting_stage_logic
+      - triage_stage_logic
+      - repair_case_helper_sink
+      - broad_executor_helper
+    allow:
+      - registry_composition
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
+      - deletion
+  app/services/agent_task_context_search_harness.py:
+    target_role: search-harness context registry and compatibility surface
+    preferred_owner_modules:
+      - app/services/agent_task_context_search_harness_drafting.py
+      - app/services/agent_task_context_search_harness_triage.py
+    block_new:
+      - drafting_builder_logic
+      - triage_builder_logic
+      - replay_case_helper_sink
+      - broad_context_helper
+    allow:
+      - registry_composition
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
+      - deletion
+  app/services/agent_actions/semantic_governance_actions.py:
+    target_role: semantic-governance action composition and registry-update surface
+    preferred_owner_modules:
+      - app/services/agent_actions/semantic_governance_ontology_actions.py
+      - app/services/agent_actions/semantic_governance_graph_actions.py
+    block_new:
+      - ontology_extension_logic
+      - graph_promotion_logic
+      - broad_governance_helper
+    allow:
+      - registry_composition
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
+      - registry_update_logic
+      - deletion
+  app/services/agent_task_context_semantic_governance.py:
+    target_role: semantic-governance context composition and registry-update surface
+    preferred_owner_modules:
+      - app/services/agent_task_context_semantic_governance_ontology.py
+      - app/services/agent_task_context_semantic_governance_graph.py
+    block_new:
+      - ontology_builder_logic
+      - graph_builder_logic
+      - broad_governance_context_helper
+    allow:
+      - registry_composition
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
+      - registry_update_builder_logic
+      - deletion
   app/services/search.py:
     target_role: search service compatibility facade
     preferred_owner_modules:
       - app/services/search_*.py
+    routing:
+      status: compatibility_facade_trap
+      reason: The search compatibility surface is already reduced and should not be treated as the next owner packet while the extracted search owners carry the real remaining debt.
+      route_to_case_ids:
+        - IC-1D03DBFE8492
+      route_to_paths:
+        - app/services/search_harnesses.py
+        - app/services/search_retrieval_primitives.py
+        - app/services/search_metadata_supplement.py
+      route_to_plan_paths:
+        - docs/search_execution_persistence_boundary_milestone_plan.md
+        - docs/search_execution_orchestration_boundary_milestone_plan.md
+        - docs/search_compatibility_facade_boundary_milestone_plan.md
     block_new:
       - harness_registry_logic
       - retrieval_primitive_logic
@@ -156,6 +357,17 @@ known_hotspots:
     target_role: claim-support policy impact compatibility facade
     preferred_owner_modules:
       - app/services/claim_support_policy_impact_*.py
+    routing:
+      status: compatibility_facade_trap
+      reason: The policy-impact facade is already narrowed, so routed follow-on work belongs in the extracted read-model and replay owners rather than back in app/services/claim_support_policy_impacts.py.
+      route_to_case_ids:
+        - IC-E2270F89B397
+      route_to_paths:
+        - app/services/claim_support_policy_impact_views.py
+        - app/services/claim_support_policy_impact_replay.py
+      route_to_plan_paths:
+        - docs/claim_support_policy_impacts_boundary_milestone_plan.md
+        - docs/claim_support_residual_owner_family_milestone_plan.md
     block_new:
       - read_model_worklist_logic
       - alert_projection_or_escalation_logic
@@ -270,6 +482,19 @@ known_hotspots:
     target_role: legacy CLI compatibility tests
     preferred_owner_modules:
       - tests/unit/test_cli_*.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The residual CLI smoke test stays intentionally small, so future routing should target the focused command-family tests instead of reopening tests/unit/test_cli.py as the next packet.
+      route_to_case_ids:
+        - IC-FD18EE2D3309
+      route_to_paths:
+        - tests/unit/test_cli_search_harness.py
+        - tests/unit/test_cli_runtime.py
+        - tests/unit/test_cli_improvement_cases.py
+        - tests/unit/test_cli_ingest.py
+      route_to_plan_paths:
+        - docs/cli_command_dispatch_boundary_milestone_plan.md
+        - docs/residual_large_file_backlog_milestone_plan.md
     block_new:
       - broad_new_test_group
     allow:

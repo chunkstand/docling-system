@@ -6,16 +6,14 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+import app.services.docling_parser_normalization as _docling_parser_normalization
 from app.core.config import default_local_ingest_roots, get_settings
-from app.services import docling_parser_normalization as _docling_parser_normalization
-from app.services.docling_parser_conversion import get_table_supplement_registry
 from app.services.docling_parser_types import (
     TABLE_LABEL_PATTERN,
     TITLE_REGEX_FAMILY_MATCHER,
     ParsedTable,
     ParsedTableSegment,
     TableFamilyMatcher,
-    TableSupplementRule,
 )
 
 
@@ -398,44 +396,6 @@ def _resolve_table_supplement_path(
             break
 
     return next((path for path in candidate_paths if path.is_file()), None)
-
-
-def _apply_registered_table_supplements(
-    source_path: Path | None,
-    tables: list[ParsedTable],
-    *,
-    source_filename: str | None = None,
-    registry_rules: tuple[TableSupplementRule, ...] | None = None,
-    parser=None,
-) -> list[ParsedTable]:
-    resolved_rules = (
-        registry_rules if registry_rules is not None else get_table_supplement_registry()
-    )
-    normalized_source_filename = Path(source_filename).name if source_filename else None
-    result = tables
-
-    for rule in resolved_rules:
-        if not rule.matches_document(normalized_source_filename):
-            continue
-        supplement_path = _resolve_table_supplement_path(
-            rule.supplement_filename,
-            source_path=source_path,
-        )
-        if supplement_path is None:
-            continue
-        from app.services.docling_parser import DoclingParser
-
-        supplement_parser = parser or DoclingParser()
-        supplement_tables = supplement_parser.parse_pdf(supplement_path).tables
-        result = _apply_table_family_overlays(
-            result,
-            supplement_tables,
-            family_matcher=rule.matcher,
-            overlay_type=rule.overlay_type,
-            supplement_filename=supplement_path.name,
-        )
-
-    return result
 
 
 def _build_logical_tables(raw_segments: list[ParsedTableSegment]) -> list[ParsedTable]:

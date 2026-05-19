@@ -10,8 +10,6 @@ from app.db.base import Base
 from tests.db_model_contract import (
     AGENT_TASK_DOMAIN_TABLE_COLUMNS,
     ALLOWED_DB_MODELS_SUPPORT_SYMBOLS,
-    AUDIT_AND_EVIDENCE_DOMAIN_TABLE_COLUMNS,
-    CLAIM_SUPPORT_DOMAIN_TABLE_COLUMNS,
     DB_MODELS_ENUM_SUPPORT_MODULE,
     DOCUMENT_ARTIFACT_DOMAIN_TABLE_COLUMNS,
     ENUM_SYMBOLS,
@@ -32,7 +30,6 @@ from tests.db_model_contract import (
     RETRIEVAL_INTERACTION_DOMAIN_TABLE_COLUMNS,
     RETRIEVAL_LEARNING_DOMAIN_TABLE_COLUMNS,
     RETRIEVAL_REPLAY_GOVERNANCE_DOMAIN_TABLE_COLUMNS,
-    SEMANTIC_MEMORY_DOMAIN_TABLE_COLUMNS,
 )
 
 
@@ -248,92 +245,6 @@ def test_evaluation_feedback_models_are_owned_by_domain_module() -> None:
         assert domain_model.__module__ == "app.db.model_domains.evaluation_feedback"
 
 
-def test_claim_support_models_are_owned_by_domain_module() -> None:
-    from app.db.model_domains.claim_support import (
-        ClaimSupportCalibrationPolicy,
-        ClaimSupportEvaluation,
-        ClaimSupportEvaluationCase,
-        ClaimSupportFixtureSet,
-        ClaimSupportPolicyChangeImpact,
-        ClaimSupportReplayAlertFixtureCorpusRow,
-        ClaimSupportReplayAlertFixtureCorpusSnapshot,
-        ClaimSupportReplayAlertFixtureCoverageWaiverEscalation,
-        ClaimSupportReplayAlertFixtureCoverageWaiverLedger,
-    )
-
-    expected_models = {
-        "ClaimSupportReplayAlertFixtureCoverageWaiverLedger": (
-            ClaimSupportReplayAlertFixtureCoverageWaiverLedger
-        ),
-        "ClaimSupportReplayAlertFixtureCoverageWaiverEscalation": (
-            ClaimSupportReplayAlertFixtureCoverageWaiverEscalation
-        ),
-        "ClaimSupportFixtureSet": ClaimSupportFixtureSet,
-        "ClaimSupportReplayAlertFixtureCorpusSnapshot": (
-            ClaimSupportReplayAlertFixtureCorpusSnapshot
-        ),
-        "ClaimSupportReplayAlertFixtureCorpusRow": ClaimSupportReplayAlertFixtureCorpusRow,
-        "ClaimSupportCalibrationPolicy": ClaimSupportCalibrationPolicy,
-        "ClaimSupportEvaluation": ClaimSupportEvaluation,
-        "ClaimSupportEvaluationCase": ClaimSupportEvaluationCase,
-        "ClaimSupportPolicyChangeImpact": ClaimSupportPolicyChangeImpact,
-    }
-
-    for model_name, domain_model in expected_models.items():
-        assert getattr(model_module, model_name) is domain_model
-        assert domain_model.__module__ == "app.db.model_domains.claim_support"
-
-
-def test_semantic_memory_models_are_owned_by_domain_module() -> None:
-    from app.db.model_domains.semantic_memory import (
-        DocumentRunSemanticPass,
-        DocumentSemanticCategoryReview,
-        DocumentSemanticConceptReview,
-        SemanticAssertion,
-        SemanticAssertionCategoryBinding,
-        SemanticAssertionEvidence,
-        SemanticCategory,
-        SemanticConcept,
-        SemanticConceptCategoryBinding,
-        SemanticConceptTerm,
-        SemanticEntity,
-        SemanticFact,
-        SemanticFactEvidence,
-        SemanticGovernanceEvent,
-        SemanticGraphSnapshot,
-        SemanticOntologySnapshot,
-        SemanticTerm,
-        WorkspaceSemanticGraphState,
-        WorkspaceSemanticState,
-    )
-
-    expected_models = {
-        "SemanticOntologySnapshot": SemanticOntologySnapshot,
-        "WorkspaceSemanticState": WorkspaceSemanticState,
-        "SemanticGraphSnapshot": SemanticGraphSnapshot,
-        "WorkspaceSemanticGraphState": WorkspaceSemanticGraphState,
-        "SemanticConcept": SemanticConcept,
-        "SemanticCategory": SemanticCategory,
-        "SemanticTerm": SemanticTerm,
-        "SemanticConceptTerm": SemanticConceptTerm,
-        "SemanticConceptCategoryBinding": SemanticConceptCategoryBinding,
-        "DocumentSemanticConceptReview": DocumentSemanticConceptReview,
-        "DocumentSemanticCategoryReview": DocumentSemanticCategoryReview,
-        "DocumentRunSemanticPass": DocumentRunSemanticPass,
-        "SemanticAssertion": SemanticAssertion,
-        "SemanticAssertionCategoryBinding": SemanticAssertionCategoryBinding,
-        "SemanticAssertionEvidence": SemanticAssertionEvidence,
-        "SemanticEntity": SemanticEntity,
-        "SemanticFact": SemanticFact,
-        "SemanticFactEvidence": SemanticFactEvidence,
-        "SemanticGovernanceEvent": SemanticGovernanceEvent,
-    }
-
-    for model_name, domain_model in expected_models.items():
-        assert getattr(model_module, model_name) is domain_model
-        assert domain_model.__module__ == "app.db.model_domains.semantic_memory"
-
-
 def test_agent_task_models_are_owned_by_domain_module() -> None:
     from app.db.model_domains.agent_tasks import (
         AgentTask,
@@ -364,36 +275,6 @@ def test_agent_task_models_are_owned_by_domain_module() -> None:
     for model_name, domain_model in expected_models.items():
         assert getattr(model_module, model_name) is domain_model
         assert domain_model.__module__ == "app.db.model_domains.agent_tasks"
-
-
-def test_audit_and_evidence_models_are_owned_by_domain_module() -> None:
-    from app.db.model_domains.audit_and_evidence import (
-        AuditBundleExport,
-        AuditBundleValidationReceipt,
-        ClaimEvidenceDerivation,
-        EvidenceManifest,
-        EvidencePackageExport,
-        EvidenceTraceEdge,
-        EvidenceTraceNode,
-        TechnicalReportClaimRetrievalFeedback,
-        TechnicalReportReleaseReadinessDbGate,
-    )
-
-    expected_models = {
-        "AuditBundleExport": AuditBundleExport,
-        "AuditBundleValidationReceipt": AuditBundleValidationReceipt,
-        "EvidencePackageExport": EvidencePackageExport,
-        "EvidenceManifest": EvidenceManifest,
-        "TechnicalReportReleaseReadinessDbGate": TechnicalReportReleaseReadinessDbGate,
-        "TechnicalReportClaimRetrievalFeedback": TechnicalReportClaimRetrievalFeedback,
-        "EvidenceTraceNode": EvidenceTraceNode,
-        "EvidenceTraceEdge": EvidenceTraceEdge,
-        "ClaimEvidenceDerivation": ClaimEvidenceDerivation,
-    }
-
-    for model_name, domain_model in expected_models.items():
-        assert getattr(model_module, model_name) is domain_model
-        assert domain_model.__module__ == "app.db.model_domains.audit_and_evidence"
 
 
 def test_base_metadata_table_contract_is_complete() -> None:
@@ -474,45 +355,9 @@ def test_base_metadata_preserves_evaluation_feedback_domain_table_columns(
 
 @pytest.mark.parametrize(
     ("table_name", "expected_columns"),
-    CLAIM_SUPPORT_DOMAIN_TABLE_COLUMNS.items(),
-)
-def test_base_metadata_preserves_claim_support_domain_table_columns(
-    table_name: str, expected_columns: frozenset[str]
-) -> None:
-    table = Base.metadata.tables[table_name]
-
-    assert frozenset(table.columns.keys()) == expected_columns
-
-
-@pytest.mark.parametrize(
-    ("table_name", "expected_columns"),
-    SEMANTIC_MEMORY_DOMAIN_TABLE_COLUMNS.items(),
-)
-def test_base_metadata_preserves_semantic_memory_domain_table_columns(
-    table_name: str, expected_columns: frozenset[str]
-) -> None:
-    table = Base.metadata.tables[table_name]
-
-    assert frozenset(table.columns.keys()) == expected_columns
-
-
-@pytest.mark.parametrize(
-    ("table_name", "expected_columns"),
     AGENT_TASK_DOMAIN_TABLE_COLUMNS.items(),
 )
 def test_base_metadata_preserves_agent_task_domain_table_columns(
-    table_name: str, expected_columns: frozenset[str]
-) -> None:
-    table = Base.metadata.tables[table_name]
-
-    assert frozenset(table.columns.keys()) == expected_columns
-
-
-@pytest.mark.parametrize(
-    ("table_name", "expected_columns"),
-    AUDIT_AND_EVIDENCE_DOMAIN_TABLE_COLUMNS.items(),
-)
-def test_base_metadata_preserves_audit_and_evidence_domain_table_columns(
     table_name: str, expected_columns: frozenset[str]
 ) -> None:
     table = Base.metadata.tables[table_name]

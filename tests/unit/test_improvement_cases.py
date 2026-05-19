@@ -211,8 +211,6 @@ def test_import_improvement_case_observations_dedupes_by_source_ref(tmp_path) ->
     assert second["skipped"][0]["reason"] == "already_imported"
     assert registry.cases[0].status == "open"
     assert registry.cases[0].source.source_ref == "agent_task:123"
-
-
 def test_collect_hygiene_finding_observations_maps_findings_to_open_cases() -> None:
     class Finding:
         kind = "ruff_regression"

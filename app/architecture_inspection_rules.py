@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 import ast
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from app.api.main import create_app
-from app.api.route_contracts import validate_api_route_capability_contracts
-from app.architecture_decisions import validate_architecture_decisions
 from app.architecture_inspection_rule_config import (
     ALLOWED_MAIN_SERVICE_IMPORTS,
     APP_ROUTE_DECORATORS,
@@ -22,9 +18,14 @@ from app.architecture_inspection_rule_config import (
 from app.architecture_inspection_rule_config import (
     FORBIDDEN_CLI_IMPROVEMENT_INTAKE_MODULES as CLI_INTAKE_MODULES,
 )
+from app.architecture_inspection_rule_contracts import (
+    agent_action_contract_violations,
+    api_route_contract_violations,
+    architecture_decision_violations,
+    architecture_map_drift_violations,
+    capability_contract_violations,
+)
 from app.architecture_inspection_types import ArchitectureRule, ArchitectureViolation
-from app.capability_contracts import validate_capability_contracts
-from app.services.agent_task_actions import validate_agent_task_action_contracts
 
 
 @dataclass(frozen=True, slots=True)
@@ -272,101 +273,6 @@ def _architecture_doc_violations(project_root: Path) -> list[ArchitectureViolati
     ]
 
 
-def _api_route_contract_violations() -> list[ArchitectureViolation]:
-    return [
-        ArchitectureViolation(
-            contract="api_route_capabilities",
-            field=issue.field,
-            symbol=f"{issue.method} {issue.path}",
-            message=issue.message,
-        )
-        for issue in validate_api_route_capability_contracts(create_app())
-    ]
-
-
-def _agent_action_contract_violations() -> list[ArchitectureViolation]:
-    return [
-        ArchitectureViolation(
-            contract="agent_action_catalog",
-            field=issue.field,
-            symbol=issue.task_type,
-            message=issue.message,
-        )
-        for issue in validate_agent_task_action_contracts()
-    ]
-
-
-def _architecture_decision_violations(
-    project_root: Path,
-    *,
-    expected_contracts: tuple[str, ...],
-) -> list[ArchitectureViolation]:
-    violations: list[ArchitectureViolation] = []
-    for issue in validate_architecture_decisions(
-        project_root,
-        expected_contracts=expected_contracts,
-    ):
-        payload = issue.to_dict()
-        payload["contract"] = "architecture_decisions"
-        violations.append(ArchitectureViolation(**payload))
-    return violations
-
-
-def _capability_contract_violations(project_root: Path) -> list[ArchitectureViolation]:
-    violations: list[ArchitectureViolation] = []
-    for issue in validate_capability_contracts(project_root):
-        payload = issue.to_dict()
-        payload["contract"] = "capability_surface_contracts"
-        violations.append(ArchitectureViolation(**payload))
-    return violations
-
-
-def _architecture_map_drift_violations(
-    project_root: Path,
-    *,
-    current_map: dict[str, Any],
-    map_path: str | Path | None,
-    default_map_path: Path,
-) -> list[ArchitectureViolation]:
-    resolved_path = resolve_architecture_contract_map_path(
-        project_root,
-        default_map_path,
-        map_path,
-    )
-    try:
-        relative_path = resolved_path.resolve().relative_to(project_root.resolve()).as_posix()
-    except ValueError:
-        relative_path = str(resolved_path)
-
-    if not resolved_path.exists():
-        return [
-            ArchitectureViolation(
-                contract="architecture_contract_map",
-                field="persisted_map",
-                relative_path=relative_path,
-                message=(
-                    "Committed architecture contract map is missing; run "
-                    "`uv run docling-system-architecture-inspect --write-map`."
-                ),
-            )
-        ]
-
-    persisted_map = json.loads(resolved_path.read_text())
-    if persisted_map == current_map:
-        return []
-    return [
-        ArchitectureViolation(
-            contract="architecture_contract_map",
-            field="persisted_map",
-            relative_path=relative_path,
-            message=(
-                "Committed architecture contract map is stale; run "
-                "`uv run docling-system-architecture-inspect --write-map`."
-            ),
-        )
-    ]
-
-
 def check_main_bootstrap_rule(
     context: ArchitectureInspectionContext,
 ) -> list[ArchitectureViolation]:
@@ -426,19 +332,19 @@ def check_architecture_doc_rule(
 def check_api_route_contract_rule(
     _context: ArchitectureInspectionContext,
 ) -> list[ArchitectureViolation]:
-    return _api_route_contract_violations()
+    return api_route_contract_violations()
 
 
 def check_agent_action_contract_rule(
     _context: ArchitectureInspectionContext,
 ) -> list[ArchitectureViolation]:
-    return _agent_action_contract_violations()
+    return agent_action_contract_violations()
 
 
 def check_architecture_decision_rule(
     context: ArchitectureInspectionContext,
 ) -> list[ArchitectureViolation]:
-    return _architecture_decision_violations(
+    return architecture_decision_violations(
         context.project_root,
         expected_contracts=context.expected_contracts,
     )
@@ -447,17 +353,21 @@ def check_architecture_decision_rule(
 def check_capability_contract_rule(
     context: ArchitectureInspectionContext,
 ) -> list[ArchitectureViolation]:
-    return _capability_contract_violations(context.project_root)
+    return capability_contract_violations(context.project_root)
 
 
 def check_architecture_map_drift_rule(
     context: ArchitectureInspectionContext,
 ) -> list[ArchitectureViolation]:
-    return _architecture_map_drift_violations(
+    resolved_path = resolve_architecture_contract_map_path(
         context.project_root,
+        context.default_map_path,
+        context.map_path,
+    )
+    return architecture_map_drift_violations(
+        project_root=context.project_root,
+        resolved_path=resolved_path,
         current_map=context.current_map,
-        map_path=context.map_path,
-        default_map_path=context.default_map_path,
     )
 
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -8,10 +7,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from app.architecture_measurement_contracts import (
-    ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME,
-    DEFAULT_ARCHITECTURE_GOVERNANCE_REPORT_PATH,
-)
 from app.core.files import repo_root
 from app.db.session import get_session_factory
 from app.hygiene import (
@@ -21,11 +16,10 @@ from app.hygiene import (
     run_improvement_case_contract_checks,
     run_python_hygiene_checks,
 )
+from app.services.improvement_case_architecture_quality import (
+    collect_architecture_quality_report_observations,
+)
 from app.services.improvement_case_contracts import (
-    AGENT_TRACE_REVIEW_REPORT_SCHEMA_NAME,
-    ARCHITECTURE_QUALITY_REPORT_SCHEMA_NAME,
-    DEFAULT_AGENT_TRACE_REVIEW_REPORT_PATH,
-    DEFAULT_ARCHITECTURE_QUALITY_REPORT_PATH,
     IMPROVEMENT_CASE_IMPORT_ALL_SOURCE,
     IMPROVEMENT_CASE_IMPORT_SCHEMA_NAME,
     IMPROVEMENT_CASE_IMPORT_SCHEMA_VERSION,
@@ -38,6 +32,12 @@ from app.services.improvement_case_contracts import (
 from app.services.improvement_case_contracts import (
     list_improvement_case_import_sources as _list_improvement_case_import_sources,
 )
+from app.services.improvement_case_report_imports import (
+    collect_agent_trace_review_report_observations,
+    collect_architecture_governance_report_observations,
+    resolve_agent_trace_review_report_path,
+    resolve_architecture_governance_report_path,
+)
 from app.services.improvement_cases import (
     ImprovementCaseObservation,
     collect_eval_failure_case_observations,
@@ -45,7 +45,26 @@ from app.services.improvement_cases import (
     collect_failed_agent_verification_observations,
     collect_hygiene_finding_observations,
     import_improvement_case_observations,
+    load_improvement_case_registry,
 )
+
+__all__ = [
+    "ImprovementCaseImportCaseSummary",
+    "ImprovementCaseImportRequest",
+    "ImprovementCaseImportResult",
+    "ImprovementCaseImportSkippedSource",
+    "ImprovementCaseImportSourceContext",
+    "ImprovementCaseImportSourceSpec",
+    "collect_agent_trace_review_report_observations",
+    "collect_architecture_governance_report_observations",
+    "collect_hygiene_import_observations",
+    "collect_improvement_case_import_observations",
+    "list_improvement_case_import_source_specs",
+    "list_improvement_case_import_sources",
+    "resolve_agent_trace_review_report_path",
+    "resolve_architecture_governance_report_path",
+    "run_improvement_case_import",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +98,7 @@ class ImprovementCaseImportSourceSpec:
 
 list_improvement_case_import_sources = _list_improvement_case_import_sources
 list_improvement_case_import_source_specs = _list_improvement_case_import_source_specs
+ACTIVE_ARCHITECTURE_GOVERNANCE_CASE_STATUSES = frozenset({"open", "converted", "verified"})
 
 
 def _validate_import_source(source: str) -> None:
@@ -87,6 +107,69 @@ def _validate_import_source(source: str) -> None:
         raise ValueError(
             f"Unknown improvement case import source '{source}'. Expected one of: {allowed}."
         )
+
+
+def _active_architecture_governance_artifact_key(
+    *,
+    source_type: str,
+    cause_class: str,
+    artifact_target_path: str | None,
+    status: str,
+) -> tuple[str, str, str] | None:
+    target_path = (artifact_target_path or "").strip()
+    if (
+        source_type != "architecture_governance"
+        or status not in ACTIVE_ARCHITECTURE_GOVERNANCE_CASE_STATUSES
+        or not cause_class
+        or not target_path
+    ):
+        return None
+    return source_type, cause_class, target_path
+
+
+def _partition_active_architecture_governance_artifacts(
+    observations: list[ImprovementCaseObservation],
+    *,
+    path: str | Path | None = None,
+    project_root: Path | None = None,
+) -> tuple[list[ImprovementCaseObservation], list[dict[str, str]]]:
+    root = project_root or repo_root()
+    registry = load_improvement_case_registry(path, project_root=root)
+    existing_artifacts = {
+        key
+        for case in registry.cases
+        if (
+            key := _active_architecture_governance_artifact_key(
+                source_type=case.source.source_type,
+                cause_class=case.cause_class,
+                artifact_target_path=case.artifact.target_path,
+                status=case.status,
+            )
+        )
+        is not None
+    }
+    retained: list[ImprovementCaseObservation] = []
+    skipped: list[dict[str, str]] = []
+    for observation in observations:
+        artifact_key = _active_architecture_governance_artifact_key(
+            source_type=observation.source_type,
+            cause_class=observation.cause_class,
+            artifact_target_path=observation.artifact_target_path,
+            status="open",
+        )
+        if artifact_key in existing_artifacts:
+            skipped.append(
+                {
+                    "source_type": observation.source_type,
+                    "source_ref": observation.source_ref,
+                    "reason": "artifact_already_governed",
+                }
+            )
+            continue
+        retained.append(observation)
+        if artifact_key is not None:
+            existing_artifacts.add(artifact_key)
+    return retained, skipped
 
 
 class ImprovementCaseImportRequest(BaseModel):
@@ -166,364 +249,6 @@ def collect_hygiene_import_observations(
         limit=limit,
         workflow_version=workflow_version,
     )
-
-
-def resolve_architecture_governance_report_path(
-    source_path: str | Path | None = None,
-    *,
-    project_root: Path | None = None,
-) -> Path:
-    raw_path = (
-        Path(source_path)
-        if source_path is not None
-        else DEFAULT_ARCHITECTURE_GOVERNANCE_REPORT_PATH
-    )
-    return raw_path if raw_path.is_absolute() else (project_root or repo_root()) / raw_path
-
-
-def _architecture_governance_source_notes(
-    *,
-    report_path: Path,
-    current_commit_sha: object,
-    latest_recorded_commit_sha: object,
-    extra: str | None = None,
-) -> str:
-    parts = [
-        f"report_path={report_path.as_posix()}",
-        f"current_commit_sha={current_commit_sha or 'unknown'}",
-        f"latest_recorded_commit_sha={latest_recorded_commit_sha or 'none'}",
-    ]
-    if extra:
-        parts.append(extra)
-    return "; ".join(parts)
-
-
-def _architecture_governance_report_value(
-    report: dict,
-    measurement_summary: dict | None,
-    key: str,
-) -> object:
-    value = report.get(key)
-    if value is None and measurement_summary is not None:
-        return measurement_summary.get(key)
-    return value
-
-
-def _architecture_violation_source_ref(violation: dict) -> str:
-    rule_id = str(violation.get("rule_id") or "unattributed")
-    locator = (
-        violation.get("relative_path")
-        or violation.get("symbol")
-        or violation.get("field")
-        or "global"
-    )
-    lineno = violation.get("lineno")
-    if lineno is not None:
-        locator = f"{locator}:{lineno}"
-    return f"architecture-governance:{rule_id}:{locator}"
-
-
-def collect_architecture_governance_report_observations(
-    *,
-    source_path: str | Path | None = None,
-    limit: int = 50,
-    workflow_version: str = "improvement_v1",
-    project_root: Path | None = None,
-    require_existing: bool = False,
-) -> list[ImprovementCaseObservation]:
-    report_path = resolve_architecture_governance_report_path(
-        source_path,
-        project_root=project_root,
-    )
-    if not report_path.exists():
-        if require_existing:
-            raise ValueError(f"Architecture governance report not found: {report_path}")
-        return []
-
-    try:
-        report = json.loads(report_path.read_text())
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Invalid architecture governance report JSON: {exc}") from exc
-
-    if not isinstance(report, dict):
-        raise ValueError("Architecture governance report must be a JSON object.")
-    if report.get("schema_name") != ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME:
-        raise ValueError(
-            "Architecture governance report has unexpected schema_name "
-            f"{report.get('schema_name')!r}."
-        )
-
-    measurement_summary = report.get("measurement_summary")
-    if not isinstance(measurement_summary, dict):
-        measurement_summary = None
-    inspection = report.get("inspection") if isinstance(report, dict) else None
-    violations = (
-        inspection.get("violations", [])
-        if isinstance(inspection, dict) and isinstance(inspection.get("violations", []), list)
-        else []
-    )
-    current_commit_sha = _architecture_governance_report_value(
-        report,
-        measurement_summary,
-        "current_commit_sha",
-    )
-    latest_recorded_commit_sha = _architecture_governance_report_value(
-        report,
-        measurement_summary,
-        "latest_recorded_commit_sha",
-    )
-    recording_required = _architecture_governance_report_value(
-        report,
-        measurement_summary,
-        "recording_required",
-    )
-    observations: list[ImprovementCaseObservation] = []
-
-    for violation in violations:
-        if not isinstance(violation, dict):
-            continue
-        rule_id = str(violation.get("rule_id") or "unattributed")
-        contract = str(violation.get("contract") or "architecture")
-        field = str(violation.get("field") or "contract")
-        severity = str(violation.get("severity") or "error")
-        message = str(violation.get("message") or "Architecture governance violation.")
-        observations.append(
-            ImprovementCaseObservation(
-                title=f"Architecture governance violation: {rule_id}",
-                observed_failure=(
-                    f"Architecture governance report failed rule '{rule_id}' for "
-                    f"contract '{contract}' field '{field}': {message}"
-                ),
-                cause_class="missing_constraint",
-                source_type="architecture_governance",
-                source_ref=_architecture_violation_source_ref(violation),
-                source_notes=_architecture_governance_source_notes(
-                    report_path=report_path,
-                    current_commit_sha=current_commit_sha,
-                    latest_recorded_commit_sha=latest_recorded_commit_sha,
-                    extra=f"severity={severity}; contract={contract}; field={field}",
-                ),
-                workflow_version=workflow_version,
-            )
-        )
-
-    if report.get("valid") is False and not observations:
-        observations.append(
-            ImprovementCaseObservation(
-                title="Architecture governance report is invalid",
-                observed_failure=(
-                    "Architecture governance report is invalid but did not expose "
-                    "rule-level violations for import."
-                ),
-                cause_class="missing_context",
-                source_type="architecture_governance",
-                source_ref=(
-                    "architecture-governance:invalid-report:"
-                    f"{current_commit_sha or 'unknown'}"
-                ),
-                source_notes=_architecture_governance_source_notes(
-                    report_path=report_path,
-                    current_commit_sha=current_commit_sha,
-                    latest_recorded_commit_sha=latest_recorded_commit_sha,
-                ),
-                workflow_version=workflow_version,
-            )
-        )
-
-    if recording_required is True:
-        observations.append(
-            ImprovementCaseObservation(
-                title="Architecture measurement history is stale",
-                observed_failure=(
-                    "Architecture governance report indicates the latest recorded "
-                    f"measurement commit '{latest_recorded_commit_sha or 'none'}' does "
-                    f"not match current commit '{current_commit_sha or 'unknown'}'."
-                ),
-                cause_class="missing_context",
-                source_type="architecture_governance",
-                source_ref=(
-                    "architecture-governance:measurement-freshness:"
-                    f"{current_commit_sha or 'unknown'}"
-                ),
-                source_notes=_architecture_governance_source_notes(
-                    report_path=report_path,
-                    current_commit_sha=current_commit_sha,
-                    latest_recorded_commit_sha=latest_recorded_commit_sha,
-                ),
-                workflow_version=workflow_version,
-            )
-        )
-
-    return observations[:limit]
-
-
-def resolve_architecture_quality_report_path(
-    source_path: str | Path | None = None,
-    *,
-    project_root: Path | None = None,
-) -> Path:
-    raw_path = (
-        Path(source_path)
-        if source_path is not None
-        else DEFAULT_ARCHITECTURE_QUALITY_REPORT_PATH
-    )
-    return raw_path if raw_path.is_absolute() else (project_root or repo_root()) / raw_path
-
-
-def _architecture_quality_artifact_type(target_path: str) -> str | None:
-    if not target_path:
-        return None
-    if target_path.startswith("tests/"):
-        return "test"
-    return "contract"
-
-
-def collect_architecture_quality_report_observations(
-    *,
-    source_path: str | Path | None = None,
-    limit: int = 50,
-    workflow_version: str = "improvement_v1",
-    project_root: Path | None = None,
-    require_existing: bool = False,
-) -> list[ImprovementCaseObservation]:
-    report_path = resolve_architecture_quality_report_path(
-        source_path,
-        project_root=project_root,
-    )
-    if not report_path.exists():
-        if require_existing:
-            raise ValueError(f"Architecture quality report not found: {report_path}")
-        return []
-
-    try:
-        report = json.loads(report_path.read_text())
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Invalid architecture quality report JSON: {exc}") from exc
-
-    if not isinstance(report, dict):
-        raise ValueError("Architecture quality report must be a JSON object.")
-    if report.get("schema_name") != ARCHITECTURE_QUALITY_REPORT_SCHEMA_NAME:
-        raise ValueError(
-            "Architecture quality report has unexpected schema_name "
-            f"{report.get('schema_name')!r}."
-        )
-
-    observations: list[ImprovementCaseObservation] = []
-    candidates = report.get("improvement_case_candidates")
-    if not isinstance(candidates, list):
-        candidates = []
-    for candidate in candidates:
-        if not isinstance(candidate, dict):
-            continue
-        source_ref = str(candidate.get("source_ref") or "")
-        if not source_ref:
-            continue
-        artifact_target_path = str(candidate.get("artifact_target_path") or "")
-        verification_command = str(candidate.get("verification_command") or "")
-        stop_condition = str(candidate.get("stop_condition") or "")
-        observations.append(
-            ImprovementCaseObservation(
-                title=str(candidate.get("title") or "Architecture quality hotspot"),
-                observed_failure=str(
-                    candidate.get("observed_failure")
-                    or "Architecture quality report identified a hotspot."
-                ),
-                cause_class=str(candidate.get("cause_class") or "unclear_ownership"),
-                source_type="architecture_governance",
-                source_ref=source_ref,
-                source_notes=(
-                    f"report_path={report_path.as_posix()}; "
-                    f"artifact_target_path={candidate.get('artifact_target_path') or 'unknown'}; "
-                    f"verification_command={candidate.get('verification_command') or 'unknown'}; "
-                    f"stop_condition={candidate.get('stop_condition') or 'unknown'}"
-                ),
-                artifact_type=_architecture_quality_artifact_type(artifact_target_path),
-                artifact_target_path=artifact_target_path or None,
-                artifact_description=(
-                    f"Architecture quality owner surface for {artifact_target_path}."
-                    if artifact_target_path
-                    else None
-                ),
-                verification_commands=[verification_command] if verification_command else [],
-                acceptance_conditions=[stop_condition] if stop_condition else [],
-                workflow_version=workflow_version,
-            )
-        )
-    return observations[:limit]
-
-
-def resolve_agent_trace_review_report_path(
-    source_path: str | Path | None = None,
-    *,
-    project_root: Path | None = None,
-) -> Path:
-    raw_path = (
-        Path(source_path)
-        if source_path is not None
-        else DEFAULT_AGENT_TRACE_REVIEW_REPORT_PATH
-    )
-    return raw_path if raw_path.is_absolute() else (project_root or repo_root()) / raw_path
-
-
-def collect_agent_trace_review_report_observations(
-    *,
-    source_path: str | Path | None = None,
-    limit: int = 50,
-    workflow_version: str = "improvement_v1",
-    project_root: Path | None = None,
-    require_existing: bool = False,
-) -> list[ImprovementCaseObservation]:
-    report_path = resolve_agent_trace_review_report_path(
-        source_path,
-        project_root=project_root,
-    )
-    if not report_path.exists():
-        if require_existing:
-            raise ValueError(f"Agent trace review report not found: {report_path}")
-        return []
-
-    try:
-        report = json.loads(report_path.read_text())
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Invalid agent trace review report JSON: {exc}") from exc
-
-    if not isinstance(report, dict):
-        raise ValueError("Agent trace review report must be a JSON object.")
-    if report.get("schema_name") != AGENT_TRACE_REVIEW_REPORT_SCHEMA_NAME:
-        raise ValueError(
-            "Agent trace review report has unexpected schema_name "
-            f"{report.get('schema_name')!r}."
-        )
-
-    observations: list[ImprovementCaseObservation] = []
-    report_observations = report.get("observations")
-    if not isinstance(report_observations, list):
-        report_observations = []
-    for row in report_observations:
-        if not isinstance(row, dict):
-            continue
-        source_ref = str(row.get("source_ref") or "")
-        if not source_ref:
-            continue
-        observations.append(
-            ImprovementCaseObservation(
-                title=str(row.get("title") or "Agent trace review observation"),
-                observed_failure=str(
-                    row.get("observed_failure")
-                    or "Agent trace review identified a failure."
-                ),
-                cause_class=str(row.get("cause_class") or "missing_context"),
-                source_type=str(row.get("source_type") or "agent_task"),
-                source_ref=source_ref,
-                source_notes=(
-                    f"report_path={report_path.as_posix()}; "
-                    f"category={row.get('category') or 'unknown'}; "
-                    f"{row.get('source_notes') or ''}"
-                ),
-                workflow_version=workflow_version,
-            )
-        )
-    return observations[:limit]
 
 
 def _require_import_session(context: ImprovementCaseImportSourceContext) -> object:
@@ -809,10 +534,19 @@ def run_improvement_case_import(
         session_factory=session_factory,
         project_root=project_root,
     )
-    payload = import_improvement_case_observations(
+    filtered_observations, pre_skipped = _partition_active_architecture_governance_artifacts(
         observations,
+        path=import_request.path,
+        project_root=project_root,
+    )
+    payload = import_improvement_case_observations(
+        filtered_observations,
         path=import_request.path,
         project_root=project_root,
         dry_run=import_request.dry_run,
     )
+    if pre_skipped:
+        payload["candidate_count"] += len(pre_skipped)
+        payload["skipped_count"] += len(pre_skipped)
+        payload["skipped"] = [*payload["skipped"], *pre_skipped]
     return ImprovementCaseImportResult.model_validate(payload)

@@ -22,7 +22,7 @@ from app.schemas.semantics import (
     SemanticConceptCategoryBindingResponse,
     SemanticContinuityResponse,
 )
-from app.services.documents import get_document_or_404
+from app.services.document_run_views import get_document_or_404
 
 SEMANTIC_EXCERPT_LIMIT = source_record_owner.SEMANTIC_EXCERPT_LIMIT
 SEMANTIC_MATCH_STRATEGY = source_record_owner.SEMANTIC_MATCH_STRATEGY

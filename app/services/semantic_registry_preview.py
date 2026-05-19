@@ -23,7 +23,7 @@ from app.db.models import (
     SemanticEvaluationStatus,
     SemanticReviewStatus,
 )
-from app.services.documents import get_document_or_404
+from app.services.document_run_views import get_document_or_404
 from app.services.semantic_pass_reads import (
     SemanticAssertionMaterialization,
     SemanticReviewOverlay,

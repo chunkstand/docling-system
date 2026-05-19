@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from app.services.evidence_constants import TECHNICAL_REPORT_CLAIM_RETRIEVAL_FEEDBACK_TABLE
 from app.services.evidence_provenance import prov_identifier as _prov_identifier
-
-if TYPE_CHECKING:
-    from app.services.evidence_provenance_export_graph_core import (
-        ProvenanceGraphContext,
-        ProvenanceGraphState,
-    )
+from app.services.evidence_provenance_export_graph_contracts import (
+    ProvenanceGraphContext,
+    ProvenanceGraphState,
+)
 
 
 def populate_report_graph(

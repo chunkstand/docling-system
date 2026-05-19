@@ -1,6 +1,6 @@
 # Boring Change Architecture Milestone Plan
 
-Date: 2026-05-16 local / 2026-05-16 UTC
+Date: 2026-05-18 local / 2026-05-18 UTC
 Status: drafted originally on 2026-05-13 and refreshed on 2026-05-16 to the
 current system state after the search, claim-support, evaluations,
 evidence-provenance, semantics, runtime-health, and CI parity closeouts, and
@@ -9,14 +9,28 @@ evidence-owner follow-on closed locally through the Milestone 7 selected-owner
 closeout, then through the manifest-trace, manifest-owner, replay-alert, and
 semantic lifecycle/read follow-ons. Milestones 0 and 1 are now resolved
 locally in the current checkout, `docs/hotspot_prevention_family_boundary_milestone_plan.md`
-is now the latest resolved bounded implementation brief, and this broader
-coordination brief must now activate the next fresh bounded packet from the
-refreshed post-closeout backlog.
+was the latest resolved bounded implementation brief at the time of the
+2026-05-16 refresh, `docs/python_cycle_backlog_elimination_milestone_plan.md`
+and `docs/agent_task_residual_owner_family_milestone_plan.md` are now also
+resolved locally on 2026-05-18, `docs/db_models_residual_owner_family_milestone_plan.md`
+is now likewise resolved locally in the current checkout,
+`docs/hotspot_routing_trap_resolution_milestone_plan.md` is now also resolved
+locally through the routed-queue closeout, and this broader coordination brief
+now routes through the Milestone 0 rebaseline in
+`docs/residual_large_file_backlog_milestone_plan.md`, which now first routes
+the now-resolved closeout-state and stale-queue alignment packet
+`docs/closeout_state_queue_alignment_milestone_plan.md` and now returns the
+now-resolved cross-cutting verification packet recorded in
+`docs/cross_cutting_verification_roots_milestone_plan.md`; the
+governance self-hosting packet is now likewise resolved locally, so the next
+active code-owning packet must now be reselected from this broader brief, and
+the resolved documents-service packet remains recorded in
+`docs/documents_service_boundary_milestone_plan.md`.
 Owner context: broader coordination brief for the remaining "expensive to
-change" backlog across live `>800`-line code files, the remaining Python cycle
-components, stale routing risk around already-shrunk compatibility facades, and
-the checked-in gates that must keep those conditions from regrowing. This plan
-is now the active coordination brief while the next narrow packet is selected.
+change" backlog across under-budget residual owner families, stale routing risk
+around already-shrunk compatibility facades, and the checked-in gates that
+must keep oversized files and import cycles from regrowing. This plan is now
+the active coordination brief while the next narrow packet is selected.
 
 ## Purpose
 
@@ -29,23 +43,53 @@ now closed locally, the app-side large-owner packet is resolved locally in the
 working tree, and the immediate next execution choice is narrower again. The
 remaining boring-change gap is now split across four different risks:
 
-- future sessions can reopen already-closed facade packets if routing drifts
-- `27` code files still exceed the `800`-line architecture-probe threshold
-- `3` Python cycle components still remain outside the closed
-  architecture-governance slice
-- the architecture-quality hotspot list still contains some now-small facades,
-  which makes stale hotspot routing especially dangerous
+- future sessions can reopen already-closed facade packets if routing docs drift
+  back to the raw hotspot list instead of the routed queue
+- the live `>800` backlog is already zero, so the remaining work can still be
+  misread if future sessions treat the cleared large-file queue as the whole
+  boring-change backlog
+- the next routed packet can drift stale if residual owner-family routing is
+  not refreshed after each local closeout
+- the raw architecture-quality hotspot list still contains some now-small
+  facades, which means future sessions must treat `top_hotspot_paths` as
+  measurement-only and `top_routed_hotspot_paths` as the operational queue
+
+2026-05-18 update:
+
+- the standalone cycle packet is now resolved locally and the live probe
+  reports `0` Python cycle components
+- the standalone agent-task residual owner-family packet is now also resolved
+  locally with `app/services/agent_tasks.py` at `324` lines,
+  `app/services/agent_actions/search_harness.py` at `444`,
+  `app/services/agent_actions/semantic_governance_actions.py` at `565`, and
+  `tests/integration/test_agent_task_triage_roundtrip.py` at `283`
+- the standalone DB-model residual owner-family packet is now also resolved
+  locally with `app/db/model_domains/audit_and_evidence.py`,
+  `app/db/model_domains/semantic_memory.py`, and
+  `app/db/model_domains/claim_support.py` at `31`, `53`, and `31` lines,
+  plus narrowed shared DB-model roots at `457` and `472`
+- `.github/workflows/architecture-governance.yml` now runs the repo-owned
+  import-boundary gate
+  `uv run pytest -q tests/unit/test_architecture_governance_imports.py tests/unit/test_python_cycle_imports.py`
+- the evaluation and UI residual child packets are now both resolved locally
+  with no governed evaluation or UI root above the default `600`-line budget,
+  the large-file backlog later falls to `0` code files above `800`, the
+  documents-service sink is then retired to a 49-line facade, the
+  cross-cutting verification packet is now also resolved locally, the
+  governance self-hosting packet is now also resolved locally, and the next
+  active code-owning packet must now be reselected from this broader brief
 
 This refreshed plan coordinates the remaining work by preserving the locally
 closed app-side packet, routing the remaining test, UI, and nonselected app
-backlog through narrower follow-on packets, eliminating the three live cycle
-components, and finishing with a checked-in boring-change gate that fails on
-both cycles and oversized code files.
+backlog through narrower follow-on packets, preserving the now-zero-cycle
+state, and finishing with a checked-in boring-change gate that fails on both
+cycles and oversized code files.
 
 ## Current Evidence
 
-Live routing evidence refreshed from the current local checkout on 2026-05-16
-local / 2026-05-16 UTC during the Milestone 0 rebaseline:
+Historical Milestone 0 routing evidence captured from the local checkout on
+2026-05-16 local / 2026-05-16 UTC before the later cycle, agent-task
+residual, and DB-model residual closeouts:
 
 ```text
 git status -sb
@@ -193,24 +237,27 @@ Repo-current structural evidence:
   that should not be forgotten after the current hotspot-prevention family
   packet closes,
   including
-  `app/ui/modules/agents.js` at `1300` lines,
-  `app/services/agent_task_context_semantic_governance.py` at `1126`,
-  `app/services/semantic_orchestration.py` at `1092`,
-  `app/services/agent_actions/search_harness.py` at `1078`,
-  `app/services/technical_reports.py` at `1075`, and
-  `app/db/model_domains/audit_and_evidence.py` at `1053`, plus the test
-  monolith backlog.
-- The current hotspot summary still routes
-  `app/db/models.py`, `app/services/agent_task_actions.py`, `app/cli.py`,
-  `app/schemas/agent_tasks.py`, and `app/services/evidence.py`, but those are
-  now small compatibility facades or already-routed owner families rather than
-  the primary `>800`-line blockers. That makes them routing traps, not the
-  first files to reopen.
-- The three live cycle components are now the search compatibility family
-  centered on `app/services/chat.py` plus the search helper owners, the
-  evidence-provenance export graph family, and the evidence-search
-  packages/trace-store family. The earlier architecture-governance cycle is
-  already closed locally and should stay out of scope.
+  `app/ui/modules/agents.js`,
+  `app/ui/modules/shared.js`,
+  `app/services/semantic_orchestration.py`,
+  `app/services/technical_reports.py`,
+  `app/services/evaluation_fixtures.py`,
+  `app/services/evaluation_scoring.py`,
+  `app/services/audit_bundle_training_runs.py`,
+  `app/services/improvement_cases.py`, and the remaining test monolith
+  backlog. The exact queue must now be refreshed from the current `17`-file
+  `>800` baseline rather than from the earlier pre-closeout DB-model list.
+- The raw hotspot summary still lists `app/db/models.py`,
+  `app/services/agent_task_actions.py`, `app/cli.py`,
+  `app/schemas/agent_tasks.py`, and `app/services/evidence.py`, but the routed
+  summary now suppresses those paths from `top_routed_hotspot_paths` and
+  records them in `routing_trap_paths`. Future packet selection should use the
+  routed queue rather than the raw list.
+- The standalone cycle backlog packet is now also resolved locally and the live
+  probe reports `0` Python cycle components. Future cycle work should stay
+  attached to the checked-in regression gate from
+  `docs/python_cycle_backlog_elimination_milestone_plan.md` instead of
+  widening this umbrella brief again.
 
 ## Goal
 
@@ -256,11 +303,13 @@ In scope:
 - preserving the locally resolved state of
   `docs/app_large_owner_modules_resolution_milestone_plan.md`
 - continued use and eventual closeout of the current active next packet,
-  `docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md`, or a
-  fresher narrow replacement if a later rebaseline changes the routing
+  `docs/residual_large_file_backlog_milestone_plan.md`, plus the closeout-state
+  coordination follow-on
+  `docs/closeout_state_queue_alignment_milestone_plan.md`
 - new or updated bounded routing for the remaining nonselected app, UI, and
   test large-owner backlog
-- elimination of the three live Python cycle components
+- preservation of the now-zero Python cycle state through the checked-in cycle
+  regression gate
 - a checked-in boring-change gate around
   `architecture_probe.py --fail-on-cycles --max-file-lines 800`
 - final source-of-truth alignment across the active plan, handoff, index, and
@@ -296,10 +345,11 @@ Out of scope:
   `.github/workflows/release-gate-parity.yml`,
   and any repo-owned wrapper command used to run the final boring-change gate
 - current active next packet candidate:
-  `app/hotspot_prevention_classifier.py`,
-  `app/hotspot_prevention_classifier_support.py`,
-  `tests/unit/test_hotspot_prevention.py`,
-  and `config/hotspot_prevention.yaml`
+  `docs/residual_large_file_backlog_milestone_plan.md`,
+  `docs/closeout_state_queue_alignment_milestone_plan.md`,
+  `docs/cross_cutting_large_file_residual_milestone_plan.md`,
+  `docs/SESSION_HANDOFF.md`,
+  and `docs/agentic_architecture_index.md`
 - latest locally resolved packet that must stay closed:
   `app/services/semantic_pass_lifecycle.py`,
   `app/services/semantic_pass_artifacts.py`,
@@ -451,8 +501,8 @@ Acceptance criteria:
   resolved or honestly rerouted according to that plan's own acceptance
   criteria or are rerouted through a fresher narrow packet with equal or
   stronger gates
-- the architecture probe does not report more than the current baseline of `3`
-  cycle components after the packet closes
+- the architecture probe remains at `0` cycle components after the packet
+  closes
 - no newly created owner file exceeds `800` lines without same-milestone owner
   routing
 
@@ -468,10 +518,15 @@ Required work:
 - draft and execute the next narrow packet for whichever live backlog remains
   highest leverage after Milestone 1
 - expect the first candidates to be:
-  - a test-large-owner packet covering
+  - `docs/residual_large_file_backlog_milestone_plan.md` covering the
+    remaining `17` code files above `800` lines across evaluation, UI,
+    semantic/report, service, and cross-cutting test owners
+  - `docs/closeout_state_queue_alignment_milestone_plan.md` to align the
+    resolved-local child packet closeout and retire the stale
+    `docs/shared_verification_roots_milestone_plan.md` branch before the next
+    code-owning packet resumes
+  - a broader residual test-large-owner packet covering
     `tests/unit/test_evaluation_fixtures.py`,
-    `tests/integration/test_agent_task_triage_roundtrip.py`,
-    `tests/unit/test_hotspot_prevention.py`,
     `tests/unit/test_agent_task_verifications.py`,
     `tests/integration/test_postgres_roundtrip.py`,
     `tests/unit/test_docling_parser.py`, and any fresh `>800` test siblings
@@ -499,7 +554,7 @@ Acceptance criteria:
 
 Outcome label: reduced
 
-Close the three remaining Python cycle components without hiding the same
+Keep the already-eliminated Python cycle backlog at zero without hiding the same
 coupling behind import tricks.
 
 Required work:
@@ -556,10 +611,10 @@ Acceptance criteria:
 
 - refreshed `docs/boring_change_architecture_milestone_plan.md`
 - active bounded packet docs, starting with
-  `docs/hotspot_prevention_family_boundary_milestone_plan.md`
+  `docs/residual_large_file_backlog_milestone_plan.md`
 - the latest resolved bounded packet record,
-  `docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md`, so the
-  selected semantic closeout does not drift back into the active queue
+  `docs/hotspot_routing_trap_resolution_milestone_plan.md`, so the routed
+  governance closeout does not drift back into the active queue
 - the latest locally resolved packet record,
   `docs/app_large_owner_modules_resolution_milestone_plan.md`, so its closed
   state does not drift back into the active queue
@@ -652,20 +707,20 @@ Acceptance criteria:
 ## Residual Risks And Next Milestone Routing
 
 - The hotspot-prevention family packet is now closed locally.
-- Remeasure the live backlog and activate exactly one next bounded packet. The
-  current evidence now favors a dedicated residual test-large-owner packet
-  before a fresh post-hotspot-prevention app-code packet, because the family
-  just removed from the queue was the last mixed app-plus-test hotspot and the
-  remaining `>800` backlog is more clearly test-heavy.
+- The residual large-file parent packet now has Milestone 0 plus the
+  evaluation, UI, semantic/report, cross-cutting, and queue-alignment packets
+  resolved locally. The documents-service packet, the cross-cutting
+  verification packet, and the governance self-hosting packet are now also
+  resolved locally, and the next active code-owning packet must now be
+  reselected from this broader brief rather than from the cleared large-file
+  queue.
 - The remaining routing traps after the current refresh are small but still
   high-churn facades such as `app/db/models.py`, `app/services/evidence.py`,
   `app/cli.py`, `app/schemas/agent_tasks.py`, and `app/services/agent_tasks.py`.
-  They should stay governed by their existing owner cases unless live regrowth
-  appears.
-- `app/ui/modules/agents.js`,
-  `app/services/agent_task_context_semantic_governance.py`,
-  `app/services/agent_actions/search_harness.py`,
-  `app/services/technical_reports.py`,
-  `app/db/model_domains/audit_and_evidence.py` remain likely post-Milestone-1
-  backlog surfaces. Re-measure them after each bounded packet closeout instead
-  of assuming the current ordering will hold.
+  They are now explicitly recorded in `routing_trap_paths` and should stay
+  governed by their existing owner cases unless live regrowth appears.
+- Re-measure the large-file queue after each child-packet closeout instead of
+  assuming the current ordering will hold. The parent backlog now routes
+  directly to the next reselected under-budget packet and leaves
+  `docs/shared_verification_roots_milestone_plan.md` historical unless a later
+  explicit rebaseline selects it again.

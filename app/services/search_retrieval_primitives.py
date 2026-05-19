@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy import Float, Select, and_, cast, false, func, select
 from sqlalchemy.orm import Session
 
+import app.services.search_hydration as _search_hydration
 from app.core.hashes import payload_sha256
 from app.db.models import (
     Document,
@@ -15,7 +16,6 @@ from app.db.models import (
     RetrievalEvidenceSpanMultiVector,
 )
 from app.schemas.search import SearchFilters, SearchRequest
-from app.services import search_hydration as _search_hydration
 from app.services.search_ranking import RankedResult
 
 span_chunk_query = _search_hydration._span_chunk_query

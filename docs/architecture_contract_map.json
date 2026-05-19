@@ -191,6 +191,7 @@
         "info_count",
         "contract_count",
         "hotspot_count",
+        "stale_facade_hotspot_count",
         "max_hotspot_risk_score",
         "agent_legibility_average_score",
         "broad_facade_count",
@@ -211,6 +212,9 @@
         "agent_action_count",
         "hotspot_count",
         "top_hotspot_paths",
+        "top_routed_hotspot_paths",
+        "routing_trap_paths",
+        "stale_facade_hotspot_count",
         "max_hotspot_risk_score",
         "agent_legibility_average_score",
         "broad_facade_count"
@@ -261,10 +265,36 @@
         "ADR-0005"
       ],
       "name": "architecture_quality_report",
+      "report_fields": [
+        "schema_name",
+        "schema_version",
+        "generated_at",
+        "valid",
+        "inspection_violation_count",
+        "source_roots",
+        "hotspot_count",
+        "hotspots",
+        "agent_legibility",
+        "improvement_case_candidates",
+        "raw_improvement_case_candidates",
+        "summary"
+      ],
       "report_path": "build/architecture-governance/architecture_quality_report.json",
       "schema_name": "architecture_quality_report",
       "schema_version": "1.0",
       "source": "app.architecture_quality",
+      "summary_fields": [
+        "schema_name",
+        "schema_version",
+        "hotspot_count",
+        "top_hotspot_paths",
+        "top_routed_hotspot_paths",
+        "routing_trap_paths",
+        "stale_facade_hotspot_count",
+        "max_hotspot_risk_score",
+        "agent_legibility_average_score",
+        "broad_facade_count"
+      ],
       "summary_schema_name": "architecture_quality_summary"
     }
   ],

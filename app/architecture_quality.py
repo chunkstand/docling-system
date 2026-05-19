@@ -12,9 +12,21 @@ from app.architecture_inspection import (
     ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
     build_architecture_inspection_report,
 )
+from app.architecture_quality_contracts import (
+    ARCHITECTURE_QUALITY_REPORT_SCHEMA_NAME,
+    ARCHITECTURE_QUALITY_SUMMARY_SCHEMA_NAME,
+    DEFAULT_ARCHITECTURE_QUALITY_REPORT_PATH,
+)
+from app.architecture_quality_hotspots import (
+    HOTSPOT_ROUTING_TRAP_STATUSES,
+    annotate_hotspots_with_routing,
+    load_hotspot_policy_safe,
+    quality_candidates_from_hotspots,
+)
 from app.capability_contracts import build_capability_contract_map
 from app.core.files import repo_root
 from app.core.time import utcnow
+from app.hotspot_prevention_policy import load_hotspot_policy
 from app.hygiene import (
     HygieneFinding,
     run_improvement_case_contract_checks,
@@ -22,11 +34,6 @@ from app.hygiene import (
 )
 from app.services.improvement_cases import load_improvement_case_registry
 
-ARCHITECTURE_QUALITY_REPORT_SCHEMA_NAME = "architecture_quality_report"
-ARCHITECTURE_QUALITY_SUMMARY_SCHEMA_NAME = "architecture_quality_summary"
-DEFAULT_ARCHITECTURE_QUALITY_REPORT_PATH = (
-    Path("build") / "architecture-governance" / "architecture_quality_report.json"
-)
 DEFAULT_QUALITY_ROOTS = ("app", "tests", "docs", "config", ".github")
 DEFAULT_CODE_ROOTS = ("app", "tests")
 AGENT_LEGIBILITY_BOUNDED_FUNCTION_LIMIT = 25
@@ -200,16 +207,28 @@ def _collect_hygiene_findings_by_path(
     return dict(grouped)
 
 
-def _open_improvement_cases_by_path(project_root: Path) -> dict[str, int]:
+def _improvement_case_registry_index(
+    project_root: Path,
+) -> tuple[dict[str, int], dict[str, dict[str, str | None]]]:
     registry = load_improvement_case_registry(project_root=project_root)
     counts: dict[str, int] = defaultdict(int)
+    case_statuses: dict[str, dict[str, str | None]] = {}
     for case in registry.cases:
+        case_statuses[case.case_id] = {
+            "status": case.status,
+            "deployed_ref": case.deployment.deployed_ref,
+        }
         if case.status in {"closed", "suppressed"}:
             continue
         target_path = (case.artifact.target_path or "").strip()
         if target_path:
             counts[target_path] += 1
-    return dict(counts)
+    return dict(counts), case_statuses
+
+
+def _open_improvement_cases_by_path(project_root: Path) -> dict[str, int]:
+    counts, _case_statuses = _improvement_case_registry_index(project_root)
+    return counts
 
 
 def _risk_score(
@@ -340,33 +359,10 @@ def _build_hotspots(
     )[:max_hotspots]
 
 
-def _quality_candidates(
-    hotspots: list[dict[str, Any]],
+def _legibility_quality_candidates(
     legibility: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
-    for hotspot in hotspots:
-        if hotspot["risk_score"] < 40:
-            continue
-        relative_path = hotspot["relative_path"]
-        candidates.append(
-            {
-                "source_ref": f"architecture-quality:hotspot:{relative_path}",
-                "title": f"Architecture hotspot: {relative_path}",
-                "artifact_target_path": relative_path,
-                "cause_class": "unclear_ownership",
-                "observed_failure": (
-                    f"{relative_path} is an architecture hotspot with risk_score="
-                    f"{hotspot['risk_score']}, line_count={hotspot['line_count']}, "
-                    f"changes_90d={hotspot['changes_90d']}, "
-                    f"hygiene_finding_count={hotspot['hygiene_finding_count']}."
-                ),
-                "verification_command": "uv run docling-system-architecture-quality-report",
-                "stop_condition": (
-                    "Hotspot risk decreases or the surface has a narrower owner contract."
-                ),
-            }
-        )
     for surface in legibility:
         if (
             surface["score"] >= AGENT_LEGIBILITY_LOW_SCORE_THRESHOLD
@@ -419,7 +415,7 @@ def build_architecture_quality_report(
         root,
         include_hygiene=include_hygiene,
     )
-    open_cases_by_path = _open_improvement_cases_by_path(root)
+    open_cases_by_path, case_statuses = _improvement_case_registry_index(root)
     hotspots = _build_hotspots(
         file_metrics=file_metrics,
         churn_metrics=churn_metrics,
@@ -427,6 +423,17 @@ def build_architecture_quality_report(
         open_cases_by_path=open_cases_by_path,
         max_hotspots=max_hotspots,
     )
+    hotspots = annotate_hotspots_with_routing(
+        hotspots,
+        policy=load_hotspot_policy_safe(root, loader=load_hotspot_policy),
+        case_statuses=case_statuses,
+    )
+    routed_hotspots = [row for row in hotspots if row["selected_for_routed_queue"]]
+    routing_trap_paths = [
+        row["relative_path"]
+        for row in hotspots
+        if row["routing_status"] in HOTSPOT_ROUTING_TRAP_STATUSES
+    ]
     legibility = [
         _surface_legibility_score(
             surface,
@@ -440,6 +447,7 @@ def build_architecture_quality_report(
         if legibility
         else 0.0
     )
+    legibility_candidates = _legibility_quality_candidates(legibility)
     return {
         "schema_name": ARCHITECTURE_QUALITY_REPORT_SCHEMA_NAME,
         "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
@@ -456,9 +464,21 @@ def build_architecture_quality_report(
             "low_score_threshold": AGENT_LEGIBILITY_LOW_SCORE_THRESHOLD,
             "surfaces": legibility,
         },
-        "improvement_case_candidates": _quality_candidates(hotspots, legibility),
+        "improvement_case_candidates": [
+            *quality_candidates_from_hotspots(routed_hotspots),
+            *legibility_candidates,
+        ],
+        "raw_improvement_case_candidates": [
+            *quality_candidates_from_hotspots(hotspots),
+            *legibility_candidates,
+        ],
         "summary": {
             "top_hotspot_paths": [row["relative_path"] for row in hotspots[:5]],
+            "top_routed_hotspot_paths": [
+                row["relative_path"] for row in routed_hotspots[:5]
+            ],
+            "routing_trap_paths": routing_trap_paths,
+            "stale_facade_hotspot_count": len(routing_trap_paths),
             "max_hotspot_risk_score": hotspots[0]["risk_score"] if hotspots else 0.0,
             "agent_legibility_average_score": average_legibility,
             "broad_facade_count": sum(
@@ -484,6 +504,9 @@ def build_architecture_quality_summary(
         "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
         "hotspot_count": report["hotspot_count"],
         "top_hotspot_paths": report["summary"]["top_hotspot_paths"],
+        "top_routed_hotspot_paths": report["summary"]["top_routed_hotspot_paths"],
+        "routing_trap_paths": report["summary"]["routing_trap_paths"],
+        "stale_facade_hotspot_count": report["summary"]["stale_facade_hotspot_count"],
         "max_hotspot_risk_score": report["summary"]["max_hotspot_risk_score"],
         "agent_legibility_average_score": report["summary"][
             "agent_legibility_average_score"
