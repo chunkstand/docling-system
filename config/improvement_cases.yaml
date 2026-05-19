@@ -2222,10 +2222,13 @@ cases:
   updated_at: '2026-05-18T00:00:00+00:00'
 - case_id: IC-DCEE88C7CA97
   title: 'Architecture hotspot: app/schemas/search.py'
-  status: open
+  status: verified
   cause_class: unclear_ownership
-  observed_failure: app/schemas/search.py is an architecture hotspot with risk_score=203.82,
-    line_count=348, changes_90d=25, hygiene_finding_count=0.
+  observed_failure: app/schemas/search.py now measures 36 lines and remains the
+    reduced compatibility surface over focused core, history, explanations,
+    replay, harness, and learning schema owners at 83, 77, 77, 100, 220, and
+    280 lines respectively, with 50 app importers still intentionally using the
+    shared facade path.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/schemas/search.py
@@ -2238,22 +2241,92 @@ cases:
     description: Architecture quality owner surface for app/schemas/search.py.
   verification:
     commands:
-    - uv run docling-system-architecture-quality-report
+    - git diff --check
+    - uv run ruff check app/hotspot_prevention_classifier.py
+      app/hotspot_prevention_classifier_boundary_rules.py
+      app/hotspot_prevention_classifier_support.py
+      app/schemas/search.py
+      app/schemas/search_core.py
+      app/schemas/search_history.py
+      app/schemas/search_explanations.py
+      app/schemas/search_replays.py
+      app/schemas/search_harness.py
+      app/schemas/search_learning.py
+      tests/unit/test_search_schema_facade_contract.py
+      tests/unit/test_hotspot_prevention_search_schema_facade.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
+      tests/unit/test_search_legibility.py
+      tests/unit/test_search_history.py
+      tests/unit/test_search_replays.py
+      tests/unit/test_search_harness_evaluations.py
+      tests/unit/test_search_harness_optimization.py
+      tests/unit/test_retrieval_learning_candidates.py
+      tests/unit/test_retrieval_learning_artifacts.py
+    - uv run pytest -q tests/unit/test_search_schema_facade_contract.py
+      tests/unit/test_hotspot_prevention_search_schema_facade.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
+      tests/unit/test_search_legibility.py
+      tests/unit/test_search_history.py
+      tests/unit/test_search_replays.py
+      tests/unit/test_search_harness_evaluations.py
+      tests/unit/test_search_harness_optimization.py
+      tests/unit/test_retrieval_learning_candidates.py
+      tests/unit/test_retrieval_learning_artifacts.py
+    - uv run pytest -q tests/unit/test_search_service.py
+      tests/unit/test_search_service_ranking.py
+      tests/unit/test_search_service_persistence.py
+      tests/unit/test_search_service_orchestration.py
+      tests/unit/test_search_execution_orchestration.py
+      tests/unit/test_search_execution_persistence.py
+      tests/unit/test_search_hydration.py
+      tests/unit/test_search_metadata_supplement.py
+      tests/unit/test_search_api.py
+      tests/unit/test_search_api_request_history.py
+      tests/unit/test_search_api_evidence.py
+      tests/unit/test_search_api_replays.py
+      tests/unit/test_evaluation_scoring.py
+      tests/unit/test_evaluation_service.py
+      tests/unit/test_chat_service.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --fail-on-cycles --max-file-lines 800
     acceptance_conditions:
-    - Hotspot risk decreases or the surface has a narrower owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    - app/schemas/search.py remains a narrow compatibility facade at or below
+      120 lines.
+    - Search request, history, explanation, replay, harness, and learning
+      schemas remain routed to focused owner modules instead of regrowing the
+      facade.
+    - No focused owner in the search schema family exceeds the default 600-line
+      hygiene budget after the split.
+    - The routed queue advances away from app/schemas/search.py because the
+      facade is now trapped as a deferred reduced surface.
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
-    notes: null
+    notes: The 2026-05-18 local search-schema facade follow-on reduces
+      app/schemas/search.py to a 36-line compatibility facade, moves the local
+      schema definitions into focused search_core, search_history,
+      search_explanations, and search_replays owner modules, exact-ratchets the
+      focused owner family including search_harness.py and search_learning.py,
+      and routes the reduced root as a deferred reduced facade. Atomic closeout
+      commit still pending.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: search_schema_facade_line_count
+    current_value: 36.0
+    measurement_window: 2026-05-18 local search schema facade verification
+    notes: The reduced facade now measures 36 lines with 2 explicit forwarding
+      helpers; the focused owner modules measure 83, 77, 77, 100, 220, and 280
+      lines respectively for search_core.py, search_history.py,
+      search_explanations.py, search_replays.py, search_harness.py, and
+      search_learning.py, and 50 app importers intentionally continue using the
+      shared compatibility path.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-2BF32BF40542
   title: 'Agent-legibility gap: retrieval'
   status: open

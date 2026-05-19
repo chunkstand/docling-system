@@ -201,3 +201,20 @@ class SearchHarnessReleaseReadinessResponse(BaseModel):
         None
     )
     generated_at: datetime
+
+
+__all__ = [
+    "SearchHarnessDescriptorResponse",
+    "SearchHarnessEvaluationRequest",
+    "SearchHarnessEvaluationResponse",
+    "SearchHarnessEvaluationSourceResponse",
+    "SearchHarnessEvaluationSummaryResponse",
+    "SearchHarnessReleaseGateRequest",
+    "SearchHarnessReleaseReadinessAssessmentRequest",
+    "SearchHarnessReleaseReadinessAssessmentResponse",
+    "SearchHarnessReleaseReadinessAssessmentSummaryResponse",
+    "SearchHarnessReleaseReadinessResponse",
+    "SearchHarnessReleaseResponse",
+    "SearchHarnessReleaseSummaryResponse",
+    "SearchHarnessResponse",
+]

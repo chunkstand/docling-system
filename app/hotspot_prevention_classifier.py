@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import app.hotspot_prevention_classifier_schema_facades as _schema_facades
 from app.hotspot_prevention_claim_support_rules import (
     classify_claim_support_evaluations_addition,
     classify_claim_support_policy_governance_addition,
@@ -15,7 +16,6 @@ from app.hotspot_prevention_claim_support_rules import (
 from app.hotspot_prevention_classifier_boundary_rules import (
     classify_agent_action_addition,
     classify_agent_task_context_addition,
-    classify_agent_task_schema_facade_addition,
     classify_cli_addition,
     classify_cli_test_addition,
     classify_local_test_support_addition,
@@ -64,7 +64,10 @@ _CLAIM_SUPPORT_COMPACT_SURFACE_PATHS = {
     "app/services/claim_support_replay_alert_promotions.py",
 }
 _COMPACT_SURFACE_MAX_LINES = 600
-
+_SCHEMA_FACADE_CLASSIFIERS = {
+    "app/schemas/agent_tasks.py": _schema_facades.classify_agent_task_schema_facade_addition,
+    "app/schemas/search.py": _schema_facades.classify_search_schema_facade_addition,
+}
 
 def classify_changed_file(
     *,
@@ -277,12 +280,9 @@ def classify_python_addition(
     hunk_lines = tuple(row.text for row in changed_file.added_lines if row.hunk_id == line.hunk_id)
     if is_comment_or_blank(line.text):
         return None
-    if path == "app/schemas/agent_tasks.py":
-        return classify_agent_task_schema_facade_addition(
-            stripped=stripped,
-            line=line,
-            hunk_lines=hunk_lines,
-        )
+    schema_classifier = _SCHEMA_FACADE_CLASSIFIERS.get(path)
+    if schema_classifier is not None:
+        return schema_classifier(stripped=stripped, line=line, hunk_lines=hunk_lines)
     import_category = allowed_category_for_import(rule)
     if import_category and (
         is_import_or_alias(line.text) or is_multiline_import_continuation(stripped, hunk_lines)

@@ -258,3 +258,23 @@ class SearchHarnessOptimizationResponse(BaseModel):
     best_evaluation: SearchHarnessEvaluationResponse
     best_gate: dict = Field(default_factory=dict)
     attempts: list[SearchHarnessOptimizationAttemptResponse] = Field(default_factory=list)
+
+
+__all__ = [
+    "AuditBundleExportResponse",
+    "AuditBundleExportSummaryResponse",
+    "AuditBundleValidationReceiptRequest",
+    "AuditBundleValidationReceiptResponse",
+    "AuditBundleValidationReceiptSummaryResponse",
+    "RetrievalLearningCandidateEvaluationRequest",
+    "RetrievalLearningCandidateEvaluationResponse",
+    "RetrievalLearningCandidateEvaluationSummaryResponse",
+    "RetrievalRerankerArtifactRequest",
+    "RetrievalRerankerArtifactResponse",
+    "RetrievalRerankerArtifactSummaryResponse",
+    "RetrievalTrainingRunAuditBundleRequest",
+    "SearchHarnessOptimizationAttemptResponse",
+    "SearchHarnessOptimizationRequest",
+    "SearchHarnessOptimizationResponse",
+    "SearchHarnessReleaseAuditBundleRequest",
+]

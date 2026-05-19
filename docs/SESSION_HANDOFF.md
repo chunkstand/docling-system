@@ -120,45 +120,45 @@ reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
-`docs/agent_tasks_api_lifecycle_boundary_milestone_plan.md`
+`docs/search_schema_facade_boundary_milestone_plan.md`
 Next routed bounded implementation brief:
 the broader reselect through `docs/boring_change_architecture_milestone_plan.md`,
-currently routing to `IC-DCEE88C7CA97` / `app/schemas/search.py`
+currently routing to `IC-7D8AE7C83B8F` /
+`tests/unit/test_db_model_import_compatibility.py`
 Queued standalone follow-on:
-the same broader under-budget reselect after the next search-schema packet, or
-any fresher narrow replacement selected by the routed queue
+the same broader under-budget reselect after the next shared DB-model
+compatibility packet, or any fresher narrow replacement selected by the routed
+queue
 Previous resolved bounded implementation brief:
-`docs/search_api_route_surface_boundary_milestone_plan.md`
-The 2026-05-18 agent-tasks API lifecycle-family follow-on is now durably
-recorded through implementation commit `790fa2d` plus durable
-docs-and-registry closeout commit `8ce05b7`, and
+`docs/agent_tasks_api_lifecycle_boundary_milestone_plan.md`
+The 2026-05-18 search-schema facade follow-on is now resolved locally in the
+current checkout for `IC-DCEE88C7CA97`, and
 `config/improvement_cases.yaml` now reports
-`status_counts={"measured":1,"deployed":20,"open":25,"verified":13}` with
-`oldest_open_case_id=IC-FD18EE2D3309`; `tests/unit/test_agent_tasks_api.py`
-remains closed at `92` lines while analytics coverage now lives in
-`tests/unit/test_agent_tasks_api_analytics.py` at `360`, artifacts and
-failure-artifact success coverage now live in
-`tests/unit/test_agent_tasks_api_artifacts.py` at `566`, lifecycle coverage
-now lives in `tests/unit/test_agent_tasks_api_lifecycle.py` at `360`,
-claim-support coverage remains in
-`tests/unit/test_agent_tasks_api_claim_support.py` at `419`, and auth or
-capability coverage remains in `tests/unit/test_agent_tasks_api_auth.py` at
-`93`. `git diff --check` passed, the focused agent-tasks API plus policy
-contract slice passed at `49 passed`, and the post-closeout governance recheck
-now reports
-`changed_hotspots=0`, `blocked=0`, and `allowed=0`,
+`status_counts={"measured":1,"deployed":20,"open":24,"verified":14}` with
+`oldest_open_case_id=IC-FD18EE2D3309`; `app/schemas/search.py` now closes at
+`36` lines as a compatibility facade over focused owners at `83`, `77`, `77`,
+`100`, `220`, and `280` lines in `app/schemas/search_core.py`,
+`app/schemas/search_history.py`, `app/schemas/search_explanations.py`,
+`app/schemas/search_replays.py`, `app/schemas/search_harness.py`, and
+`app/schemas/search_learning.py`. `50` app-side importers intentionally remain
+on the shared public path, while the architecture probe still reports
+`app.schemas.search` imported by `75` local modules. `git diff --check`
+passed, the focused search-schema plus policy-contract slice passed at
+`50 passed`, the broader search-family regression slice passed at `86 passed`,
+and the current governance recheck now reports
+`changed_hotspots=1`, `blocked=0`, and `allowed=27`,
 `uv run docling-system-hygiene-check` reported `new hygiene regressions: none`,
 `uv run docling-system-improvement-case-validate` returned `valid=true`, and
 `uv run docling-system-architecture-quality-report --summary` still reports
 `agent_legibility_average_score=90.0`,
 `broad_facade_count=2`, `hotspot_count=20`, and
 `max_hotspot_risk_score=486.06`, while the routed queue now reports
-`top_routed_hotspot_paths=["app/schemas/search.py"]` with
-`stale_facade_hotspot_count=14`. The architecture probe still reports `0`
+`top_routed_hotspot_paths=["tests/unit/test_db_model_import_compatibility.py"]`
+with `stale_facade_hotspot_count=15`. The architecture probe still reports `0`
 Python cycle components with no code file above `799`, and the full DB-backed
 suite still last passed at `2089 passed`. `config/hotspot_prevention.yaml` now
-also marks `tests/unit/test_agent_tasks_api.py` as a deferred reduced facade,
-so the routed queue does not drift back into the reduced agent-tasks API root.
+also marks `app/schemas/search.py` as a deferred reduced facade, so the routed
+queue does not drift back into the reduced shared schema surface.
 The broader coordination brief still remains
 `docs/boring_change_architecture_milestone_plan.md`; treat this queue block
 plus `docs/agentic_architecture_index.md` as the durable routing truth for the

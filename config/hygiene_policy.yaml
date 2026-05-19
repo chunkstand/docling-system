@@ -346,6 +346,48 @@ file_budgets:
       max_private_helpers: 0
       ratchet_max_private_helpers: 0
       owner_case_id: IC-24F3558D6091
+    app/schemas/search.py:
+      max_lines: 36
+      ratchet_max_lines: 36
+      max_private_helpers: 2
+      ratchet_max_private_helpers: 2
+      owner_case_id: IC-DCEE88C7CA97
+    app/schemas/search_core.py:
+      max_lines: 83
+      ratchet_max_lines: 83
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-DCEE88C7CA97
+    app/schemas/search_explanations.py:
+      max_lines: 77
+      ratchet_max_lines: 77
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-DCEE88C7CA97
+    app/schemas/search_harness.py:
+      max_lines: 220
+      ratchet_max_lines: 220
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-DCEE88C7CA97
+    app/schemas/search_history.py:
+      max_lines: 77
+      ratchet_max_lines: 77
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-DCEE88C7CA97
+    app/schemas/search_learning.py:
+      max_lines: 280
+      ratchet_max_lines: 280
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-DCEE88C7CA97
+    app/schemas/search_replays.py:
+      max_lines: 100
+      ratchet_max_lines: 100
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-DCEE88C7CA97
     app/services/agent_task_actions.py:
       max_lines: 163
       max_private_helpers: 1

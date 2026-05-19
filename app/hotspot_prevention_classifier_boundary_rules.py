@@ -7,70 +7,9 @@ from app.hotspot_prevention_classifier_support import (
     classify_cli_test_surface_addition,
     classify_local_test_support_surface_addition,
     classify_residual_test_surface_addition,
-    is_agent_task_schema_alias_line,
-    is_agent_task_schema_broad_reexport_hunk,
-    is_agent_task_schema_export_sink_line,
-    is_agent_task_schema_registry_hunk,
-    is_agent_task_schema_registry_line,
 )
 from app.hotspot_prevention_diff import ChangedLine
 from app.hotspot_prevention_policy import HotspotRule
-
-
-def classify_agent_task_schema_facade_addition(
-    *,
-    stripped: str,
-    line: ChangedLine,
-    hunk_lines: tuple[str, ...],
-) -> ClassifiedLine | None:
-    if is_agent_task_schema_registry_hunk(hunk_lines) or is_agent_task_schema_registry_line(
-        stripped
-    ):
-        return ClassifiedLine(
-            line=line,
-            status="allowed",
-            category="compatibility_registry_declaration",
-            message="compact schema compatibility-registry declaration is allowed",
-            policy_rule="allow.compatibility_registry_declaration",
-        )
-    if is_agent_task_schema_alias_line(stripped):
-        return ClassifiedLine(
-            line=line,
-            status="allowed",
-            category="schema_alias_forwarder",
-            message="explicit schema alias forwarders are allowed on the facade",
-            policy_rule="allow.schema_alias_forwarder",
-        )
-    if stripped.startswith("class "):
-        return blocked(
-            line,
-            "schema_definition",
-            "new schema definitions belong in the focused agent-task schema owner modules",
-        )
-    if stripped.startswith(("def ", "async def ")):
-        return blocked(
-            line,
-            "export_sink_surface",
-            "new schema-facade helpers or export sinks do not belong in app/schemas/agent_tasks.py",
-        )
-    if is_agent_task_schema_export_sink_line(stripped):
-        return blocked(
-            line,
-            "export_sink_surface",
-            "new export-sink surfaces do not belong in app/schemas/agent_tasks.py",
-        )
-    if is_agent_task_schema_broad_reexport_hunk(hunk_lines):
-        return blocked(
-            line,
-            "broad_reexport_batch",
-            "broad direct re-export batches do not belong in app/schemas/agent_tasks.py",
-        )
-    return blocked(
-        line,
-        "export_sink_surface",
-        "new schema-facade behavior belongs in the focused owner modules or a "
-        "compact registry declaration",
-    )
 
 
 def classify_cli_addition(

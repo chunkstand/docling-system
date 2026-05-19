@@ -32,8 +32,9 @@ around already-shrunk compatibility facades, and the checked-in gates that
 must keep oversized files and import cycles from regrowing. This plan remains
 the active coordination brief after the hotspot-prevention companion-test
 closeout, the later search API route-surface follow-on, and the later
-agent-tasks API lifecycle-family follow-on, with the routed queue now
-returning to `IC-DCEE88C7CA97` / `app/schemas/search.py`.
+agent-tasks API lifecycle-family follow-on, and the later search-schema
+facade follow-on, with the routed queue now advancing to
+`IC-7D8AE7C83B8F` / `tests/unit/test_db_model_import_compatibility.py`.
 
 ## Purpose
 
@@ -117,13 +118,22 @@ remaining boring-change gap is now split across four different risks:
   siblings remain at `419` and `93`, hotspot prevention now routes the root as
   a deferred reduced facade, and the routed queue now advances to
   `IC-DCEE88C7CA97` / `app/schemas/search.py`
+- the routed search-schema facade follow-on is now also resolved locally in
+  the current checkout for `IC-DCEE88C7CA97`: `app/schemas/search.py` now
+  closes at `36` lines over focused core, history, explanations, replay,
+  harness, and learning owners at `83`, `77`, `77`, `100`, `220`, and `280`
+  lines, `50` app importers intentionally remain on the shared public path,
+  hotspot prevention now routes the reduced root as a deferred reduced facade,
+  and the routed queue now advances to `IC-7D8AE7C83B8F` /
+  `tests/unit/test_db_model_import_compatibility.py`
 
 This refreshed plan coordinates the remaining work by preserving the locally
 closed app-side packet, routing the remaining test, UI, and nonselected app
 backlog through narrower follow-on packets, preserving the now-zero-cycle
 state, advancing the next routed packet to
-`app/schemas/search.py`, and finishing with a checked-in
-boring-change gate that fails on both cycles and oversized code files.
+`tests/unit/test_db_model_import_compatibility.py`, and finishing with a
+checked-in boring-change gate that fails on both cycles and oversized code
+files.
 
 ## Current Evidence
 
@@ -758,10 +768,10 @@ Acceptance criteria:
   resolved locally, and the next active code-owning packet must now be
   reselected from this broader brief rather than from the cleared large-file
   queue.
-- The current routed hotspot after the agent-tasks API lifecycle-family
-  closeout is `IC-DCEE88C7CA97` / `app/schemas/search.py`; any fresher narrow
-  replacement must beat that routed queue evidence rather than reopening a
-  just-closed packet.
+- The current routed hotspot after the search-schema facade closeout is
+  `IC-7D8AE7C83B8F` / `tests/unit/test_db_model_import_compatibility.py`; any
+  fresher narrow replacement must beat that routed queue evidence rather than
+  reopening a just-closed packet.
 - The remaining routing traps after the current refresh are small but still
   high-churn facades such as `app/db/models.py`, `app/services/evidence.py`,
   `app/cli.py`, `app/schemas/agent_tasks.py`, and `app/services/agent_tasks.py`.

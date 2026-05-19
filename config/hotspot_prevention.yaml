@@ -65,6 +65,40 @@ known_hotspots:
       - schema_alias_forwarder
       - compatibility_registry_declaration
       - deletion
+  app/schemas/search.py:
+    target_role: search schema compatibility facade
+    preferred_owner_modules:
+      - app/schemas/search_core.py
+      - app/schemas/search_history.py
+      - app/schemas/search_explanations.py
+      - app/schemas/search_replays.py
+      - app/schemas/search_harness.py
+      - app/schemas/search_learning.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The search schema facade is a narrow compatibility surface, so
+        future routing should target the focused search schema owners instead
+        of reopening app/schemas/search.py by default.
+      route_to_case_ids:
+        - IC-DCEE88C7CA97
+      route_to_paths:
+        - app/schemas/search_core.py
+        - app/schemas/search_history.py
+        - app/schemas/search_explanations.py
+        - app/schemas/search_replays.py
+        - app/schemas/search_harness.py
+        - app/schemas/search_learning.py
+      route_to_plan_paths:
+        - docs/search_schema_facade_boundary_milestone_plan.md
+        - docs/boring_change_architecture_milestone_plan.md
+    block_new:
+      - schema_definition
+      - broad_reexport_batch
+      - export_sink_surface
+    allow:
+      - schema_alias_forwarder
+      - compatibility_registry_declaration
+      - deletion
   app/services/evidence.py:
     target_role: compatibility facade for evidence capabilities
     preferred_owner_modules:
