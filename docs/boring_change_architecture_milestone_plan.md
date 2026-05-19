@@ -156,6 +156,12 @@ remaining boring-change gap is now split across four different risks:
   the parent-module test seam through `service_from_parent(...)`, and advances
   the live routed queue to
   `["tests/integration/test_retrieval_learning_ledger.py"]`
+- the later 2026-05-19 governance closeout for the same packet records
+  `IC-17B0E2F64A9C` as deployed, routes the reduced route root as a deferred
+  facade in `config/hotspot_prevention.yaml`, exact-ratchets the three router
+  files in `config/hygiene_policy.yaml`, and keeps the live queue on
+  `tests/integration/test_retrieval_learning_ledger.py` instead of silently
+  reopening the agent-task route family
 
 This refreshed plan coordinates the remaining work by preserving the locally
 closed app-side packet, routing the remaining test, UI, and nonselected app
@@ -806,6 +812,10 @@ Acceptance criteria:
   `tests/unit/test_architecture_inspection.py` smoke root, and the reduced
   `app/api/routers/agent_tasks.py` route root are no longer in
   `top_routed_hotspot_paths`.
+- The reduced `app/api/routers/agent_tasks.py` route root is now explicitly
+  guarded as a deferred reduced facade with exact hygiene ratchets on the new
+  lifecycle and artifact routers, so this closeout no longer depends on docs
+  alone to keep the split from regrowing in the wrong file.
 - The remaining routing traps after the current refresh are small but still
   high-churn facades such as `app/db/models.py`, `app/services/evidence.py`,
   `app/cli.py`, `app/schemas/agent_tasks.py`, and `app/services/agent_tasks.py`.

@@ -125,6 +125,35 @@ def classify_agent_task_context_addition(
     return None
 
 
+def classify_agent_task_router_addition(
+    *,
+    stripped: str,
+    line: ChangedLine,
+    rule: HotspotRule,
+) -> ClassifiedLine | None:
+    if stripped.startswith("router.include_router(") and "router_registration" in rule.allow:
+        return ClassifiedLine(
+            line=line,
+            status="allowed",
+            category="router_registration",
+            message="focused router registration is allowed on the composition surface",
+            policy_rule="allow.router_registration",
+        )
+    if stripped.startswith("@router."):
+        return blocked(
+            line,
+            "route_family_implementation",
+            "new route families belong in focused agent-task sibling routers",
+        )
+    if stripped.startswith(("def ", "async def ")):
+        return blocked(
+            line,
+            "route_family_implementation",
+            "new route handlers belong in focused agent-task sibling routers",
+        )
+    return None
+
+
 def classify_cli_test_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
     return classified_surface_decision(
         line=line,

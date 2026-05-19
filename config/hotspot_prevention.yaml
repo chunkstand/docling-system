@@ -37,6 +37,41 @@ known_hotspots:
       - static_ui_mount
       - uvicorn_entrypoint
       - deletion
+  app/api/routers/agent_tasks.py:
+    target_role: public agent-task action catalog and route composition surface
+    preferred_owner_modules:
+      - app/api/routers/agent_task_lifecycle.py
+      - app/api/routers/agent_task_artifacts.py
+      - app/api/routers/agent_task_analytics.py
+      - app/api/routers/claim_support_policy_impacts.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The root agent-tasks router is already reduced to the public
+        action-catalog route plus sibling composition, so future routing
+        should target the focused lifecycle, artifacts, analytics, and
+        claim-support routers instead of reopening app/api/routers/agent_tasks.py
+        by default.
+      route_to_case_ids:
+        - IC-17B0E2F64A9C
+      route_to_paths:
+        - app/api/routers/agent_task_lifecycle.py
+        - app/api/routers/agent_task_artifacts.py
+        - app/api/routers/agent_task_analytics.py
+        - app/api/routers/claim_support_policy_impacts.py
+      route_to_plan_paths:
+        - docs/agent_tasks_route_surface_boundary_milestone_plan.md
+        - docs/boring_change_architecture_milestone_plan.md
+    block_new:
+      - route_family_implementation
+      - lifecycle_route_logic
+      - artifact_route_logic
+      - evidence_trace_route_logic
+      - broad_helper
+    allow:
+      - router_registration
+      - alias_forwarder
+      - explicit_forwarding_function
+      - deletion
   app/db/models.py:
     target_role: compatibility facade for ORM models
     preferred_owner_modules:

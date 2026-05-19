@@ -2898,6 +2898,84 @@ cases:
       hygiene ratchets.
   created_at: '2026-05-14T16:09:02Z'
   updated_at: '2026-05-19T00:00:00Z'
+- case_id: IC-17B0E2F64A9C
+  title: 'Architecture hotspot: app/api/routers/agent_tasks.py'
+  status: deployed
+  cause_class: unclear_ownership
+  observed_failure: app/api/routers/agent_tasks.py previously mixed the public
+    action catalog, lifecycle routes, artifact and provenance routes, and
+    sibling router composition in one 478-line API boundary surface.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:app/api/routers/agent_tasks.py
+    notes: Refreshed during the 2026-05-19 route-surface governance closeout
+      after the architecture-inspection packet advanced the live queue to the
+      agent-tasks router root.
+  artifact:
+    artifact_type: contract
+    target_path: app/api/routers/agent_tasks.py
+    description: Architecture quality route-composition owner surface for
+      app/api/routers/agent_tasks.py.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check app/api/routers/agent_tasks.py
+      app/api/routers/agent_task_analytics.py
+      app/api/routers/agent_task_artifacts.py
+      app/api/routers/agent_task_lifecycle.py
+      app/api/routers/claim_support_policy_impacts.py
+      app/api/routers/agent_task_route_services.py
+      app/hotspot_prevention_classifier.py
+      app/hotspot_prevention_classifier_boundary_rules.py
+      tests/unit/test_agent_tasks_api.py
+      tests/unit/test_agent_tasks_api_*.py
+      tests/unit/test_hotspot_prevention.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
+      tests/unit/test_api_route_contracts.py
+    - uv run pytest -q tests/unit/test_agent_tasks_api.py
+      tests/unit/test_agent_tasks_api_*.py
+      tests/unit/test_hotspot_prevention.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
+      tests/unit/test_api_route_contracts.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-architecture-inspect
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --fail-on-cycles --max-file-lines 800
+    acceptance_conditions:
+    - app/api/routers/agent_tasks.py remains a narrow route-composition and
+      public action-catalog surface at or below 120 lines.
+    - Lifecycle, artifact, provenance, and failure-artifact route behavior
+      remain in focused sibling routers rather than regrowing the residual
+      root.
+    - No new agent-task route family file exceeds the default 600-line hygiene
+      budget after the split.
+    - Hotspot prevention routes future work away from the reduced root toward
+      the lifecycle, artifacts, analytics, and claim-support siblings.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: "17d6f8e"
+    notes: Implementation commit 17d6f8e split the mixed agent-task router
+      root into focused lifecycle and artifact siblings while keeping the
+      public action-catalog route and parent-module patch seam in the residual
+      root. The durable governance closeout then routed the root as a deferred
+      reduced facade and exact-ratcheted the three router files so the live
+      queue stayed advanced to tests/integration/test_retrieval_learning_ledger.py
+      without pushing debt into a fresh ungoverned router sink.
+  measurement:
+    metric_name: agent_tasks_router_hotspot_line_count
+    current_value: 94.0
+    measurement_window: 2026-05-19 agent-tasks route-surface governance closeout
+    notes: The residual route root now measures 94 lines; focused siblings now
+      measure 198 and 287 lines while the existing analytics and claim-support
+      routers remain focused and unchanged.
+  created_at: '2026-05-19T00:00:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-B847B0E36C52
   title: 'Architecture hotspot: tests/unit/test_architecture_inspection.py'
   status: deployed

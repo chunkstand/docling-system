@@ -15,6 +15,8 @@ Architecture Inspection Test Surface implementation checkpoint:
 `d7ddc23`
 Architecture Inspection Test Surface closeout checkpoint:
 `fa2cd34`
+Agent Tasks Route Surface implementation checkpoint:
+`17d6f8e`
 Search Schema Facade Boundary implementation checkpoint:
 `8b04845`
 Search Schema Facade Boundary closeout checkpoint:
@@ -197,6 +199,25 @@ tests/unit/test_api_route_contracts.py` at `57 passed`, keeps
 `uv run docling-system-improvement-case-validate` green, and advances the live
 `top_routed_hotspot_paths` to
 `["tests/integration/test_retrieval_learning_ledger.py"]`.
+The later 2026-05-19 governance closeout for the same packet now also records
+`IC-17B0E2F64A9C` as deployed in `config/improvement_cases.yaml`, routes
+`app/api/routers/agent_tasks.py` as a deferred reduced facade in
+`config/hotspot_prevention.yaml`, exact-ratchets
+`app/api/routers/agent_tasks.py`,
+`app/api/routers/agent_task_lifecycle.py`, and
+`app/api/routers/agent_task_artifacts.py` at `94`, `198`, and `287` lines in
+`config/hygiene_policy.yaml`, keeps `uv run docling-system-hotspot-prevention-check
+--strict`, `uv run docling-system-hygiene-check`, and
+`uv run docling-system-improvement-case-validate` green, and leaves the live
+queue advanced to `tests/integration/test_retrieval_learning_ledger.py`
+without shifting the route-family debt into an ungoverned sibling. The
+focused hotspot-prevention regression coverage now lives in
+`tests/unit/test_hotspot_prevention_agent_task_routes.py` instead of
+regrowing `tests/unit/test_hotspot_prevention.py`, `app/hotspot_prevention_classifier.py`
+stays under its existing 360-line ratchet at `355`, the improvement-case
+summary now reports `case_count=61` with
+`status_counts={"measured":1,"deployed":29,"open":21,"verified":10}`, and the
+full DB-backed suite passed again at `2109 passed`.
 The broader coordination brief still remains
 `docs/boring_change_architecture_milestone_plan.md`; treat this queue block
 plus `docs/agentic_architecture_index.md` as the durable routing truth for the

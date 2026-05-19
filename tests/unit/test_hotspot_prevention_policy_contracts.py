@@ -26,6 +26,7 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
 
     assert sorted(policy.known_hotspots) == [
         "app/api/main.py",
+        "app/api/routers/agent_tasks.py",
         "app/cli.py",
         "app/db/models.py",
         "app/schemas/agent_tasks.py",
@@ -79,6 +80,7 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
     )
     for path in [
         "app/cli.py",
+        "app/api/routers/agent_tasks.py",
         "tests/unit/test_agent_tasks_api.py",
         "tests/unit/test_architecture_inspection.py",
         "tests/unit/test_search_api.py",

@@ -3,7 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import app.hotspot_prevention_classifier_boundary_rules as _boundary_rules
 import app.hotspot_prevention_classifier_schema_facades as _schema_facades
+import app.hotspot_prevention_classifier_service_rules as _service_rules
 from app.hotspot_prevention_claim_support_rules import (
     classify_claim_support_evaluations_addition,
     classify_claim_support_policy_governance_addition,
@@ -12,22 +14,6 @@ from app.hotspot_prevention_claim_support_rules import (
     classify_claim_support_policy_impacts_addition,
     classify_claim_support_replay_alert_fixture_corpus_addition,
     classify_claim_support_replay_alert_promotions_addition,
-)
-from app.hotspot_prevention_classifier_boundary_rules import (
-    classify_agent_action_addition,
-    classify_agent_task_context_addition,
-    classify_cli_addition,
-    classify_cli_test_addition,
-    classify_local_test_support_addition,
-    classify_residual_test_addition,
-)
-from app.hotspot_prevention_classifier_service_rules import (
-    classify_evaluations_addition,
-    classify_evidence_addition,
-    classify_evidence_provenance_export_addition,
-    classify_model_addition,
-    classify_search_addition,
-    classify_semantics_addition,
 )
 from app.hotspot_prevention_classifier_support import (
     LOCAL_TEST_SUPPORT_PATHS,
@@ -317,21 +303,30 @@ def classify_hotspot_implementation(
     rule: HotspotRule,
 ) -> ClassifiedLine | None:
     if path == "app/cli.py":
-        return classify_cli_addition(stripped=stripped, line=line, rule=rule)
+        return _boundary_rules.classify_cli_addition(stripped=stripped, line=line, rule=rule)
     if path in RESIDUAL_TEST_COMPATIBILITY_PATHS:
-        return classify_residual_test_addition(stripped=stripped, line=line)
+        return _boundary_rules.classify_residual_test_addition(stripped=stripped, line=line)
     if path in LOCAL_TEST_SUPPORT_PATHS:
-        return classify_local_test_support_addition(stripped=stripped, line=line)
+        return _boundary_rules.classify_local_test_support_addition(
+            stripped=stripped,
+            line=line,
+        )
+    if path == "app/api/routers/agent_tasks.py":
+        return _boundary_rules.classify_agent_task_router_addition(
+            stripped=stripped,
+            line=line,
+            rule=rule,
+        )
     classifiers = {
-        "app/db/models.py": classify_model_addition,
-        "app/services/evidence.py": classify_evidence_addition,
+        "app/db/models.py": _service_rules.classify_model_addition,
+        "app/services/evidence.py": _service_rules.classify_evidence_addition,
         "app/services/evidence_provenance_exports.py": (
-            classify_evidence_provenance_export_addition
+            _service_rules.classify_evidence_provenance_export_addition
         ),
-        "app/services/agent_task_actions.py": classify_agent_action_addition,
-        "app/services/agent_task_context.py": classify_agent_task_context_addition,
-        "app/services/search.py": classify_search_addition,
-        "app/services/semantics.py": classify_semantics_addition,
+        "app/services/agent_task_actions.py": _boundary_rules.classify_agent_action_addition,
+        "app/services/agent_task_context.py": _boundary_rules.classify_agent_task_context_addition,
+        "app/services/search.py": _service_rules.classify_search_addition,
+        "app/services/semantics.py": _service_rules.classify_semantics_addition,
         "app/services/claim_support_policy_impacts.py": (
             classify_claim_support_policy_impacts_addition
         ),
@@ -353,8 +348,8 @@ def classify_hotspot_implementation(
         "app/services/claim_support_replay_alert_fixture_corpus.py": (
             classify_claim_support_replay_alert_fixture_corpus_addition
         ),
-        "app/services/evaluations.py": classify_evaluations_addition,
-        "tests/unit/test_cli.py": classify_cli_test_addition,
+        "app/services/evaluations.py": _service_rules.classify_evaluations_addition,
+        "tests/unit/test_cli.py": _boundary_rules.classify_cli_test_addition,
     }
     classifier = classifiers.get(path)
     return classifier(stripped=stripped, line=line) if classifier else None
