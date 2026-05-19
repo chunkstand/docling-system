@@ -20,9 +20,11 @@ from app.services.claim_support_evaluations import (
     ensure_claim_support_calibration_policy,
 )
 from app.services.evidence import payload_sha256
-from tests.integration.claim_support_judge_evaluation_roundtrip_support import (
-    _process_next_task,
+from tests.integration.claim_support_policy_change_impact_support import (
     _seed_impacted_technical_report_records,
+)
+from tests.integration.claim_support_policy_integration_task_support import (
+    _process_next_task,
 )
 
 

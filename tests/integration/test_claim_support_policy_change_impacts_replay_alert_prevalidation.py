@@ -19,11 +19,11 @@ from app.services.evidence import (
     get_agent_task_audit_bundle,
     get_agent_task_evidence_manifest,
 )
-from tests.integration.claim_support_judge_evaluation_roundtrip_support import (
-    _process_next_task,
-)
 from tests.integration.claim_support_policy_change_impacts_replay_alert_support import (
     _seed_replay_alert_change_impact_state,
+)
+from tests.integration.claim_support_policy_integration_task_support import (
+    _process_next_task,
 )
 
 pytestmark = pytest.mark.skipif(

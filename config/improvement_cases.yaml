@@ -913,64 +913,91 @@ cases:
   updated_at: '2026-05-18T23:45:00Z'
 - case_id: IC-40CA7C1FFA84
   title: 'Architecture hotspot: tests/integration/test_claim_support_judge_evaluation_roundtrip.py'
-  status: open
+  status: verified
   cause_class: unclear_ownership
   observed_failure: tests/integration/test_claim_support_judge_evaluation_roundtrip.py
-    remains the compatibility-owner integration surface at line_count=337 after
-    the verified local High Value Technical Paydown Milestone 5 split moved
-    policy activation, change-impact, and mined-failure coverage into focused
-    scenario-family files.
+    now measures 339 lines and remains the residual claim-support evaluation
+    smoke surface over focused activation, change-impact, replay-alert,
+    mined-failure, and family-local support owners.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:tests/integration/test_claim_support_judge_evaluation_roundtrip.py
-    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
-      artifact_target_path=tests/integration/test_claim_support_judge_evaluation_roundtrip.py;
-      verification_command=uv run docling-system-architecture-quality-report; stop_condition=Hotspot
-      risk decreases or the surface has a narrower owner contract.
+    notes: Refreshed during the 2026-05-18 claim-support integration residual
+      closeout from live `wc -l`, hygiene-ratchet, and hotspot-routing evidence
+      after the shared 702-line support sink and 632-line replay-alert
+      promotions sink were decomposed into focused family-local modules.
   artifact:
     artifact_type: test
     target_path: tests/integration/test_claim_support_judge_evaluation_roundtrip.py
     description: Architecture quality owner surface for tests/integration/test_claim_support_judge_evaluation_roundtrip.py.
   verification:
     commands:
-    - uv run docling-system-architecture-quality-report
+    - git diff --check
+    - uv run ruff check tests/integration/test_claim_support_judge_evaluation_roundtrip.py
+      tests/integration/claim_support_policy_integration_task_support.py
+      tests/integration/claim_support_policy_change_impact_support.py
+      tests/integration/claim_support_policy_activation_governance_assertions.py
+      tests/integration/claim_support_policy_activation_governance_triggers.py
+      tests/integration/claim_support_policy_change_impacts_replay_alert_support.py
+      tests/integration/test_claim_support_policy_activation_roundtrip.py
+      tests/integration/test_claim_support_policy_activation_change_impacts_roundtrip.py
+      tests/integration/test_claim_support_policy_change_impacts_roundtrip.py
+      tests/integration/test_claim_support_policy_change_impacts_replay_alert_prevalidation.py
+      tests/integration/test_claim_support_policy_change_impacts_replay_alert_coverage.py
+      tests/integration/test_claim_support_policy_change_impacts_replay_alert_promotions.py
+      tests/integration/test_claim_support_policy_change_impacts_replay_alert_governance.py
+      tests/integration/test_claim_support_policy_mined_failures_roundtrip.py
+      tests/integration/test_claim_support_policy_activation_waivers.py
+      tests/unit/test_hotspot_prevention.py app/hotspot_prevention_classifier_support.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_claim_support_judge_evaluation_roundtrip.py
+      tests/integration/test_claim_support_policy_activation_roundtrip.py
+      tests/integration/test_claim_support_policy_activation_change_impacts_roundtrip.py
+      tests/integration/test_claim_support_policy_change_impacts_roundtrip.py
+      tests/integration/test_claim_support_policy_change_impacts_replay_alert_prevalidation.py
+      tests/integration/test_claim_support_policy_change_impacts_replay_alert_coverage.py
+      tests/integration/test_claim_support_policy_change_impacts_replay_alert_promotions.py
+      tests/integration/test_claim_support_policy_change_impacts_replay_alert_governance.py
+      tests/integration/test_claim_support_policy_mined_failures_roundtrip.py
+      tests/integration/test_claim_support_policy_activation_waivers.py
+    - uv run pytest -q tests/unit/test_hotspot_prevention.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-architecture-quality-report --summary
     acceptance_conditions:
-    - Hotspot risk decreases or the surface has a narrower owner contract.
+    - tests/integration/test_claim_support_judge_evaluation_roundtrip.py
+      remains a narrow smoke surface at or below 800 lines.
+    - The family-local support modules remain at or below 400 lines and 4
+      private helpers.
+    - Focused activation, replay-alert, and mined-failure scenario files stay
+      under the default 600-line hygiene budget and do not regrow the residual
+      root or recreate a broad support sink.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "973be57"
-    notes: Verified local High Value Technical Paydown Milestone 5 moved
-      activation and waiver coverage into
-      tests/integration/test_claim_support_policy_activation_roundtrip.py,
-      terminal-closure coverage into
-      tests/integration/test_claim_support_policy_change_impacts_roundtrip.py,
-      and mined-failure governance coverage into
-      tests/integration/test_claim_support_policy_mined_failures_roundtrip.py
-      while tests/integration/test_claim_support_judge_evaluation_roundtrip.py
-      remains the core evaluation surface. The Milestone 5 alignment pass then
-      split the residual replay-alert change-impact monolith into
-      tests/integration/test_claim_support_policy_activation_change_impacts_roundtrip.py,
-      tests/integration/test_claim_support_policy_change_impacts_replay_alert_prevalidation.py,
-      tests/integration/test_claim_support_policy_change_impacts_replay_alert_promotions.py,
-      and
-      tests/integration/test_claim_support_policy_change_impacts_replay_alert_governance.py,
-      reducing tests/integration/test_claim_support_policy_change_impacts_roundtrip.py
-      to 354 lines.
+    deployed_ref: null
+    notes: Local claim-support residual closeout keeps the root smoke surface at
+      339 lines, deletes the former 702-line
+      tests/integration/claim_support_judge_evaluation_roundtrip_support.py
+      sink, adds focused support owners at 13, 277, 344, 75, and 381 lines,
+      and extracts replay-alert waiver/candidate coverage into
+      tests/integration/test_claim_support_policy_change_impacts_replay_alert_coverage.py
+      at 152 lines while reducing
+      tests/integration/test_claim_support_policy_change_impacts_replay_alert_promotions.py
+      to 510 lines.
   measurement:
     metric_name: test_claim_support_judge_roundtrip_hotspot_line_count
-    current_value: 337.0
-    measurement_window: 2026-05-10 local verification
-    notes: Verified local High Value Technical Paydown Milestone 5 reduced
-      tests/integration/test_claim_support_judge_evaluation_roundtrip.py from
-      4368 lines to 337 lines and aligned the moved coverage to focused
-      claim-support scenario-family files. The aligned residual replay-alert
-      split reduced tests/integration/test_claim_support_policy_change_impacts_roundtrip.py
-      from 2297 lines to 354 lines while moving the remaining scenarios into
-      focused activation, prevalidation, promotion, and governance files.
+    current_value: 339.0
+    measurement_window: 2026-05-18 local claim-support integration residual closeout
+    notes: The residual judge roundtrip root now measures 339 lines. Focused
+      family-local support closes at 13, 277, 344, 75, and 381 lines; the
+      activation, change-impact, replay-alert, and mined-failure scenario files
+      measure 439, 351, 494, 356, 341, 152, 510, 401, and 293 lines; and no
+      selected support file remains above the 400-line support budget.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T23:10:27Z'
+  updated_at: '2026-05-18T00:00:00+00:00'
 - case_id: IC-1D03DBFE8492
   title: 'Architecture hotspot: app/services/search.py'
   status: deployed

@@ -10,6 +10,7 @@ from app.hotspot_prevention_policy import HotspotException, HotspotRule
 
 RESIDUAL_TEST_COMPATIBILITY_PATHS = {
     "tests/db_model_contract.py",
+    "tests/integration/test_claim_support_judge_evaluation_roundtrip.py",
     "tests/unit/test_agent_task_context.py",
     "tests/unit/test_agent_tasks_api.py",
     "tests/unit/test_evaluation_service.py",
@@ -31,7 +32,6 @@ _COMPATIBILITY_TEST_TOKENS = (
     "roundtrip",
     "registry",
 )
-
 
 @dataclass(frozen=True)
 class SurfaceClassification:

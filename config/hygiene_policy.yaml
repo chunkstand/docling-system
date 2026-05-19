@@ -1562,14 +1562,92 @@ file_budgets:
       ratchet_max_private_helpers: 0
       owner_case_id: IC-6C3E1A7B9D52
     tests/integration/test_claim_support_policy_activation_waivers.py:
-      max_lines: 349
-      ratchet_max_lines: 349
+      max_lines: 351
+      ratchet_max_lines: 351
       max_private_helpers: 0
       ratchet_max_private_helpers: 0
       owner_case_id: IC-6C3E1A7B9D52
     tests/integration/test_claim_support_policy_activation_roundtrip.py:
-      max_lines: 437
-      ratchet_max_lines: 437
+      max_lines: 439
+      ratchet_max_lines: 439
       max_private_helpers: 0
       ratchet_max_private_helpers: 0
       owner_case_id: IC-6C3E1A7B9D52
+    tests/integration/test_claim_support_policy_activation_change_impacts_roundtrip.py:
+      max_lines: 494
+      ratchet_max_lines: 494
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-40CA7C1FFA84
+    tests/integration/claim_support_policy_activation_governance_assertions.py:
+      max_lines: 344
+      ratchet_max_lines: 344
+      max_private_helpers: 1
+      ratchet_max_private_helpers: 1
+      owner_case_id: IC-40CA7C1FFA84
+    tests/integration/claim_support_policy_activation_governance_triggers.py:
+      max_lines: 75
+      ratchet_max_lines: 75
+      max_private_helpers: 4
+      ratchet_max_private_helpers: 4
+      owner_case_id: IC-40CA7C1FFA84
+    tests/integration/claim_support_policy_change_impact_support.py:
+      max_lines: 277
+      ratchet_max_lines: 277
+      max_private_helpers: 2
+      ratchet_max_private_helpers: 2
+      owner_case_id: IC-40CA7C1FFA84
+    tests/integration/test_claim_support_policy_change_impacts_replay_alert_coverage.py:
+      max_lines: 152
+      ratchet_max_lines: 152
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-40CA7C1FFA84
+    tests/integration/test_claim_support_policy_change_impacts_replay_alert_governance.py:
+      max_lines: 401
+      ratchet_max_lines: 401
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-40CA7C1FFA84
+    tests/integration/test_claim_support_policy_change_impacts_replay_alert_prevalidation.py:
+      max_lines: 341
+      ratchet_max_lines: 341
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-40CA7C1FFA84
+    tests/integration/test_claim_support_policy_change_impacts_replay_alert_promotions.py:
+      max_lines: 510
+      ratchet_max_lines: 510
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-40CA7C1FFA84
+    tests/integration/claim_support_policy_change_impacts_replay_alert_support.py:
+      max_lines: 381
+      ratchet_max_lines: 381
+      max_private_helpers: 2
+      ratchet_max_private_helpers: 2
+      owner_case_id: IC-40CA7C1FFA84
+    tests/integration/test_claim_support_policy_change_impacts_roundtrip.py:
+      max_lines: 356
+      ratchet_max_lines: 356
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-40CA7C1FFA84
+    tests/integration/claim_support_policy_integration_task_support.py:
+      max_lines: 13
+      ratchet_max_lines: 13
+      max_private_helpers: 1
+      ratchet_max_private_helpers: 1
+      owner_case_id: IC-40CA7C1FFA84
+    tests/integration/test_claim_support_judge_evaluation_roundtrip.py:
+      max_lines: 339
+      ratchet_max_lines: 339
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-40CA7C1FFA84
+    tests/integration/test_claim_support_policy_mined_failures_roundtrip.py:
+      max_lines: 293
+      ratchet_max_lines: 293
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-40CA7C1FFA84

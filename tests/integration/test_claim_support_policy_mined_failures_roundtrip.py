@@ -10,9 +10,13 @@ from app.db.models import AgentTask, AgentTaskStatus, ClaimSupportCalibrationPol
 from app.schemas.agent_tasks import AgentTaskApprovalRequest, AgentTaskCreateRequest
 from app.services.agent_tasks import approve_agent_task, create_agent_task
 from app.services.claim_support_evaluations import default_claim_support_evaluation_fixtures
-from tests.integration.claim_support_judge_evaluation_roundtrip_support import (
+from tests.integration.claim_support_policy_activation_governance_assertions import (
     _assert_claim_support_activation_governance,
+)
+from tests.integration.claim_support_policy_activation_governance_triggers import (
     _enable_claim_support_governance_signing,
+)
+from tests.integration.claim_support_policy_integration_task_support import (
     _process_next_task,
 )
 

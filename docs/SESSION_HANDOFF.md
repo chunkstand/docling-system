@@ -120,32 +120,40 @@ reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
-`docs/open_owner_backlog_resolution_milestone_plan.md`
+`docs/claim_support_judge_integration_residual_milestone_plan.md`
 Next routed bounded implementation brief:
-to be reselected from `docs/boring_change_architecture_milestone_plan.md`
+`docs/oversized_test_hotspots_boundary_milestone_plan.md` selecting
+`IC-D49E037D5657` / `tests/integration/test_technical_report_harness_roundtrip.py`
 Queued standalone follow-on:
-none selected yet beyond the routed hotspot/test queue
+`tests/unit/test_hotspot_prevention.py` remains the second routed hotspot after
+the technical-report harness family
 Previous resolved bounded implementation brief:
-`docs/hotspot_interpretation_source_of_truth_milestone_plan.md`
+`docs/open_owner_backlog_resolution_milestone_plan.md`
 The broader coordination brief still remains
 `docs/boring_change_architecture_milestone_plan.md`, and the live queue now
-returns to the routed hotspot/test selection surface after both the
-hotspot-interpretation and open-owner packets closed locally. Fresh routing
-evidence still reports
+advances to the technical-report harness packet after the claim-support
+integration residual closeout removed the routed judge-roundtrip root from the
+active queue. Fresh routing evidence now reports
 `top_hotspot_paths=["app/db/models.py","app/cli.py","app/services/agent_task_actions.py","app/services/evidence.py","app/schemas/agent_tasks.py"]`,
-`routing_trap_paths=["app/db/models.py","app/cli.py","app/services/agent_task_actions.py","app/services/evidence.py","app/schemas/agent_tasks.py","tests/unit/test_cli.py","app/services/agent_tasks.py"]`,
-`top_routed_hotspot_paths=["tests/integration/test_claim_support_judge_evaluation_roundtrip.py","tests/integration/test_technical_report_harness_roundtrip.py","tests/unit/test_hotspot_prevention.py"]`,
-and `stale_facade_hotspot_count=7`.
-The 2026-05-18 hotspot-interpretation plus open-owner closeouts now leave
+`routing_trap_paths=["app/db/models.py","app/cli.py","app/services/agent_task_actions.py","app/services/evidence.py","app/schemas/agent_tasks.py","tests/integration/test_claim_support_judge_evaluation_roundtrip.py","tests/unit/test_cli.py","app/services/agent_tasks.py"]`,
+`top_routed_hotspot_paths=["tests/integration/test_technical_report_harness_roundtrip.py","tests/unit/test_hotspot_prevention.py"]`,
+and `stale_facade_hotspot_count=8`.
+The 2026-05-18 claim-support integration residual closeout now leaves
 `config/improvement_cases.yaml` at
-`status_counts={"measured":1,"deployed":16,"open":31,"verified":11}` with
-`oldest_open_case_id=IC-FD18EE2D3309`; the selected generation and graph
-residual owners now close at `505 / 145` and `492 / 589 / 214 / 138` lines;
-`git diff --check` passed; the focused unit slice passed at `100 passed`; the
-targeted DB-backed semantic slice passed at `6 passed`; the final full
-DB-backed suite passed at `2086 passed`; `uv run docling-system-hygiene-check`
-reported `new hygiene regressions: none`; and the architecture probe still
-reports `0` Python cycle components with no code files above `800`.
+`status_counts={"measured":1,"deployed":16,"open":30,"verified":12}` with
+`oldest_open_case_id=IC-FD18EE2D3309`; the claim-support residual smoke root
+now closes at `339` lines, focused support owners close at `13 / 277 / 344 / 75 / 381`,
+replay-alert coverage now lives in a `152`-line sibling, replay-alert
+promotions closes at `510`, `git diff --check` passed, the focused
+hotspot-prevention unit slice passed at `19 passed`, the focused DB-backed
+claim-support slice passed at `18 passed`, `uv run docling-system-hotspot-prevention-check --strict`
+reported `changed_hotspots=1` and `blocked=0`, `uv run docling-system-hygiene-check`
+reported `new hygiene regressions: none`, `uv run docling-system-improvement-case-validate`
+returned `valid=true`, `uv run docling-system-architecture-quality-report --summary`
+now reports `top_routed_hotspot_paths=["tests/integration/test_technical_report_harness_roundtrip.py","tests/unit/test_hotspot_prevention.py"]`,
+the architecture probe still reports `0` Python cycle components with no code
+file above `799`, and the final full DB-backed suite now passes at
+`2087 passed`.
 The 2026-05-18 durable architecture closeout now records the governance
 self-hosting, documents-service, cross-cutting verification, semantic/report
 residual, evaluation residual, UI residual, residual-large-file,

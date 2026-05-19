@@ -28,10 +28,12 @@ from app.services.claim_support_replay_alert_waivers import (
     record_replay_alert_fixture_coverage_waiver_ledger,
 )
 from app.services.evidence import payload_sha256
-from tests.integration.claim_support_judge_evaluation_roundtrip_support import (
-    _claim_support_change_impact_payload_without_replay,
+from tests.integration.claim_support_policy_activation_governance_triggers import (
     _drop_claim_support_governance_immutability_trigger,
     _install_claim_support_governance_immutability_trigger,
+)
+from tests.integration.claim_support_policy_change_impact_support import (
+    _claim_support_change_impact_payload_without_replay,
 )
 
 pytestmark = pytest.mark.skipif(

@@ -500,6 +500,42 @@ known_hotspots:
     allow:
       - compatibility_assertion
       - deletion
+  tests/integration/test_claim_support_judge_evaluation_roundtrip.py:
+    target_role: claim-support judge integration smoke surface
+    preferred_owner_modules:
+      - tests/integration/test_claim_support_policy_*.py
+      - tests/integration/claim_support_policy_*.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The residual judge roundtrip test is now a narrow smoke surface,
+        so future scenario growth belongs in the focused claim-support policy
+        activation, replay-alert, mined-failure, and family-local support
+        modules rather than back in the root file.
+      route_to_case_ids:
+        - IC-40CA7C1FFA84
+      route_to_paths:
+        - tests/integration/claim_support_policy_integration_task_support.py
+        - tests/integration/claim_support_policy_change_impact_support.py
+        - tests/integration/claim_support_policy_activation_governance_assertions.py
+        - tests/integration/claim_support_policy_activation_governance_triggers.py
+        - tests/integration/claim_support_policy_change_impacts_replay_alert_support.py
+        - tests/integration/test_claim_support_policy_activation_change_impacts_roundtrip.py
+        - tests/integration/test_claim_support_policy_change_impacts_roundtrip.py
+        - tests/integration/test_claim_support_policy_change_impacts_replay_alert_prevalidation.py
+        - tests/integration/test_claim_support_policy_change_impacts_replay_alert_coverage.py
+        - tests/integration/test_claim_support_policy_change_impacts_replay_alert_promotions.py
+        - tests/integration/test_claim_support_policy_change_impacts_replay_alert_governance.py
+        - tests/integration/test_claim_support_policy_mined_failures_roundtrip.py
+      route_to_plan_paths:
+        - docs/claim_support_judge_integration_residual_milestone_plan.md
+        - docs/boring_change_architecture_milestone_plan.md
+    block_new:
+      - broad_new_test_group
+      - broad_helper
+    allow:
+      - import_forwarder
+      - compatibility_assertion
+      - deletion
   tests/db_model_contract.py:
     target_role: shared ORM contract compatibility manifest
     preferred_owner_modules:

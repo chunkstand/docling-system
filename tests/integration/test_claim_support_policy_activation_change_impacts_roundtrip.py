@@ -25,11 +25,17 @@ from app.services.claim_support_evaluations import (
     ensure_claim_support_calibration_policy,
 )
 from app.services.evidence import get_agent_task_audit_bundle, payload_sha256
-from tests.integration.claim_support_judge_evaluation_roundtrip_support import (
+from tests.integration.claim_support_policy_activation_governance_assertions import (
     _assert_claim_support_activation_governance,
+)
+from tests.integration.claim_support_policy_activation_governance_triggers import (
     _enable_claim_support_governance_signing,
-    _process_next_task,
+)
+from tests.integration.claim_support_policy_change_impact_support import (
     _seed_impacted_technical_report_records,
+)
+from tests.integration.claim_support_policy_integration_task_support import (
+    _process_next_task,
 )
 
 pytestmark = pytest.mark.skipif(

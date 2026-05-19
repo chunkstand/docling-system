@@ -20,11 +20,11 @@ from app.services.evidence import (
     get_agent_task_evidence_trace,
     refresh_technical_report_evidence_manifest,
 )
-from tests.integration.claim_support_judge_evaluation_roundtrip_support import (
-    _process_next_task,
-)
 from tests.integration.claim_support_policy_change_impacts_replay_alert_support import (
     _build_replay_alert_fixture_promotion_state,
+)
+from tests.integration.claim_support_policy_integration_task_support import (
+    _process_next_task,
 )
 
 pytestmark = pytest.mark.skipif(

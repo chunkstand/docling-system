@@ -50,6 +50,7 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "tests/db_model_contract.py",
         "tests/integration/retrieval_learning_ledger_support.py",
         "tests/integration/technical_report_harness_support.py",
+        "tests/integration/test_claim_support_judge_evaluation_roundtrip.py",
         "tests/integration/test_retrieval_learning_ledger.py",
         "tests/integration/test_technical_report_harness_roundtrip.py",
         "tests/unit/test_agent_task_context.py",
@@ -275,6 +276,11 @@ def test_analyzer_flags_obvious_implementation_growth_for_each_hotspot() -> None
         (
             "tests/unit/test_agent_tasks_api.py",
             ["def test_new_route_family_case():", "    assert True"],
+            "broad_new_test_group",
+        ),
+        (
+            "tests/integration/test_claim_support_judge_evaluation_roundtrip.py",
+            ["def test_new_replay_alert_promotion_branch():", "    assert True"],
             "broad_new_test_group",
         ),
         (

@@ -23,15 +23,16 @@ the now-resolved closeout-state and stale-queue alignment packet
 now-resolved cross-cutting verification packet recorded in
 `docs/cross_cutting_verification_roots_milestone_plan.md`; the
 governance self-hosting packet is now likewise resolved locally, the later
-hotspot-interpretation and open-owner follow-ons are now also resolved
-locally, and the resolved documents-service packet remains recorded in
-`docs/documents_service_boundary_milestone_plan.md`.
+hotspot-interpretation, open-owner, and claim-support residual follow-ons are
+now also resolved locally, and the resolved documents-service packet remains
+recorded in `docs/documents_service_boundary_milestone_plan.md`.
 Owner context: broader coordination brief for the remaining "expensive to
 change" backlog across under-budget residual owner families, stale routing risk
 around already-shrunk compatibility facades, and the checked-in gates that
 must keep oversized files and import cycles from regrowing. This plan remains
-the active coordination brief while the next packet is reselected from the
-routed hotspot/test queue.
+the active coordination brief while the next packet advances to the
+technical-report harness routed hotspot and the hotspot-prevention residual
+test root stays queued behind it.
 
 ## Purpose
 
@@ -79,13 +80,20 @@ remaining boring-change gap is now split across four different risks:
   cross-cutting verification packet is now also resolved locally, the
   governance self-hosting packet is now also resolved locally, and the later
   hotspot-interpretation plus open-owner packets are now also resolved
-  locally, returning next-packet selection to `top_routed_hotspot_paths`
+  locally
+- the routed claim-support residual test packet is now also resolved locally:
+  the judge-roundtrip smoke root closes at `339` lines, focused family-local
+  support closes at `13`, `277`, `344`, `75`, and `381`, replay-alert coverage
+  now lives in a `152`-line sibling, replay-alert promotions closes at `510`,
+  and the routed queue now advances to the technical-report harness packet
 
 This refreshed plan coordinates the remaining work by preserving the locally
 closed app-side packet, routing the remaining test, UI, and nonselected app
 backlog through narrower follow-on packets, preserving the now-zero-cycle
-state, and finishing with a checked-in boring-change gate that fails on both
-cycles and oversized code files.
+state, advancing the next routed packet to
+`tests/integration/test_technical_report_harness_roundtrip.py`, and finishing
+with a checked-in boring-change gate that fails on both cycles and oversized
+code files.
 
 ## Current Evidence
 
