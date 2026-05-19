@@ -120,41 +120,42 @@ reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
-`docs/hotspot_prevention_family_boundary_milestone_plan.md`
+`docs/search_api_route_surface_boundary_milestone_plan.md`
 Next routed bounded implementation brief:
 the broader reselect through `docs/boring_change_architecture_milestone_plan.md`,
-currently routing to `IC-03D7EFA03213` / `tests/unit/test_search_api.py`
+currently routing to `IC-D9A84C20546B` / `tests/unit/test_agent_tasks_api.py`
 Queued standalone follow-on:
-the same broader under-budget reselect after the next search API packet, or
+the same broader under-budget reselect after the next agent-tasks API packet, or
 any fresher narrow replacement selected by the routed queue
 Previous resolved bounded implementation brief:
-`docs/oversized_test_hotspots_boundary_milestone_plan.md`
-The 2026-05-18 hotspot-prevention companion-test closeout is now durably
-recorded through implementation commit `463d3fc`, and
+`docs/hotspot_prevention_family_boundary_milestone_plan.md`
+The 2026-05-18 search API route-surface follow-on is now resolved locally in
+the current checkout, and
 `config/improvement_cases.yaml` now reports
-`status_counts={"measured":1,"deployed":18,"open":27,"verified":13}` with
+`status_counts={"measured":1,"deployed":18,"open":26,"verified":14}` with
 `oldest_open_case_id=IC-FD18EE2D3309`; `tests/unit/test_hotspot_prevention.py`
-now closes at `343` lines, policy or report contract coverage now lives in
-`tests/unit/test_hotspot_prevention_policy_contracts.py` at `317`, blocked-family
-coverage remains in `tests/unit/test_hotspot_prevention_family_rules.py` at `318`,
-wrapper-allowance coverage remains in
-`tests/unit/test_hotspot_prevention_wrapper_rules.py` at `296`, and shared
-test support remains in `tests/unit/hotspot_prevention_test_support.py` at
-`50`. `git diff --check` passed, the focused hotspot-prevention family unit
-slice passed at `41 passed`, `uv run docling-system-hotspot-prevention-check --strict`
-reported `changed_hotspots=0` and `blocked=0`, `uv run docling-system-hygiene-check`
+remains closed at `343` lines and the search API root now closes at `161`
+lines while request-history coverage lives in
+`tests/unit/test_search_api_request_history.py` at `152`, evidence-package and
+trace coverage live in `tests/unit/test_search_api_evidence.py` at `137`,
+replay coverage remains in `tests/unit/test_search_api_replays.py` at `248`,
+the inherited harness owner remains unchanged at `764`, and learning/audit
+coverage remains in `tests/unit/test_search_api_learning_audit.py` at `228`.
+`git diff --check` passed, the focused search API plus policy contract slice
+passed at `43 passed`, `uv run docling-system-hotspot-prevention-check --strict`
+reported `changed_hotspots=1`, `blocked=0`, and `allowed=1` for the deletion-only
+root reduction, `uv run docling-system-hygiene-check`
 reported `new hygiene regressions: none`, `uv run docling-system-improvement-case-validate`
 returned `valid=true`, `uv run docling-system-architecture-quality-report --summary`
 still reports `agent_legibility_average_score=90.0`,
 `broad_facade_count=2`, `hotspot_count=20`, and
 `max_hotspot_risk_score=486.06`, while the routed queue now reports
-`top_routed_hotspot_paths=["tests/unit/test_search_api.py"]` with
-`stale_facade_hotspot_count=12`. The architecture probe still reports `0`
+`top_routed_hotspot_paths=["tests/unit/test_agent_tasks_api.py"]` with
+`stale_facade_hotspot_count=13`. The architecture probe still reports `0`
 Python cycle components with no code file above `799`, and the full DB-backed
-suite now passes at `2089 passed`. `config/hotspot_prevention.yaml` now also
-marks `tests/unit/test_hotspot_prevention.py` as a deferred reduced facade, so
-the routed queue does not drift back into the just-closed companion-test
-packet.
+suite still last passed at `2089 passed`. `config/hotspot_prevention.yaml` now
+also marks `tests/unit/test_search_api.py` as a deferred reduced facade, so the
+routed queue does not drift back into the reduced search-route root.
 The broader coordination brief still remains
 `docs/boring_change_architecture_milestone_plan.md`; treat this queue block
 plus `docs/agentic_architecture_index.md` as the durable routing truth for the

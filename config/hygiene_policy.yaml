@@ -1383,6 +1383,24 @@ file_budgets:
       max_private_helpers: 0
       ratchet_max_private_helpers: 0
       owner_case_id: IC-15F6E41A9C77
+    tests/unit/test_search_api.py:
+      max_lines: 161
+      ratchet_max_lines: 161
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-03D7EFA03213
+    tests/unit/test_search_api_evidence.py:
+      max_lines: 137
+      ratchet_max_lines: 137
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-03D7EFA03213
+    tests/unit/test_search_api_request_history.py:
+      max_lines: 152
+      ratchet_max_lines: 152
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-03D7EFA03213
     tests/unit/test_search_service.py:
       max_lines: 117
       ratchet_max_lines: 117

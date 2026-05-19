@@ -1535,30 +1535,60 @@ cases:
   updated_at: '2026-05-18T00:00:00+00:00'
 - case_id: IC-03D7EFA03213
   title: 'Architecture hotspot: tests/unit/test_search_api.py'
-  status: open
+  status: verified
   cause_class: unclear_ownership
-  observed_failure: tests/unit/test_search_api.py remains the core search-route
-    test surface at line_count=436 after the verified local High Value
-    Technical Paydown Milestone 4 split moved replay, harness, and
-    learning/audit route coverage into focused files.
+  observed_failure: tests/unit/test_search_api.py now measures 161 lines and
+    remains the reduced search-route smoke surface over focused
+    request-history, evidence-package, replay, harness, and learning/audit
+    siblings at 152, 137, 248, 764, and 228 lines respectively.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:tests/unit/test_search_api.py
     notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
       artifact_target_path=tests/unit/test_search_api.py; verification_command=uv
       run docling-system-architecture-quality-report; stop_condition=Hotspot risk
-      decreases or the surface has a narrower owner contract.
+      decreases or the surface has a narrower owner contract. Refreshed during
+      the 2026-05-18 search API route-surface follow-on after the root test
+      still routed as the next active hotspot even though replay, harness, and
+      learning/audit coverage had already been extracted.
   artifact:
     artifact_type: test
     target_path: tests/unit/test_search_api.py
     description: Architecture quality owner surface for tests/unit/test_search_api.py.
   verification:
     commands:
-    - uv run docling-system-architecture-quality-report
+    - git diff --check
+    - uv run ruff check tests/unit/test_search_api.py
+      tests/unit/test_search_api_request_history.py
+      tests/unit/test_search_api_evidence.py
+      tests/unit/test_search_api_replays.py
+      tests/unit/test_search_api_harnesses.py
+      tests/unit/test_search_api_learning_audit.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
+    - uv run pytest -q tests/unit/test_search_api.py
+      tests/unit/test_search_api_request_history.py
+      tests/unit/test_search_api_evidence.py
+      tests/unit/test_search_api_replays.py
+      tests/unit/test_search_api_harnesses.py
+      tests/unit/test_search_api_learning_audit.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    - uv run docling-system-improvement-case-validate
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
     acceptance_conditions:
-    - Hotspot risk decreases or the surface has a narrower owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    - tests/unit/test_search_api.py remains a narrow search-route compatibility
+      and smoke surface at or below 600 lines.
+    - Request-history and evidence-package route coverage remain in
+      tests/unit/test_search_api_request_history.py and
+      tests/unit/test_search_api_evidence.py instead of regrowing the root.
+    - No moved coverage is pushed into the already-existing
+      tests/unit/test_search_api_harnesses.py owner surface; the inherited
+      harness hotspot remains unchanged by this packet.
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: "0701121"
@@ -1567,16 +1597,27 @@ cases:
       coverage into tests/unit/test_search_api_harnesses.py, and
       learning/audit error coverage into
       tests/unit/test_search_api_learning_audit.py while
-      tests/unit/test_search_api.py remains the core search-route surface.
+      tests/unit/test_search_api.py remained the core search-route surface.
+      The 2026-05-18 local follow-on now reduces the root to 161 lines and
+      moves request-history plus evidence-package coverage into
+      tests/unit/test_search_api_request_history.py at 152 lines and
+      tests/unit/test_search_api_evidence.py at 137 lines without adding new
+      coverage to the inherited 764-line harness owner.
   measurement:
     metric_name: test_search_api_hotspot_line_count
-    current_value: 436.0
-    measurement_window: 2026-05-10 local verification
-    notes: Verified local High Value Technical Paydown Milestone 4 reduced
-      tests/unit/test_search_api.py from 1660 lines to 436 lines and aligned
-      route-family coverage to focused search API test files.
+    current_value: 161.0
+    measurement_window: 2026-05-18 local search API route-surface verification
+    notes: The current local state keeps tests/unit/test_search_api.py at 161
+      lines, moves request-history coverage into
+      tests/unit/test_search_api_request_history.py at 152 lines, moves
+      evidence-package and trace coverage into
+      tests/unit/test_search_api_evidence.py at 137 lines, preserves replay
+      coverage in tests/unit/test_search_api_replays.py at 248 lines, leaves
+      the inherited harness owner unchanged at 764 lines, and preserves
+      learning/audit coverage in tests/unit/test_search_api_learning_audit.py
+      at 228 lines.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T21:36:56+00:00'
+  updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-934588120F94
   title: 'Architecture hotspot: tests/unit/test_agent_task_actions.py'
   status: open

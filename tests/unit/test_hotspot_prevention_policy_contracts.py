@@ -58,7 +58,7 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "tests/unit/test_cli.py",
         "tests/unit/test_evaluation_service.py",
         "tests/unit/test_hotspot_prevention.py",
-        "tests/unit/test_search_service.py",
+        "tests/unit/test_search_api.py", "tests/unit/test_search_service.py",
     ]
     for rule in policy.known_hotspots.values():
         assert rule.preferred_owner_modules
@@ -67,6 +67,10 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
     assert policy.known_hotspots["app/db/models.py"].routing.status == "compatibility_facade_trap"
     assert policy.known_hotspots["app/cli.py"].routing is not None
     assert policy.known_hotspots["app/cli.py"].routing.status == "deferred_reduced_facade"
+    assert (
+        policy.known_hotspots["tests/unit/test_search_api.py"].routing.status
+        == "deferred_reduced_facade"
+    )
     assert policy.known_hotspots["tests/unit/test_cli.py"].routing is not None
     assert policy.known_hotspots["app/services/search.py"].routing is not None
 

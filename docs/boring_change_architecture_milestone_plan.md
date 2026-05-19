@@ -31,8 +31,9 @@ change" backlog across under-budget residual owner families, stale routing risk
 around already-shrunk compatibility facades, and the checked-in gates that
 must keep oversized files and import cycles from regrowing. This plan remains
 the active coordination brief after the hotspot-prevention companion-test
-closeout, with the routed queue now returning to `IC-03D7EFA03213` /
-`tests/unit/test_search_api.py`.
+closeout and the later search API route-surface follow-on, with the routed
+queue now returning to `IC-D9A84C20546B` /
+`tests/unit/test_agent_tasks_api.py`.
 
 ## Purpose
 
@@ -99,12 +100,19 @@ remaining boring-change gap is now split across four different risks:
   support remains at `50`, the focused family slice passed at `41 passed`,
   and the routed queue now returns to `IC-03D7EFA03213` /
   `tests/unit/test_search_api.py`
+- the routed search API route-surface follow-on is now also resolved locally:
+  the residual root closes at `161` lines, request-history coverage now lives
+  in a `152`-line sibling, evidence-package and trace coverage now live in a
+  `137`-line sibling, replay and learning/audit siblings remain at `248` and
+  `228`, the inherited harness owner remains unchanged at `764`, and the
+  routed queue now advances to `IC-D9A84C20546B` /
+  `tests/unit/test_agent_tasks_api.py`
 
 This refreshed plan coordinates the remaining work by preserving the locally
 closed app-side packet, routing the remaining test, UI, and nonselected app
 backlog through narrower follow-on packets, preserving the now-zero-cycle
 state, advancing the next routed packet to
-`tests/unit/test_search_api.py`, and finishing with a checked-in
+`tests/unit/test_agent_tasks_api.py`, and finishing with a checked-in
 boring-change gate that fails on both cycles and oversized code files.
 
 ## Current Evidence
@@ -740,10 +748,10 @@ Acceptance criteria:
   resolved locally, and the next active code-owning packet must now be
   reselected from this broader brief rather than from the cleared large-file
   queue.
-- The current routed hotspot after the companion-test closeout is
-  `IC-03D7EFA03213` / `tests/unit/test_search_api.py`; any fresher narrow
-  replacement must beat that routed queue evidence rather than reopening a
-  just-closed packet.
+- The current routed hotspot after the search API route-surface closeout is
+  `IC-D9A84C20546B` / `tests/unit/test_agent_tasks_api.py`; any fresher
+  narrow replacement must beat that routed queue evidence rather than
+  reopening a just-closed packet.
 - The remaining routing traps after the current refresh are small but still
   high-churn facades such as `app/db/models.py`, `app/services/evidence.py`,
   `app/cli.py`, `app/schemas/agent_tasks.py`, and `app/services/agent_tasks.py`.
