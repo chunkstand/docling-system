@@ -91,7 +91,8 @@ remaining boring-change gap is now split across four different risks:
   `396`, the focused context-pack surface stays at `315`, the audit family now
   closes at `398`, `313`, and `162`, integrity stays at `402`, source-evidence
   stays at `206`, and the routed queue now advances to the hotspot-prevention
-  residual test root
+  residual test root, where the companion test has regrown to `653` lines
+  while the classifier-side owners remain under budget
 
 This refreshed plan coordinates the remaining work by preserving the locally
 closed app-side packet, routing the remaining test, UI, and nonselected app

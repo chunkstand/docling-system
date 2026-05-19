@@ -1,7 +1,9 @@
 # Hotspot Prevention Family Boundary Milestone Plan
 
 Date: 2026-05-16 local / 2026-05-16 UTC
-Status: resolved locally in the current checkout through Milestone 3 closeout.
+Status: resolved locally in the current checkout through Milestone 3 closeout
+on the classifier side, with the later 2026-05-18 routing refresh reopening
+the companion test root as the active next packet.
 `app/hotspot_prevention_classifier.py` is now a `360` line / `1` private-helper
 dispatcher under `IC-6C1B516A3F92`, the classifier family now carries exact
 same-milestone ratchets on
@@ -21,6 +23,8 @@ Later 2026-05-18 routing evidence reselects the companion test root under
 `IC-15F6E41A9C77` as the next bounded packet because
 `tests/unit/test_hotspot_prevention.py` has regrown to `653` lines while the
 classifier-side owners remain under budget.
+Treat the `595`-line references below as the last resolved checkpoint, not as
+the current live routed state for the companion test owner.
 Owner context: targeted hotspot-prevention family follow-on after the semantic
 lifecycle/read packet closed locally. This packet keeps the next slice inside a
 single rule-and-test family instead of opening a giant mixed test backlog or a

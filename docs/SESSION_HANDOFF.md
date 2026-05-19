@@ -134,7 +134,10 @@ The broader coordination brief still remains
 `docs/boring_change_architecture_milestone_plan.md`, and the live queue now
 advances to the hotspot-prevention residual test root after the
 technical-report harness residual closeout trapped the 93-line smoke root as a
-deferred reduced facade. Fresh routing evidence now reports
+deferred reduced facade. That routed next packet remains explicit open debt:
+`tests/unit/test_hotspot_prevention.py` has regrown to `653` lines while the
+classifier-side owners remain under budget, so `IC-15F6E41A9C77` stays open
+rather than being silently retired. Fresh routing evidence now reports
 `top_hotspot_paths=["app/db/models.py","app/cli.py","app/services/agent_task_actions.py","app/services/evidence.py","app/schemas/agent_tasks.py"]`,
 `routing_trap_paths=["app/db/models.py","app/cli.py","app/services/agent_task_actions.py","app/services/evidence.py","app/schemas/agent_tasks.py","tests/integration/test_claim_support_judge_evaluation_roundtrip.py","tests/integration/test_technical_report_harness_roundtrip.py","tests/unit/test_cli.py","app/services/agent_tasks.py"]`,
 `top_routed_hotspot_paths=["tests/unit/test_hotspot_prevention.py"]`,

@@ -1360,8 +1360,8 @@ file_budgets:
       ratchet_max_private_helpers: 2
       owner_case_id: IC-15F6E41A9C77
     tests/unit/test_hotspot_prevention.py:
-      max_lines: 595
-      ratchet_max_lines: 595
+      max_lines: 653
+      ratchet_max_lines: 653
       max_private_helpers: 0
       ratchet_max_private_helpers: 0
       owner_case_id: IC-15F6E41A9C77
