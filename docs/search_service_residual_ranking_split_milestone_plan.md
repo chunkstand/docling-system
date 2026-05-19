@@ -69,6 +69,11 @@ facade, hygiene exact-ratchets the residual root and both ranking owners, and
 focused route-behavior coverage enforces that new ranking scenarios stay out of
 the reduced root.
 
+The later Packet D alignment sweep updates the owner-case deployment ref to
+`4fa696a`, confirms the live registry stays at `open=0`, `verified=0`, and
+`deployed=60`, and removes stale "Packet D remains open" wording from the
+current-state adjacent summaries.
+
 ## Weak-Point Prevention Contract
 
 | Weak point forecast | Owner surface | Prevention gate | Fail threshold | Controlled violation | Future-Codex misuse scenario |

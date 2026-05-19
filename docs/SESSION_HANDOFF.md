@@ -181,6 +181,11 @@ reports `inherited budget debt: none`, architecture inspection remains
 `violation_count=0`, and the live improvement-case summary now reads
 `status_counts={"measured":1,"deployed":60,"open":0}`. Packet E is now the
 next queued packet while `top_routed_hotspot_paths=[]` remains honest.
+The later 2026-05-19 Packet D alignment sweep then updates
+`IC-25C1F7B9E4DA` to deployment ref `4fa696a`, removes stale adjacent-open
+wording from the current-state index and owner-family summaries, and keeps the
+governance gates green with `blocked=0`, `exceptions=0`, and
+`status_counts={"measured":1,"deployed":60}`.
 The 2026-05-18 DB-model residual owner-family packet is now durably recorded
 through closeout commit `b9b3e46` for `IC-46C5B38A1D2E`,
 `IC-7D8AE7C83B8F`, and `IC-62C75B82F0AA`, and
@@ -371,34 +376,36 @@ docs-only verified-to-deployed sweep for `IC-8304248AB64C`,
 `IC-ADCFFF108626`, `IC-D49E037D5657`, `IC-23F2C79C8AA7`,
 `IC-8AFAD4A415CA`, `IC-865AB8419D55`, `IC-A92BA42C6D18`,
 `IC-6F4E2B5A91C3`, and `IC-C8D41A2F77BE`. Only Packet C
-`IC-3B4C9F2A76E1` and Packet D `IC-25C1F7B9E4DA` remain genuinely
-code-owning because focused successor tests still exceed the default
-`600`-line budget. Treat that queue brief, this handoff, and
+`IC-3B4C9F2A76E1` and Packet D `IC-25C1F7B9E4DA` remained the genuinely
+code-owning packets at that checkpoint because focused successor tests still
+exceeded the default `600`-line budget. Treat that queue brief, this handoff, and
 `docs/agentic_architecture_index.md` as the new source of truth instead of
 repeating another free-form broader reselect.
 The later 2026-05-19 Packet A closeout now completes that first queue pass
 through `docs/stale_open_registry_closeout_milestone_plan.md`: the nine stale
 `open` cases are now deployed, live registry counts move to
 `status_counts.open=2`, `status_counts.verified=9`, and
-`status_counts.deployed=49`, and only `IC-3B4C9F2A76E1` plus
-`IC-25C1F7B9E4DA` remain open because they still point at live code-owning
-successor tests. Packet B verified-to-deployed closeout is now the next queued
-packet while `top_routed_hotspot_paths=[]` remains honest.
+`status_counts.deployed=49`, and at that checkpoint only
+`IC-3B4C9F2A76E1` plus `IC-25C1F7B9E4DA` remained open because they still
+pointed at live code-owning successor tests. Packet B
+verified-to-deployed closeout then became the next queued packet while
+`top_routed_hotspot_paths=[]` remained honest.
 The later 2026-05-19 Packet B closeout now completes that second queue pass
 through `docs/verified_to_deployed_registry_closeout_milestone_plan.md`: the
 nine verified cases are now deployed, live registry counts move to
 `status_counts.open=2`, `status_counts.verified=0`, and
-`status_counts.deployed=58`, and only `IC-3B4C9F2A76E1` plus
-`IC-25C1F7B9E4DA` remain open because they still point at live code-owning
-successor tests. Packet C is now the next queued packet while
-`top_routed_hotspot_paths=[]` remains honest.
+`status_counts.deployed=58`, and at that checkpoint only
+`IC-3B4C9F2A76E1` plus `IC-25C1F7B9E4DA` remained open because they still
+pointed at live code-owning successor tests. Packet C then became the next
+queued packet while `top_routed_hotspot_paths=[]` remained honest.
 The later 2026-05-19 Packet C closeout now completes that third queue pass
 through `docs/agent_task_context_residual_successor_split_milestone_plan.md`:
 `IC-3B4C9F2A76E1` is now deployed, live registry counts move to
 `status_counts.open=1`, `status_counts.verified=0`, and
-`status_counts.deployed=59`, and only `IC-25C1F7B9E4DA` remains open because
-it still points at a live code-owning successor test. Packet D then became the next
-queued packet while `top_routed_hotspot_paths=[]` remains honest.
+`status_counts.deployed=59`, and at that checkpoint only
+`IC-25C1F7B9E4DA` remained open because it still pointed at a live code-owning
+successor test. Packet D then became the next queued packet while
+`top_routed_hotspot_paths=[]` remained honest.
 The later 2026-05-19 Packet D closeout now completes that fourth queue pass
 through `docs/search_service_residual_ranking_split_milestone_plan.md`:
 `IC-25C1F7B9E4DA` is now deployed, live registry counts move to
@@ -766,8 +773,9 @@ The oversized-test packet is now resolved locally in the 2026-05-14 closeout
 window through closeout commit `65c0c67`. Deployed follow-on cases are
 `IC-5F0E1C8B0D42`,
 `IC-7A628A4CBCAC`, and `IC-908E7A1D2C44`; reduced/open residuals remain
-`IC-3B4C9F2A76E1` and `IC-25C1F7B9E4DA` because their focused successor files
-still exceed the default `600`-line hygiene budget. `IC-D49E037D5657` is now
+`IC-3B4C9F2A76E1` and `IC-25C1F7B9E4DA` at that checkpoint because their
+focused successor files still exceeded the default `600`-line hygiene budget.
+`IC-D49E037D5657` is now
 verified after the later technical-report harness residual closeout reduced the
 focused audit family to `398`, `313`, and `162` lines and trapped the residual
 93-line smoke root as a deferred reduced facade. `IC-D9A84C20546B` is now
@@ -1008,9 +1016,9 @@ oversized support sink, `IC-D9A84C20546B` is now deployed locally through
 implementation commit `790fa2d` plus durable docs-and-registry closeout commit
 `8ce05b7` after the later agent-tasks API lifecycle family closes at `360`,
 `360`, `566`, `419`, and `93` lines without creating a new support sink, while
-`IC-3B4C9F2A76E1` and `IC-25C1F7B9E4DA` remain reduced or open because focused
-successor files still measure `636` or `630` or `653`, and `621` lines
-respectively.
+`IC-3B4C9F2A76E1` and `IC-25C1F7B9E4DA` remained reduced or open at that
+checkpoint because focused successor files still measured `636` or `630` or
+`653`, and `621` lines respectively.
 
 Resolved stacked follow-on after the oversized-test packet:
 `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`. Milestone 0 is

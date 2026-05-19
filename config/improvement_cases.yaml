@@ -2877,7 +2877,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "b9b3e46"
+    deployed_ref: "4fa696a"
     notes: Oversized-test hotspot closeout reduced tests/unit/test_search_service.py
       to 117 lines and moved metadata supplement, ranking, orchestration, and
       persistence assertions into focused files. Packet D on 2026-05-19 then

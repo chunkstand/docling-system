@@ -77,9 +77,11 @@ Milestones 0 through 4 are now resolved locally in the current checkout.
   `IC-8F77A1D2C6E4` through durable closeout commit `b9b3e46`. The later
   Packet C residual-successor split now also deploys `IC-3B4C9F2A76E1` by
   reducing its last two focused successor tests to `358` and `236` lines over
-  new `294`- and `426`-line support modules, so only
-  `IC-25C1F7B9E4DA` remains intentionally open in the adjacent oversized-test
-  residual lane.
+  new `294`- and `426`-line support modules. The later Packet D
+  residual-ranking split now also deploys `IC-25C1F7B9E4DA` by reducing the
+  remaining ranking owner to `532` lines over a new `158`-line
+  source-filename ranking sibling, so the adjacent oversized-test residual
+  lane is now fully closed.
 - `config/improvement_cases.yaml`, `config/hygiene_policy.yaml`, and
   `config/hotspot_prevention.yaml` now route the residual owner families and
   successor test surfaces explicitly. The broader routing now advances to
