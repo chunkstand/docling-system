@@ -120,30 +120,30 @@ reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
-`docs/search_api_route_surface_boundary_milestone_plan.md`
+`docs/agent_tasks_api_lifecycle_boundary_milestone_plan.md`
 Next routed bounded implementation brief:
 the broader reselect through `docs/boring_change_architecture_milestone_plan.md`,
-currently routing to `IC-D9A84C20546B` / `tests/unit/test_agent_tasks_api.py`
+currently routing to `IC-DCEE88C7CA97` / `app/schemas/search.py`
 Queued standalone follow-on:
-the same broader under-budget reselect after the next agent-tasks API packet, or
+the same broader under-budget reselect after the next search-schema packet, or
 any fresher narrow replacement selected by the routed queue
 Previous resolved bounded implementation brief:
-`docs/hotspot_prevention_family_boundary_milestone_plan.md`
-The 2026-05-18 search API route-surface follow-on is now durably recorded
-through implementation commit `f1f296d` plus docs-and-registry closeout commit
-`8d7d316`, and
+`docs/search_api_route_surface_boundary_milestone_plan.md`
+The 2026-05-18 agent-tasks API lifecycle-family follow-on is now resolved
+locally in the current checkout, and
 `config/improvement_cases.yaml` now reports
-`status_counts={"measured":1,"deployed":19,"open":26,"verified":13}` with
-`oldest_open_case_id=IC-FD18EE2D3309`; `tests/unit/test_hotspot_prevention.py`
-remains closed at `343` lines and the search API root now closes at `161`
-lines while request-history coverage lives in
-`tests/unit/test_search_api_request_history.py` at `152`, evidence-package and
-trace coverage live in `tests/unit/test_search_api_evidence.py` at `137`,
-replay coverage remains in `tests/unit/test_search_api_replays.py` at `248`,
-the inherited harness owner remains unchanged at `764`, and learning/audit
-coverage remains in `tests/unit/test_search_api_learning_audit.py` at `228`.
-`git diff --check` passed, the focused search API plus policy contract slice
-passed at `43 passed`, the post-closeout governance recheck now reports
+`status_counts={"measured":1,"deployed":19,"open":25,"verified":14}` with
+`oldest_open_case_id=IC-FD18EE2D3309`; `tests/unit/test_agent_tasks_api.py`
+remains closed at `92` lines while analytics coverage now lives in
+`tests/unit/test_agent_tasks_api_analytics.py` at `360`, artifacts and
+failure-artifact success coverage now live in
+`tests/unit/test_agent_tasks_api_artifacts.py` at `566`, lifecycle coverage
+now lives in `tests/unit/test_agent_tasks_api_lifecycle.py` at `360`,
+claim-support coverage remains in
+`tests/unit/test_agent_tasks_api_claim_support.py` at `419`, and auth or
+capability coverage remains in `tests/unit/test_agent_tasks_api_auth.py` at
+`93`. `git diff --check` passed, the focused agent-tasks API plus policy
+contract slice passed at `49 passed`, and the governance recheck now reports
 `changed_hotspots=0`, `blocked=0`, and `allowed=0`,
 `uv run docling-system-hygiene-check` reported `new hygiene regressions: none`,
 `uv run docling-system-improvement-case-validate` returned `valid=true`, and
@@ -151,12 +151,12 @@ passed at `43 passed`, the post-closeout governance recheck now reports
 `agent_legibility_average_score=90.0`,
 `broad_facade_count=2`, `hotspot_count=20`, and
 `max_hotspot_risk_score=486.06`, while the routed queue now reports
-`top_routed_hotspot_paths=["tests/unit/test_agent_tasks_api.py"]` with
-`stale_facade_hotspot_count=13`. The architecture probe still reports `0`
+`top_routed_hotspot_paths=["app/schemas/search.py"]` with
+`stale_facade_hotspot_count=14`. The architecture probe still reports `0`
 Python cycle components with no code file above `799`, and the full DB-backed
 suite still last passed at `2089 passed`. `config/hotspot_prevention.yaml` now
-also marks `tests/unit/test_search_api.py` as a deferred reduced facade, so the
-routed queue does not drift back into the reduced search-route root.
+also marks `tests/unit/test_agent_tasks_api.py` as a deferred reduced facade,
+so the routed queue does not drift back into the reduced agent-tasks API root.
 The broader coordination brief still remains
 `docs/boring_change_architecture_milestone_plan.md`; treat this queue block
 plus `docs/agentic_architecture_index.md` as the durable routing truth for the
@@ -520,12 +520,14 @@ The oversized-test packet is now resolved locally in the 2026-05-14 closeout
 window through closeout commit `65c0c67`. Deployed follow-on cases are
 `IC-5F0E1C8B0D42`,
 `IC-7A628A4CBCAC`, and `IC-908E7A1D2C44`; reduced/open residuals remain
-`IC-D9A84C20546B`, `IC-3B4C9F2A76E1`, and `IC-25C1F7B9E4DA` because their
-focused successor files still exceed the default `600`-line hygiene budget.
-`IC-D49E037D5657` is now verified after the later technical-report harness
-residual closeout reduced the focused audit family to `398`, `313`, and `162`
-lines and trapped the residual 93-line smoke root as a deferred reduced
-facade. The broader search owner case
+`IC-3B4C9F2A76E1` and `IC-25C1F7B9E4DA` because their focused successor files
+still exceed the default `600`-line hygiene budget. `IC-D49E037D5657` is now
+verified after the later technical-report harness residual closeout reduced the
+focused audit family to `398`, `313`, and `162` lines and trapped the residual
+93-line smoke root as a deferred reduced facade. `IC-D9A84C20546B` is now
+locally verified after the later agent-tasks API lifecycle-family closeout
+reduced the remaining focused owner family to `360`, `360`, `566`, `419`, and
+`93` lines. The broader search owner case
 `IC-1D03DBFE8492` is now deployed locally after the compatibility-facade
 closeout reduced `app/services/search.py` to a narrow facade and removed it
 from the live architecture-probe hotspot queue. Both claim-support owner cases
@@ -753,11 +755,14 @@ oversized-test closeout window:
 architecture probe no longer lists any of those residual files among the top
 20 hotspots. The broader follow-on routing is now explicit:
 `IC-5F0E1C8B0D42`, `IC-7A628A4CBCAC`, and `IC-908E7A1D2C44` are deployed,
-while `IC-D9A84C20546B`, `IC-3B4C9F2A76E1`, and `IC-25C1F7B9E4DA` remain
-reduced/open because focused successor files still measure `756`, `636` or
-`630` or `653`, and `621` lines respectively. `IC-D49E037D5657` is now later
-verified after the technical-report harness audit family closed at `398`,
-`313`, and `162` lines without creating a new oversized support sink.
+`IC-D49E037D5657` is now later verified after the technical-report harness
+audit family closed at `398`, `313`, and `162` lines without creating a new
+oversized support sink, `IC-D9A84C20546B` is now locally verified after the
+later agent-tasks API lifecycle family closes at `360`, `360`, `566`, `419`,
+and `93` lines without creating a new support sink, while
+`IC-3B4C9F2A76E1` and `IC-25C1F7B9E4DA` remain reduced or open because focused
+successor files still measure `636` or `630` or `653`, and `621` lines
+respectively.
 
 Resolved stacked follow-on after the oversized-test packet:
 `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`. Milestone 0 is

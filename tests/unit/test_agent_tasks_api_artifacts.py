@@ -11,6 +11,107 @@ from app.db.session import get_db_session
 from app.services.storage import StorageService
 
 
+def test_agent_task_artifact_routes_use_service_layer(monkeypatch, tmp_path: Path) -> None:
+    task_id = uuid4()
+    artifact_id = uuid4()
+    storage_service = StorageService(storage_root=tmp_path / "storage")
+    failure_path = storage_service.get_agent_task_failure_artifact_path(task_id)
+    failure_path.write_text('{"error":"failed"}')
+
+    monkeypatch.setattr(
+        "app.api.routers.agent_tasks.list_agent_task_artifacts",
+        lambda session, incoming_task_id, limit=20: [
+            {
+                "artifact_id": str(artifact_id),
+                "task_id": str(incoming_task_id),
+                "attempt_id": None,
+                "artifact_kind": "triage_summary",
+                "storage_path": "/tmp/triage_summary.json",
+                "payload": {"shadow_mode": True},
+                "created_at": "2026-04-12T00:00:00Z",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "app.api.routers.agent_tasks.get_agent_task_artifact",
+        lambda session, incoming_task_id, incoming_artifact_id: type(
+            "ArtifactRow",
+            (),
+            {
+                "id": incoming_artifact_id,
+                "task_id": incoming_task_id,
+                "storage_path": None,
+                "payload_json": {"shadow_mode": True, "triage_kind": "replay_regression"},
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "app.api.routers.agent_tasks.get_agent_task_detail",
+        lambda session, incoming_task_id: {
+            "task_id": str(incoming_task_id),
+            "task_type": "triage_replay_regression",
+            "status": "failed",
+            "priority": 100,
+            "side_effect_level": "read_only",
+            "requires_approval": False,
+            "parent_task_id": None,
+            "workflow_version": "v1",
+            "tool_version": None,
+            "prompt_version": None,
+            "model": None,
+            "created_at": "2026-04-12T00:00:00Z",
+            "updated_at": "2026-04-12T00:00:00Z",
+            "started_at": None,
+            "completed_at": None,
+            "dependency_task_ids": [],
+            "input": {},
+            "result": {},
+            "model_settings": {},
+            "error_message": "failed",
+            "failure_artifact_path": str(failure_path),
+            "attempts": 1,
+            "locked_at": None,
+            "locked_by": None,
+            "last_heartbeat_at": None,
+            "next_attempt_at": None,
+            "approved_at": None,
+            "approved_by": None,
+            "approval_note": None,
+            "artifact_count": 1,
+            "attempt_count": 1,
+            "verification_count": 0,
+            "artifacts": [],
+            "verifications": [],
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.deps.get_storage_service",
+        lambda: storage_service,
+    )
+    monkeypatch.setattr(
+        "app.api.routers.agent_tasks.get_storage_service",
+        lambda: storage_service,
+    )
+    monkeypatch.setattr(
+        "app.api.deps.FileResponse",
+        lambda path, media_type=None: {"path": str(path), "media_type": media_type},
+    )
+
+    client = TestClient(app)
+
+    artifact_response = client.get(f"/agent-tasks/{task_id}/artifacts")
+    assert artifact_response.status_code == 200
+    assert artifact_response.json()[0]["artifact_id"] == str(artifact_id)
+
+    artifact_detail_response = client.get(f"/agent-tasks/{task_id}/artifacts/{artifact_id}")
+    assert artifact_detail_response.status_code == 200
+    assert artifact_detail_response.json()["triage_kind"] == "replay_regression"
+
+    failure_response = client.get(f"/agent-tasks/{task_id}/failure-artifact")
+    assert failure_response.status_code == 200
+    assert failure_response.json()["path"] == str(failure_path)
+
+
 def test_agent_task_context_route_supports_json_and_yaml(monkeypatch) -> None:
     task_id = uuid4()
 

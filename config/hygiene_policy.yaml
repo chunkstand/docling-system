@@ -1293,9 +1293,33 @@ file_budgets:
       max_private_helpers: 0
       ratchet_max_private_helpers: 0
       owner_case_id: IC-D9A84C20546B
+    tests/unit/test_agent_tasks_api_analytics.py:
+      max_lines: 360
+      ratchet_max_lines: 360
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-D9A84C20546B
+    tests/unit/test_agent_tasks_api_artifacts.py:
+      max_lines: 566
+      ratchet_max_lines: 566
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-D9A84C20546B
+    tests/unit/test_agent_tasks_api_auth.py:
+      max_lines: 93
+      ratchet_max_lines: 93
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-D9A84C20546B
+    tests/unit/test_agent_tasks_api_claim_support.py:
+      max_lines: 419
+      ratchet_max_lines: 419
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-D9A84C20546B
     tests/unit/test_agent_tasks_api_lifecycle.py:
-      max_lines: 756
-      ratchet_max_lines: 756
+      max_lines: 360
+      ratchet_max_lines: 360
       max_private_helpers: 0
       ratchet_max_private_helpers: 0
       owner_case_id: IC-D9A84C20546B

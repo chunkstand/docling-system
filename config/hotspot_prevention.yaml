@@ -635,6 +635,23 @@ known_hotspots:
     target_role: agent-task API compatibility and route-smoke tests
     preferred_owner_modules:
       - tests/unit/test_agent_tasks_api_*.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The agent-tasks API root test is now a narrow route-smoke
+        surface, so future growth belongs in the focused analytics,
+        claim-support, artifacts, lifecycle, and auth siblings rather than back
+        in the root file.
+      route_to_case_ids:
+        - IC-D9A84C20546B
+      route_to_paths:
+        - tests/unit/test_agent_tasks_api_analytics.py
+        - tests/unit/test_agent_tasks_api_claim_support.py
+        - tests/unit/test_agent_tasks_api_artifacts.py
+        - tests/unit/test_agent_tasks_api_lifecycle.py
+        - tests/unit/test_agent_tasks_api_auth.py
+      route_to_plan_paths:
+        - docs/agent_tasks_api_lifecycle_boundary_milestone_plan.md
+        - docs/boring_change_architecture_milestone_plan.md
     block_new:
       - broad_new_test_group
       - broad_helper

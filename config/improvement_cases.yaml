@@ -811,11 +811,12 @@ cases:
   updated_at: '2026-05-14T05:45:46Z'
 - case_id: IC-D9A84C20546B
   title: 'Architecture hotspot: tests/unit/test_agent_tasks_api.py'
-  status: open
+  status: verified
   cause_class: unclear_ownership
-  observed_failure: tests/unit/test_agent_tasks_api.py previously mixed claim-support
-    routes, lifecycle handling, artifact and provenance endpoints, and auth or
-    capability checks in a single 1810-line route-family test surface.
+  observed_failure: tests/unit/test_agent_tasks_api.py now measures 92 lines and
+    remains the reduced compatibility surface over focused claim-support,
+    artifacts, lifecycle, analytics, and auth siblings at 419, 566, 360, 360,
+    and 93 lines respectively.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:tests/unit/test_agent_tasks_api.py
@@ -831,45 +832,62 @@ cases:
     commands:
     - git diff --check
     - uv run ruff check tests/unit/test_agent_tasks_api.py
+      tests/unit/test_agent_tasks_api_analytics.py
       tests/unit/test_agent_tasks_api_claim_support.py
       tests/unit/test_agent_tasks_api_artifacts.py
       tests/unit/test_agent_tasks_api_lifecycle.py
       tests/unit/test_agent_tasks_api_auth.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
     - uv run docling-system-architecture-quality-report
     - uv run pytest -q tests/unit/test_agent_tasks_api.py
+      tests/unit/test_agent_tasks_api_analytics.py
       tests/unit/test_agent_tasks_api_claim_support.py
       tests/unit/test_agent_tasks_api_artifacts.py
       tests/unit/test_agent_tasks_api_lifecycle.py
       tests/unit/test_agent_tasks_api_auth.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-improvement-case-validate
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
     acceptance_conditions:
     - tests/unit/test_agent_tasks_api.py remains a narrow compatibility and
       smoke surface at or below 600 lines.
-    - Claim-support, lifecycle, artifact, and auth route families remain
-      routed to focused files instead of regrowing the residual surface.
+    - Claim-support, lifecycle, analytics, artifact, and auth route families
+      remain routed to focused files instead of regrowing the residual surface.
+    - No focused sibling in the agent-tasks API family exceeds the default
+      600-line hygiene budget after the split.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
-    notes: Oversized-test hotspot closeout reduced the residual compatibility
-      file to 92 lines and moved the route families into
+    notes: The earlier oversized-test hotspot closeout reduced the residual
+      compatibility file to 92 lines and moved the route families into
       tests/unit/test_agent_tasks_api_claim_support.py,
       tests/unit/test_agent_tasks_api_artifacts.py,
       tests/unit/test_agent_tasks_api_lifecycle.py, and
-      tests/unit/test_agent_tasks_api_auth.py. The broader routed family
-      remains reduced and open because the lifecycle owner still measures 756
-      lines against the default 600-line budget.
+      tests/unit/test_agent_tasks_api_auth.py. The 2026-05-18 local
+      lifecycle-family follow-on now reduces
+      tests/unit/test_agent_tasks_api_lifecycle.py to 360 lines, moves
+      analytics and trace-export coverage into
+      tests/unit/test_agent_tasks_api_analytics.py at 360 lines, moves
+      artifact list/detail and failure-artifact success coverage into
+      tests/unit/test_agent_tasks_api_artifacts.py at 566 lines, and exact-ratchets
+      the focused family without creating a new generic support sink. The
+      atomic closeout commit is still pending.
   measurement:
     metric_name: test_agent_tasks_api_hotspot_line_count
     current_value: 92.0
-    measurement_window: 2026-05-14 oversized-test hotspot closeout
+    measurement_window: 2026-05-18 local agent-tasks API lifecycle-family verification
     notes: The residual compatibility file now measures 92 lines; the focused
-      claim-support, artifacts, lifecycle, and auth files measure 419, 465,
-      756, and 93 lines respectively. The scoped monolith issue is resolved,
-      while the broader family remains reduced and open because the lifecycle
-      owner still exceeds the default 600-line budget.
+      claim-support, artifacts, lifecycle, analytics, and auth files measure
+      419, 566, 360, 360, and 93 lines respectively. The scoped monolith issue
+      and the remaining lifecycle-family budget overrun are both resolved
+      locally in the current checkout.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-19T00:00:00+00:00'
 - case_id: IC-5B6430FCB929
   title: 'Architecture hotspot: app/api/main.py'
   status: verified
