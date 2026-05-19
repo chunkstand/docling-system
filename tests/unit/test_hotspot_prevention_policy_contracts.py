@@ -58,6 +58,7 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "tests/integration/test_technical_report_harness_roundtrip.py",
         "tests/unit/test_agent_task_context.py",
         "tests/unit/test_agent_tasks_api.py",
+        "tests/unit/test_architecture_inspection.py",
         "tests/unit/test_cli.py",
         "tests/unit/test_db_model_import_compatibility.py",
         "tests/unit/test_evaluation_service.py",
@@ -76,9 +77,14 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         policy.known_hotspots["app/services/audit_bundles.py"].routing.status
         == "compatibility_facade_trap"
     )
-    for path in ["app/cli.py", "tests/unit/test_agent_tasks_api.py",
-                 "tests/unit/test_search_api.py", "app/schemas/search.py",
-                 "tests/unit/test_db_model_import_compatibility.py"]:
+    for path in [
+        "app/cli.py",
+        "tests/unit/test_agent_tasks_api.py",
+        "tests/unit/test_architecture_inspection.py",
+        "tests/unit/test_search_api.py",
+        "app/schemas/search.py",
+        "tests/unit/test_db_model_import_compatibility.py",
+    ]:
         assert policy.known_hotspots[path].routing is not None
         assert policy.known_hotspots[path].routing.status == "deferred_reduced_facade"
     assert policy.known_hotspots["tests/unit/test_cli.py"].routing is not None

@@ -798,6 +798,33 @@ known_hotspots:
       - import_forwarder
       - compatibility_assertion
       - deletion
+  tests/unit/test_architecture_inspection.py:
+    target_role: architecture-inspection compatibility and smoke tests
+    preferred_owner_modules:
+      - tests/unit/test_architecture_inspection_*.py
+      - tests/unit/architecture_inspection_test_support.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The architecture-inspection root test is now a narrow smoke
+        surface, so future contract-map, CLI, and rule-behavior growth belongs
+        in the focused sibling suites rather than back in the residual root.
+      route_to_case_ids:
+        - IC-B847B0E36C52
+      route_to_paths:
+        - tests/unit/test_architecture_inspection_contract_map.py
+        - tests/unit/test_architecture_inspection_cli.py
+        - tests/unit/test_architecture_inspection_rules.py
+        - tests/unit/architecture_inspection_test_support.py
+      route_to_plan_paths:
+        - docs/architecture_inspection_test_surface_boundary_milestone_plan.md
+        - docs/boring_change_architecture_milestone_plan.md
+    block_new:
+      - broad_new_test_group
+      - broad_helper
+    allow:
+      - import_forwarder
+      - compatibility_assertion
+      - deletion
   tests/unit/test_evaluation_service.py:
     target_role: evaluation service compatibility and smoke tests
     preferred_owner_modules:

@@ -11,6 +11,8 @@ Search Compatibility Facade Boundary closeout checkpoint:
 `fd9dd2a`
 DB Models Residual Owner Family closeout checkpoint:
 `b9b3e46`
+Architecture Inspection Test Surface implementation checkpoint:
+`d7ddc23`
 Search Schema Facade Boundary implementation checkpoint:
 `8b04845`
 Search Schema Facade Boundary closeout checkpoint:
@@ -126,22 +128,21 @@ reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
-`docs/db_models_residual_owner_family_milestone_plan.md`
+`docs/architecture_inspection_test_surface_boundary_milestone_plan.md`
 Next routed bounded implementation brief:
 the broader reselect through `docs/boring_change_architecture_milestone_plan.md`,
-with the live routed queue now narrowed to
-`tests/unit/test_architecture_inspection.py` and
+with the live routed queue now advanced to
 `app/api/routers/agent_tasks.py`
 Queued standalone follow-on:
-the same broader under-budget reselect from that refreshed two-surface queue,
-or any fresher narrow replacement selected by the live report
+the same broader under-budget reselect after the agent-tasks route packet, or
+any fresher narrow replacement selected by the live report
 Previous resolved bounded implementation brief:
-`docs/search_schema_facade_boundary_milestone_plan.md`
+`docs/db_models_residual_owner_family_milestone_plan.md`
 The 2026-05-18 DB-model residual owner-family packet is now durably recorded
 through closeout commit `b9b3e46` for `IC-46C5B38A1D2E`,
 `IC-7D8AE7C83B8F`, and `IC-62C75B82F0AA`, and
 `config/improvement_cases.yaml` now reports
-`status_counts={"measured":1,"deployed":25,"open":21,"verified":12}` with
+`status_counts={"measured":1,"deployed":26,"open":21,"verified":12}` with
 `oldest_open_case_id=IC-FD18EE2D3309`; the extracted DB-model owners now close
 at `31`, `53`, and `31` lines in
 `app/db/model_domains/audit_and_evidence.py`,
@@ -156,7 +157,13 @@ through open-owner closeout commit `d8841fd`, routes the API bootstrap root as
 an accepted residual boundary, and adds structured hotspot routing for the
 deployed DB-model smoke root plus the deployed `app/services/audit_bundles.py`
 facade so the active queue no longer points at already-closed surfaces.
-`git diff --check` passed, and the post-closeout governance recheck now reports
+The later architecture-inspection test-surface packet implemented in commit
+`d7ddc23` now reduces `tests/unit/test_architecture_inspection.py` to 61 lines
+over focused contract-map, CLI, rule-behavior, and support siblings at
+`212`, `40`, `178`, and `44`, records `IC-B847B0E36C52` as deployed, and
+routes the reduced root as a deferred facade so the active queue advances to
+`app/api/routers/agent_tasks.py`. `git diff --check` passed, and the
+post-closeout governance recheck now reports
 `changed_hotspots=0`, `blocked=0`, and `allowed=0`,
 `uv run docling-system-hygiene-check` reported `new hygiene regressions: none`,
 `uv run docling-system-improvement-case-validate` returned `valid=true`, and
@@ -164,11 +171,11 @@ facade so the active queue no longer points at already-closed surfaces.
 `agent_legibility_average_score=90.0`,
 `broad_facade_count=2`, `hotspot_count=20`, and
 `max_hotspot_risk_score=486.06`; the live
-`top_routed_hotspot_paths=["tests/unit/test_architecture_inspection.py",
-"app/api/routers/agent_tasks.py"]` now contains only active owners, while
-`routing_trap_paths` grows to `17` because the queue now explicitly records
-the DB-model test root and audit-bundles facade as routed traps instead of
-silently treating them as active work. The architecture probe still reports `0`
+`top_routed_hotspot_paths=["app/api/routers/agent_tasks.py"]` now advances
+directly to the agent-tasks route root, while `routing_trap_paths` grows again
+because the architecture-inspection root is now explicitly recorded as a
+reduced facade instead of being left on the active queue. The architecture
+probe still reports `0`
 Python cycle components with no code file above `799`, and the full DB-backed
 suite still last passed at `2089 passed`.
 The broader coordination brief still remains

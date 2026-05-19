@@ -246,6 +246,17 @@ def test_current_hotspot_policy_routes_hotspot_prevention_root_off_active_queue(
     )
 
 
+def test_current_hotspot_policy_routes_architecture_inspection_root_off_active_queue() -> None:
+    policy = load_hotspot_policy()
+
+    assert "tests/unit/test_architecture_inspection.py" in policy.known_hotspots
+    assert policy.known_hotspots["tests/unit/test_architecture_inspection.py"].routing is not None
+    assert (
+        policy.known_hotspots["tests/unit/test_architecture_inspection.py"].routing.status
+        == "deferred_reduced_facade"
+    )
+
+
 def test_architecture_quality_cli_prints_json(capsys, monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
         "app.architecture_quality.build_architecture_quality_summary",

@@ -2898,6 +2898,76 @@ cases:
       hygiene ratchets.
   created_at: '2026-05-14T16:09:02Z'
   updated_at: '2026-05-18T00:00:00Z'
+- case_id: IC-B847B0E36C52
+  title: 'Architecture hotspot: tests/unit/test_architecture_inspection.py'
+  status: deployed
+  cause_class: unclear_ownership
+  observed_failure: tests/unit/test_architecture_inspection.py previously mixed
+    architecture contract-map assertions, CLI report/write coverage, and
+    rule-behavior boundary checks in one 495-line governance test surface.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:tests/unit/test_architecture_inspection.py
+    notes: Refreshed during the 2026-05-19 routed-queue follow-on after the
+      queue-honesty refresh advanced the live packet to the architecture
+      inspection smoke root ahead of app/api/routers/agent_tasks.py.
+  artifact:
+    artifact_type: test
+    target_path: tests/unit/test_architecture_inspection.py
+    description: Architecture-inspection compatibility and smoke test surface.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check tests/unit/architecture_inspection_test_support.py
+      tests/unit/test_architecture_inspection.py
+      tests/unit/test_architecture_inspection_contract_map.py
+      tests/unit/test_architecture_inspection_cli.py
+      tests/unit/test_architecture_inspection_rules.py
+      tests/unit/test_architecture_quality.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
+    - uv run pytest -q tests/unit/test_architecture_inspection.py
+      tests/unit/test_architecture_inspection_contract_map.py
+      tests/unit/test_architecture_inspection_cli.py
+      tests/unit/test_architecture_inspection_rules.py
+      tests/unit/test_architecture_governance_imports.py
+      tests/unit/test_api_architecture.py
+      tests/unit/test_architecture_quality.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --fail-on-cycles --max-file-lines 800
+    acceptance_conditions:
+    - tests/unit/test_architecture_inspection.py remains a narrow smoke and
+      compatibility surface at or below 600 lines.
+    - Contract-map, CLI, and rule-behavior coverage remain routed to focused
+      sibling files instead of regrowing the residual root.
+    - No new architecture-inspection family file exceeds the default 600-line
+      hygiene budget after the split.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: "d7ddc23"
+    notes: Implementation commit d7ddc23 split the mixed architecture
+      inspection root into focused contract-map, CLI, and rule-behavior
+      siblings while keeping the residual smoke root at 61 lines. The durable
+      closeout pass then routed the root as a deferred reduced facade and
+      advanced the live queue to app/api/routers/agent_tasks.py without
+      creating a broad support sink.
+  measurement:
+    metric_name: test_architecture_inspection_hotspot_line_count
+    current_value: 61.0
+    measurement_window: 2026-05-19 architecture inspection test-surface closeout
+    notes: The residual smoke root now measures 61 lines; focused siblings now
+      measure 212, 40, and 178 lines with family-local support at 44 lines.
+      The split resolves the mixed governance test hotspot without leaving a
+      second oversized test sink.
+  created_at: '2026-05-19T00:00:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-0F89DBB1CF9F
   title: 'Architecture contract gap: runtime health orchestration'
   status: deployed
