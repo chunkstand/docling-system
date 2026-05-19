@@ -500,6 +500,34 @@ known_hotspots:
     allow:
       - compatibility_assertion
       - deletion
+  tests/unit/test_hotspot_prevention.py:
+    target_role: hotspot-prevention analyzer smoke and compatibility tests
+    preferred_owner_modules:
+      - tests/unit/test_hotspot_prevention_*.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The hotspot-prevention root test is now a narrow analyzer smoke
+        surface, so future scenario growth belongs in the focused policy-contract,
+        blocked-family, wrapper, and support siblings rather than back in the
+        root file.
+      route_to_case_ids:
+        - IC-15F6E41A9C77
+        - IC-6C1B516A3F92
+      route_to_paths:
+        - tests/unit/test_hotspot_prevention_policy_contracts.py
+        - tests/unit/test_hotspot_prevention_family_rules.py
+        - tests/unit/test_hotspot_prevention_wrapper_rules.py
+        - tests/unit/hotspot_prevention_test_support.py
+      route_to_plan_paths:
+        - docs/hotspot_prevention_family_boundary_milestone_plan.md
+        - docs/boring_change_architecture_milestone_plan.md
+    block_new:
+      - broad_new_test_group
+      - broad_helper
+    allow:
+      - import_forwarder
+      - compatibility_assertion
+      - deletion
   tests/integration/test_claim_support_judge_evaluation_roundtrip.py:
     target_role: claim-support judge integration smoke surface
     preferred_owner_modules:

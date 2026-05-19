@@ -137,16 +137,17 @@ uv run docling-system-hygiene-check
 uv run docling-system-improvement-case-summary
   case_count=59
   status_counts.open=27
-  status_counts.deployed=16
-  status_counts.verified=15
+  status_counts.deployed=18
+  status_counts.verified=13
   measured_case_count=56
 
 uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
-  hotspot_count=10
-  max_hotspot_risk_score=496.06
+  hotspot_count=20
+  max_hotspot_risk_score=486.06
   top_routed_hotspot_paths=["tests/unit/test_search_api.py"]
+  stale_facade_hotspot_count=12
 
 python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20
   0 Python cycle components
@@ -162,7 +163,8 @@ Current structural evidence:
 - `IC-6C1B516A3F92` now governs an exact-ratcheted classifier family: the
   public dispatcher is `360 / 1`, claim-support routes are `436 / 1`,
   source-family routes are `384 / 0`, boundary or wrapper routes are `209 / 0`,
-  and shared support helpers are `571 / 1`.
+  and shared support helpers are `571 / 1`. Closeout commit `463d3fc` now
+  records the case as deployed locally.
 - `IC-15F6E41A9C77` now governs an exact-ratcheted companion test family:
   `tests/unit/test_hotspot_prevention.py` is `343 / 0`, policy and report
   contract coverage lives in
@@ -172,7 +174,11 @@ Current structural evidence:
   or allowance coverage lives in
   `tests/unit/test_hotspot_prevention_wrapper_rules.py` at `296 / 0`, and the
   shared diff or policy helper lives in
-  `tests/unit/hotspot_prevention_test_support.py` at `50 / 2`.
+  `tests/unit/hotspot_prevention_test_support.py` at `50 / 2`. Closeout
+  commit `463d3fc` now records the case as deployed locally, and
+  `config/hotspot_prevention.yaml` now routes the residual root test as a
+  deferred reduced facade so the broader queue does not drift back into this
+  packet.
 - The family is still narrow enough for one packet: classifier rule bodies,
   support siblings, and companion tests now form one coherent owner surface
   without leaving a new oversized sink behind.

@@ -496,7 +496,7 @@ def build_architecture_quality_summary(
     report = build_architecture_quality_report(
         project_root,
         inspection_report=inspection_report,
-        max_hotspots=10,
+        max_hotspots=20,
         include_hygiene=False,
     )
     return {

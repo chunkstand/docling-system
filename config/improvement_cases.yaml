@@ -316,7 +316,7 @@ cases:
   updated_at: '2026-05-15T00:00:00+00:00'
 - case_id: IC-6C1B516A3F92
   title: 'Hygiene budget hotspot: app/hotspot_prevention_classifier.py'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: The hotspot-prevention family packet now reduces
     app/hotspot_prevention_classifier.py to 360 lines while keeping the
@@ -378,13 +378,13 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "efe6d4e"
+    deployed_ref: "463d3fc"
     notes: >-
       Residual ratchet increase was first recorded in the search execution
       persistence closeout commit f55b474 and refreshed during the local
       provenance-export, semantics, CLI, and agent-task schema guard
-      hardening. The hotspot-prevention family packet now resolves the owner
-      split locally in the current checkout: app/hotspot_prevention_classifier.py
+      hardening. Closeout commit 463d3fc now records the full
+      hotspot-prevention family as deployed locally: app/hotspot_prevention_classifier.py
       is 360 / 1, claim-support routes remain in
       app/hotspot_prevention_claim_support_rules.py at 436 / 1, source-family
       routes now live in app/hotspot_prevention_classifier_service_rules.py
@@ -419,7 +419,7 @@ cases:
   updated_at: '2026-05-19T04:02:22Z'
 - case_id: IC-15F6E41A9C77
   title: 'Architecture hotspot: tests/unit/test_hotspot_prevention.py'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: tests/unit/test_hotspot_prevention.py now measures 343
     lines and remains the analyzer-behavior residual surface over focused
@@ -479,13 +479,14 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "463d3fc"
     notes: >-
       Milestone 0 of docs/boring_change_architecture_milestone_plan.md
       promoted docs/hotspot_prevention_family_boundary_milestone_plan.md as
-      the current active bounded follow-on, and the 2026-05-18 companion-test
-      closeout now verifies the routed packet locally instead of leaving the
-      re-growth state open. The root analyzer file is now 343 / 0, the policy
+      the current active bounded follow-on, and closeout commit 463d3fc now
+      records the 2026-05-18 companion-test packet as deployed locally
+      instead of leaving the re-growth state open. The root analyzer file is
+      now 343 / 0, the policy
       and report contract coverage now lives in
       tests/unit/test_hotspot_prevention_policy_contracts.py at 317 / 0, the
       blocked-family coverage remains in

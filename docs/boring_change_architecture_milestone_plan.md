@@ -149,8 +149,8 @@ git status -sb
 uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
-  hotspot_count=10
-  max_hotspot_risk_score=496.06
+  hotspot_count=20
+  max_hotspot_risk_score=486.06
   top_hotspot_paths=[
     app/db/models.py,
     app/cli.py,
@@ -210,7 +210,11 @@ uv run docling-system-hygiene-check
     app/services/agent_task_context_semantic_governance.py = 1126 lines under IC-E52B6C7B22FD
   hotspot-prevention family no longer appears in inherited budget debt after
   the Milestone 1 closeout; the root and focused sibling owners are now all
-  exact-ratcheted under IC-6C1B516A3F92 and IC-15F6E41A9C77
+  exact-ratcheted under IC-6C1B516A3F92 and IC-15F6E41A9C77, and both owner
+  cases are now recorded as deployed locally through `463d3fc`. The residual
+  root test is also marked as a deferred reduced facade in
+  `config/hotspot_prevention.yaml`, so the routed queue stays on the broader
+  backlog instead of reopening the just-closed packet.
   no evidence owner-family module remains in inherited budget debt after the
   replay-alert follow-on; broader `IC-65AF4A6D8B1E` routing now remains open
   only as a locally retirement-ready evidence-family record while the broader
