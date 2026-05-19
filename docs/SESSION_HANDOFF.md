@@ -130,16 +130,17 @@ reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
-`docs/architecture_inspection_test_surface_boundary_milestone_plan.md`
+`docs/agent_tasks_route_surface_boundary_milestone_plan.md`
 Next routed bounded implementation brief:
 the broader reselect through `docs/boring_change_architecture_milestone_plan.md`,
 with the live routed queue now advanced to
-`app/api/routers/agent_tasks.py`
+`tests/integration/test_retrieval_learning_ledger.py`
 Queued standalone follow-on:
-the same broader under-budget reselect after the agent-tasks route packet, or
+the same broader under-budget reselect after the retrieval-learning ledger
+packet, or
 any fresher narrow replacement selected by the live report
 Previous resolved bounded implementation brief:
-`docs/db_models_residual_owner_family_milestone_plan.md`
+`docs/architecture_inspection_test_surface_boundary_milestone_plan.md`
 The 2026-05-18 DB-model residual owner-family packet is now durably recorded
 through closeout commit `b9b3e46` for `IC-46C5B38A1D2E`,
 `IC-7D8AE7C83B8F`, and `IC-62C75B82F0AA`, and
@@ -182,6 +183,20 @@ reduced facade instead of being left on the active queue. The architecture
 probe still reports `0`
 Python cycle components with no code file above `799`, and the full DB-backed
 suite still last passed at `2089 passed`.
+The later 2026-05-19 agent-tasks route-surface split now reduces
+`app/api/routers/agent_tasks.py` to `94` lines over
+`app/api/routers/agent_task_lifecycle.py` at `198` and
+`app/api/routers/agent_task_artifacts.py` at `287`, keeps the parent-module
+patch seam for the agent-task API tests through `service_from_parent(...)`,
+passes `uv run ruff check` on the focused router and agent-task API family,
+passes `uv run pytest -q tests/unit/test_agent_tasks_api.py
+tests/unit/test_agent_tasks_api_*.py tests/unit/test_hotspot_prevention_policy_contracts.py
+tests/unit/test_api_route_contracts.py` at `57 passed`, keeps
+`git diff --check`, `uv run docling-system-hotspot-prevention-check --strict`,
+`uv run docling-system-architecture-inspect`, and
+`uv run docling-system-improvement-case-validate` green, and advances the live
+`top_routed_hotspot_paths` to
+`["tests/integration/test_retrieval_learning_ledger.py"]`.
 The broader coordination brief still remains
 `docs/boring_change_architecture_milestone_plan.md`; treat this queue block
 plus `docs/agentic_architecture_index.md` as the durable routing truth for the

@@ -35,11 +35,13 @@ the active coordination brief after the hotspot-prevention companion-test
 closeout, the later search API route-surface follow-on, and the later
 agent-tasks API lifecycle-family follow-on, the later search-schema
 facade follow-on, the later DB-model residual registry closeout, and the later
-queue-honesty refresh, and the later architecture-inspection test-surface
-closeout, with the routed queue now advanced to the honest active owner
-`app/api/routers/agent_tasks.py` after retiring the stale DB-model smoke root,
-the deployed audit-bundles facade, the accepted residual API bootstrap entry,
-and the reduced architecture-inspection smoke root from the active queue.
+queue-honesty refresh, the later architecture-inspection test-surface
+closeout, and the later agent-tasks route-surface closeout, with the routed
+queue now advanced to the current live owner
+`tests/integration/test_retrieval_learning_ledger.py` after retiring the stale
+DB-model smoke root, the deployed audit-bundles facade, the accepted residual
+API bootstrap entry, the reduced architecture-inspection smoke root, and the
+reduced `app/api/routers/agent_tasks.py` route root from the active queue.
 
 ## Purpose
 
@@ -148,6 +150,12 @@ remaining boring-change gap is now split across four different risks:
 - the later 2026-05-19 architecture-inspection test-surface closeout then
   routes `tests/unit/test_architecture_inspection.py` off the active queue and
   leaves `["app/api/routers/agent_tasks.py"]` as the honest next routed owner
+- the later 2026-05-19 agent-tasks route-surface closeout then reduces
+  `app/api/routers/agent_tasks.py` to a `94` line composition surface over
+  focused lifecycle and artifacts routers at `198` and `287` lines, preserves
+  the parent-module test seam through `service_from_parent(...)`, and advances
+  the live routed queue to
+  `["tests/integration/test_retrieval_learning_ledger.py"]`
 
 This refreshed plan coordinates the remaining work by preserving the locally
 closed app-side packet, routing the remaining test, UI, and nonselected app
@@ -790,13 +798,14 @@ Acceptance criteria:
   durably resolved, and the next active code-owning packet must now be
   reselected from this broader brief rather than from the cleared large-file
   queue.
-- The current routed hotspot after the DB-model residual closeout still
-  now starts with `app/api/routers/agent_tasks.py`; the stale deployed
+- The current routed hotspot after the agent-tasks route-surface closeout now
+  starts with `tests/integration/test_retrieval_learning_ledger.py`; the stale deployed
   `tests/unit/test_db_model_import_compatibility.py` root, the deployed
   `app/services/audit_bundles.py` facade, and the accepted residual
-  `app/api/main.py` bootstrap root are no longer in `top_routed_hotspot_paths`,
-  and the reduced `tests/unit/test_architecture_inspection.py` smoke root is
-  now also routed off the active queue.
+  `app/api/main.py` bootstrap root, the reduced
+  `tests/unit/test_architecture_inspection.py` smoke root, and the reduced
+  `app/api/routers/agent_tasks.py` route root are no longer in
+  `top_routed_hotspot_paths`.
 - The remaining routing traps after the current refresh are small but still
   high-churn facades such as `app/db/models.py`, `app/services/evidence.py`,
   `app/cli.py`, `app/schemas/agent_tasks.py`, and `app/services/agent_tasks.py`.
