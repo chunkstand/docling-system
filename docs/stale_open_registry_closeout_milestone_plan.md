@@ -135,7 +135,8 @@ The queue truth now becomes:
   `open=2`, `verified=9`, `deployed=49`.
 - Only `IC-3B4C9F2A76E1` and `IC-25C1F7B9E4DA` remain open.
 - The handoff, architecture index, broader coordination brief, and queue plan
-  all point to Packet B as the next packet.
+  first point to Packet B at Packet A closeout and, after the later Packet B
+  closeout, now point to Packet C as the next packet.
 
 ## Stop Conditions
 

@@ -136,6 +136,27 @@ The queue truth now becomes:
 - The handoff, architecture index, broader coordination brief, and queue plan
   all point to Packet C as the next packet.
 
+## Post-Closeout Alignment Audit
+
+The later 2026-05-19 alignment audit confirms that the docs-only Packet A/B
+queue closeouts did not shift debt into adjacent governance surfaces:
+
+- `uv run docling-system-improvement-case-summary` now reports
+  `open=2`, `verified=0`, and `deployed=58`.
+- `uv run docling-system-hygiene-check` still reports `new hygiene regressions: none`
+  and `inherited budget debt: none`.
+- `uv run docling-system-hotspot-prevention-check --strict` still reports
+  `known_hotspots=42`, `changed_hotspots=0`, and `blocked=0`.
+- `uv run docling-system-architecture-inspect` remains `valid=true` with
+  `violation_count=0`.
+- `uv run docling-system-architecture-quality-report --summary` now reports
+  `agent_legibility_average_score=90.0`,
+  `broad_facade_count=2`,
+  `legibility_gap_count=0`,
+  `hotspot_count=20`,
+  `max_hotspot_risk_score=471.06`, and
+  `top_routed_hotspot_paths=[]`.
+
 ## Stop Conditions
 
 - Stop if any Packet B family regrew above budget on the live rebaseline.

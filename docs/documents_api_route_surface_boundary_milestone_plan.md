@@ -70,7 +70,7 @@ Out of scope:
 
 The documents API family now closes at these post-split sizes:
 
-- `tests/unit/test_documents_api.py` at `155` lines
+- `tests/unit/test_documents_api.py` at `154` lines
 - `tests/unit/test_documents_api_access.py` at `253` lines
 - `tests/unit/test_documents_api_runs.py` at `137` lines
 - `tests/unit/test_documents_api_evaluations.py` at `93` lines
