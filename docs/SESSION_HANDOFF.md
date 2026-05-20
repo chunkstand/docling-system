@@ -69,7 +69,12 @@ and `exceptions=0`;
 `top_broader_rebaseline_paths=[app/services/search_retrieval_primitives.py, app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`;
 the routed queue is empty again, but the fresh broader-rebaseline output now
 points first at the search residual family rather than back at the already
-deployed facade traps. The latest broader-reselect closeouts are now
+deployed facade traps. The current broader-rebaseline governance refresh is
+committed locally as `8b0ea812`; it keeps `app/architecture_quality.py` at
+`522` lines by moving the shared scoring and broader-rebaseline selection logic
+into `app/architecture_quality_support.py` at `202` lines, so the queue-empty
+refresh did not shift hygiene debt back into the governance entrypoint. The
+latest broader-reselect closeouts are now
 deployed locally through
 `docs/semantic_registry_owner_rebaseline_milestone_plan.md` and
 `docs/retrieval_learning_artifacts_owner_rebaseline_milestone_plan.md`:

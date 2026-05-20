@@ -5,6 +5,16 @@ chat history or scanning the whole repository.
 
 ## Current Milestone Briefs
 
+- `docs/boring_change_architecture_milestone_plan.md`: refreshed locally in
+  committed but unpushed state on 2026-05-20 through closeout commit
+  `8b0ea812`. The architecture-quality report now surfaces
+  `broader_rebaseline_candidate_count=5` and
+  `top_broader_rebaseline_paths=[app/services/search_retrieval_primitives.py, app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`,
+  the routed queue remains at `top_routed_hotspot_paths=[]`, and the support
+  split keeps `app/architecture_quality.py=522` plus
+  `app/architecture_quality_support.py=202` so the broader-rebaseline refresh
+  does not transfer hygiene or hotspot debt into adjacent architecture-control
+  surfaces.
 - `docs/court_grade_readiness_db_blockers_resolution_milestone_plan.md`:
   resolved locally in committed but unpushed state on 2026-05-20. The packet
   keeps `uv run docling-system-bootstrap-regression-readiness` as the strict

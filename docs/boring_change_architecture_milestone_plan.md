@@ -105,8 +105,8 @@ summary returns to `top_routed_hotspot_paths=[]`. This broader coordination
 brief is therefore back at the "fresh broader rebaseline before the next
 packet" state rather than carrying an active routed classifier child packet.
 That fresh broader-reselect packet then became
-`docs/semantic_registry_owner_rebaseline_milestone_plan.md`, and the current
-working tree now deploys that semantic-registry split locally:
+`docs/semantic_registry_owner_rebaseline_milestone_plan.md`, and the later
+2026-05-19 semantic-registry closeout now deploys that split:
 `app/services/semantic_registry.py` is reduced to a `31` line compatibility
 facade over focused `400`, `85`, and `322` line contract, storage, and state
 owners, `IC-0E4F1B9A2D73` is the current deployed owner case, hotspot
@@ -115,7 +115,7 @@ semantic-owner diff slice stayed empty so no debt was transferred into preview,
 ontology, candidate, graph, generation, or semantic-pass owners, and the live
 routed queue remains honestly empty. The next broader-reselect packet then
 became `docs/retrieval_learning_artifacts_owner_rebaseline_milestone_plan.md`,
-and the current working tree now deploys that retrieval-learning split locally:
+and the later 2026-05-19 retrieval-learning closeout now deploys that split:
 `app/services/retrieval_learning_artifacts.py` is reduced to a `129` line
 compatibility facade over focused `20`, `181`, `228`, `59`, `232`, and `122`
 line contracts, weights, impacts, governance, lifecycle, and views owners,
@@ -132,10 +132,16 @@ deploys `IC-20260424-hygiene-gate`, advances the live summary to
 `max_hotspot_risk_score=466.06`, and leaves
 `top_routed_hotspot_paths=[]` so this coordination brief still points to a
 fresh broader rebaseline rather than a hidden queued packet. The later
-architecture-quality broader-rebaseline refresh then adds
+architecture-quality broader-rebaseline refresh is now committed locally as
+`8b0ea812`; it adds
 `broader_rebaseline_candidate_count=5` plus
-`top_broader_rebaseline_paths=[app/services/search_retrieval_primitives.py, app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`, so the next honest packet now starts with the search residual family instead of falling back to the already-deployed facade traps.
-shared closeout docs of the live checkout.
+`top_broader_rebaseline_paths=[app/services/search_retrieval_primitives.py, app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`,
+keeps `app/architecture_quality.py` at `522` lines by moving the shared
+broader-rebaseline ranking logic into
+`app/architecture_quality_support.py` at `202` lines, and keeps the next
+honest packet on the search residual family instead of falling back to the
+already-deployed facade traps. That broader-rebaseline refresh therefore
+closes as part of the shared committed closeout state of the live checkout.
 
 ## Purpose
 

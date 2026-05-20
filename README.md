@@ -44,6 +44,11 @@ Current repo-level signals:
   `app/services/search_retrieval_primitives.py` and
   `app/services/search_harnesses.py`, before the inherited CLI/test harness
   siblings.
+- The 2026-05-20 broader-rebaseline refresh is committed locally as
+  `8b0ea812`; it keeps `app/architecture_quality.py` at `522` lines by moving
+  the shared broader-rebaseline ranking logic into
+  `app/architecture_quality_support.py` at `202` lines, so the refresh did not
+  shift hygiene debt back into the architecture-governance entrypoint.
 - The canonical local release gate is `uv run docling-system-release-gate-parity`;
   the checked-in `Release Gate Parity` workflow runs that same command on pull
   requests and pushes to `main`, uploads
