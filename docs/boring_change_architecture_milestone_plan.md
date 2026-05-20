@@ -113,16 +113,20 @@ owners, `IC-0E4F1B9A2D73` is the current deployed owner case, hotspot
 prevention routes the root as a compatibility-facade trap, the adjacent
 semantic-owner diff slice stayed empty so no debt was transferred into preview,
 ontology, candidate, graph, generation, or semantic-pass owners, and the live
-routed queue remains honestly empty. The next broader-reselect packet is now
-written at
-`docs/retrieval_learning_artifacts_owner_rebaseline_milestone_plan.md` while
-`top_routed_hotspot_paths=[]` remains honest: it selects
-`app/services/retrieval_learning_artifacts.py` as the strongest remaining
-app-side owner surface at `774` lines with mixed feature-weight, change-impact,
-governance-event, response-assembly, and durable read or write ownership, and
-it requires a Milestone 0 isolation pass so the current verified-undeployed
-semantic-registry slice does not get bundled into the next retrieval-learning
-implementation milestone.
+routed queue remains honestly empty. The next broader-reselect packet then
+became `docs/retrieval_learning_artifacts_owner_rebaseline_milestone_plan.md`,
+and the current working tree now deploys that retrieval-learning split locally:
+`app/services/retrieval_learning_artifacts.py` is reduced to a `129` line
+compatibility facade over focused `20`, `181`, `228`, `59`, `232`, and `122`
+line contracts, weights, impacts, governance, lifecycle, and views owners,
+`IC-5F4E8C2B1A90` is the current deployed owner case, hotspot prevention routes
+the root as a compatibility-facade trap, the adjacent retrieval-learning
+consumer diff slice stayed empty so no debt was transferred into
+`retrieval_learning.py`, `retrieval_learning_candidates.py`, the search
+routers, CLI entrypoints, or integration support, and the live routed queue
+remains honestly empty again. Future code-owning work from this broader brief
+therefore requires another fresh broader rebaseline rather than a queued child
+packet.
 shared closeout docs of the live checkout.
 
 ## Purpose

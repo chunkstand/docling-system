@@ -1108,9 +1108,47 @@ file_budgets:
       max_private_helpers: 0
       owner_case_id: IC-0D58F1624037
     app/services/retrieval_learning_artifacts.py:
-      max_lines: 774
-      max_private_helpers: 7
-      owner_case_id: IC-0D58F1624037
+      max_lines: 129
+      ratchet_max_lines: 129
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-5F4E8C2B1A90
+    app/services/retrieval_learning_artifact_contracts.py:
+      max_lines: 20
+      ratchet_max_lines: 20
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-5F4E8C2B1A90
+    app/services/retrieval_learning_artifact_weights.py:
+      max_lines: 181
+      ratchet_max_lines: 181
+      max_private_helpers: 4
+      ratchet_max_private_helpers: 4
+      owner_case_id: IC-5F4E8C2B1A90
+    app/services/retrieval_learning_artifact_impacts.py:
+      max_lines: 228
+      ratchet_max_lines: 228
+      max_private_helpers: 2
+      ratchet_max_private_helpers: 2
+      owner_case_id: IC-5F4E8C2B1A90
+    app/services/retrieval_learning_artifact_governance.py:
+      max_lines: 59
+      ratchet_max_lines: 59
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-5F4E8C2B1A90
+    app/services/retrieval_learning_artifact_lifecycle.py:
+      max_lines: 232
+      ratchet_max_lines: 232
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-5F4E8C2B1A90
+    app/services/retrieval_learning_artifact_views.py:
+      max_lines: 122
+      ratchet_max_lines: 122
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-5F4E8C2B1A90
     app/services/retrieval_learning_candidates.py:
       max_lines: 412
       max_private_helpers: 1

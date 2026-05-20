@@ -6,7 +6,7 @@ Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Current architecture control snapshot from the live 2026-05-19 checkout:
 `uv run docling-system-improvement-case-summary` reports
-`status_counts={"measured":1,"deployed":63}` with
+`status_counts={"measured":1,"deployed":64}` with
 `open_unconverted_count=0` and `verified_undeployed_count=0`;
 `uv run docling-system-hygiene-check` reports `inherited budget debt: none`
 and `new hygiene regressions: none`;
@@ -18,13 +18,18 @@ and `exceptions=0`;
 `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
 `hotspot_count=20`, `stale_facade_hotspot_count=20`,
 `max_hotspot_risk_score=471.06`, and `top_routed_hotspot_paths=[]`;
-the routed queue is empty again. The semantic-registry owner packet is now
+the routed queue is empty again. The latest broader-reselect closeouts are now
 deployed locally through
-`docs/semantic_registry_owner_rebaseline_milestone_plan.md`: the public root
+`docs/semantic_registry_owner_rebaseline_milestone_plan.md` and
+`docs/retrieval_learning_artifacts_owner_rebaseline_milestone_plan.md`:
 `app/services/semantic_registry.py` closes at `31 / 0` over focused owner
-modules at `400 / 2`, `85 / 3`, and `322 / 3`, hotspot prevention now routes
-the root as a compatibility-facade trap, and `IC-0E4F1B9A2D73` is recorded as
-the current deployed owner case. A debt-shift
+modules at `400 / 2`, `85 / 3`, and `322 / 3`, while
+`app/services/retrieval_learning_artifacts.py` closes at `129 / 0` over
+focused contracts, weights, impacts, governance, lifecycle, and views owners
+at `20 / 0`, `181 / 4`, `228 / 2`, `59 / 0`, `232 / 0`, and `122 / 0`;
+hotspot prevention now routes both roots as compatibility-facade traps, and
+`IC-0E4F1B9A2D73` plus `IC-5F4E8C2B1A90` are recorded as the current deployed
+owner cases. A debt-shift
 audit over the adjacent semantic owners and focused semantic test roots stayed
 empty after the split, so no semantic-registry logic was pushed into preview,
 ontology, candidate, graph, generation, or semantic-pass owners. The latest
@@ -175,16 +180,16 @@ reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
 Latest verified bounded implementation brief:
-none; the latest bounded packet is already deployed locally
+`docs/retrieval_learning_artifacts_owner_rebaseline_milestone_plan.md`
 Latest resolved bounded implementation brief:
-`docs/semantic_registry_owner_rebaseline_milestone_plan.md`
+`docs/retrieval_learning_artifacts_owner_rebaseline_milestone_plan.md`
 Next routed bounded implementation brief:
 none; the live `top_routed_hotspot_paths` queue is empty again, so the next
 code-owning packet requires a fresh broader rebaseline
 Queued standalone follow-on:
-`docs/retrieval_learning_artifacts_owner_rebaseline_milestone_plan.md`
+none; the live queue is empty and no broader-reselect follow-on is selected yet
 Previous resolved bounded implementation brief:
-`docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md`
+`docs/semantic_registry_owner_rebaseline_milestone_plan.md`
 The later 2026-05-19 semantic-registry owner closeout now keeps
 `app/services/semantic_registry.py` at `31` lines with focused contract,
 storage, and state owners at `400`, `85`, and `322` lines, records explicit
@@ -192,15 +197,23 @@ hygiene ownership under `IC-0E4F1B9A2D73`, routes the root as a
 compatibility-facade trap in `config/hotspot_prevention.yaml`, and keeps the
 adjacent semantic-owner diff slice empty so the split does not transfer debt
 into preview, ontology, candidate, graph, generation, or semantic-pass owners.
-The next broader-reselect follow-on is now written at
-`docs/retrieval_learning_artifacts_owner_rebaseline_milestone_plan.md`:
-`app/services/retrieval_learning_artifacts.py` is the strongest remaining
-app-side owner candidate at `774` lines with `16` defs/classes and `7`
-private helpers, it still mixes feature-weight proposal synthesis, change-impact
-and trace analysis, semantic-governance event materialization, response
-serialization, and durable read or write flows, and the live worktree now
-requires a fresh Milestone 0 isolation pass for retrieval-learning work rather
-than a cleanup step for the now-deployed semantic-registry packet.
+The later 2026-05-19 retrieval-learning artifact owner closeout now keeps
+`app/services/retrieval_learning_artifacts.py` at `129` lines with focused
+contracts, weights, impacts, governance, lifecycle, and views owners at `20`,
+`181`, `228`, `59`, `232`, and `122` lines, records explicit hygiene
+ownership under `IC-5F4E8C2B1A90`, routes the root as a
+compatibility-facade trap in `config/hotspot_prevention.yaml`, and keeps the
+adjacent retrieval-learning consumer diff slice empty so the split does not
+transfer debt into `retrieval_learning.py`,
+`retrieval_learning_candidates.py`, the search routers, CLI entrypoints, or
+`tests/integration/retrieval_learning_ledger_support.py`. Focused verification
+passed at `62 passed`, the DB-backed integration slice passed at `4 passed`,
+`uv run docling-system-hotspot-prevention-check --strict` stayed at
+`blocked=0` with `exceptions=0`, hygiene still reports `inherited budget debt: none`
+and `new hygiene regressions: none`, the improvement-case summary now reads
+`status_counts={"measured":1,"deployed":64}`, and the live routed queue
+remains `top_routed_hotspot_paths=[]`, so future code-owning work again
+requires a fresh broader rebaseline rather than a queued follow-on.
 Post-Packet A/B alignment audit from the current 2026-05-19 checkout:
 `uv run docling-system-improvement-case-summary` now reports
 `status_counts={"measured":1,"deployed":58,"open":2}`,

@@ -2670,16 +2670,19 @@ cases:
       docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md was
       committed locally as d85cd90. The replay-alert corpus owner split remains
       preserved in app/services/retrieval_learning_replay_alert_sources.py, candidate
-      evaluation and reranker-artifact flows remain in
-      app/services/retrieval_learning_candidates.py and
-      app/services/retrieval_learning_artifacts.py, and dataset materialization,
+      evaluation remains in app/services/retrieval_learning_candidates.py, and
+      dataset materialization,
       source normalization, payload assembly, and training-run governance now live in
       the routed owner family app/services/retrieval_learning_datasets.py,
       app/services/retrieval_learning_dataset_rows.py, and
       app/services/retrieval_learning_dataset_sources.py. A follow-up local
       gap-closeout pass now adds exact facade shape tests on top of the focused
       delegation tests and no-growth ratchets while
-      app/services/retrieval_learning.py remains the compatibility surface.
+      app/services/retrieval_learning.py remains the compatibility surface. The
+      later retrieval-learning artifact owner rebaseline then moves reranker-artifact
+      ownership into app/services/retrieval_learning_artifact_*.py while
+      app/services/retrieval_learning_artifacts.py becomes a separate
+      compatibility facade governed under IC-5F4E8C2B1A90.
   measurement:
     metric_name: retrieval_learning_hotspot_line_count
     current_value: 143.0
@@ -2692,13 +2695,131 @@ cases:
       app/services/retrieval_learning_dataset_rows.py, and
       app/services/retrieval_learning_dataset_sources.py while preserving the
       routed owner families already living in
-      app/services/retrieval_learning_replay_alert_sources.py,
-      app/services/retrieval_learning_candidates.py and
-      app/services/retrieval_learning_artifacts.py, reducing
-      app/services/retrieval_learning.py to 143 lines and governing the
-      extracted dataset owner family at 326, 547, and 531 lines.
+      app/services/retrieval_learning_replay_alert_sources.py and
+      app/services/retrieval_learning_candidates.py. The later retrieval-learning
+      artifact owner rebaseline then moves reranker-artifact ownership into
+      app/services/retrieval_learning_artifact_*.py while
+      app/services/retrieval_learning_artifacts.py becomes a separate 129-line
+      compatibility facade under IC-5F4E8C2B1A90, leaving
+      app/services/retrieval_learning.py at 143 lines and the extracted
+      dataset owner family at 326, 547, and 531 lines.
   created_at: '2026-05-10T05:45:45.585973+00:00'
-  updated_at: '2026-05-12T06:30:00+00:00'
+  updated_at: '2026-05-19T00:00:00Z'
+- case_id: IC-5F4E8C2B1A90
+  title: 'Architecture hotspot: app/services/retrieval_learning_artifacts.py'
+  status: deployed
+  cause_class: unclear_ownership
+  observed_failure: app/services/retrieval_learning_artifacts.py had regrown
+    into a 774-line mixed owner that combined artifact request translation,
+    feature-weight proposal synthesis, change-impact analysis, semantic-governance
+    event materialization, response serialization, and durable read or write
+    flows behind one retrieval-learning import surface.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:app/services/retrieval_learning_artifacts.py
+    notes: Created during the 2026-05-19 retrieval-learning artifact owner
+      rebaseline after the live routed queue remained top_routed_hotspot_paths=[]
+      and the broader architecture evidence still selected
+      app/services/retrieval_learning_artifacts.py as the strongest remaining
+      app-side owner surface at 774 lines with 16 defs/classes and 7 private
+      helpers.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/retrieval_learning_artifacts.py
+    description: Retrieval-learning reranker artifact compatibility facade and
+      owner-family routing contract.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check app/services/retrieval_learning.py
+      app/services/retrieval_learning_artifacts.py
+      app/services/retrieval_learning_artifact_contracts.py
+      app/services/retrieval_learning_artifact_weights.py
+      app/services/retrieval_learning_artifact_impacts.py
+      app/services/retrieval_learning_artifact_governance.py
+      app/services/retrieval_learning_artifact_lifecycle.py
+      app/services/retrieval_learning_artifact_views.py
+      app/services/capabilities/retrieval_learning_contract.py
+      app/services/capabilities/retrieval_services.py
+      app/api/routers/search.py
+      app/api/routers/search_learning.py
+      app/cli.py
+      app/cli_commands/search_harness.py
+      tests/unit/test_retrieval_learning_artifacts.py
+      tests/unit/test_retrieval_learning_artifact_weights.py
+      tests/unit/test_retrieval_learning_artifact_views.py
+      tests/unit/test_retrieval_learning_facade_contract.py
+      tests/unit/test_search_api_harnesses.py
+      tests/unit/test_search_api_learning_audit.py
+      tests/unit/test_cli_search_harness.py
+      tests/integration/test_retrieval_learning_ledger_candidates.py
+      tests/integration/test_search_harness_releases.py
+    - uv run pytest -q tests/unit/test_retrieval_learning_artifacts.py
+      tests/unit/test_retrieval_learning_artifact_weights.py
+      tests/unit/test_retrieval_learning_artifact_views.py
+      tests/unit/test_retrieval_learning_facade_contract.py
+      tests/unit/test_search_api_harnesses.py
+      tests/unit/test_search_api_learning_audit.py
+      tests/unit/test_cli_search_harness.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
+      tests/integration/test_retrieval_learning_ledger_candidates.py
+      tests/integration/test_search_harness_releases.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-architecture-quality-report --summary
+    - uv run docling-system-architecture-inspect
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --fail-on-cycles --max-file-lines 800
+    acceptance_conditions:
+    - app/services/retrieval_learning_artifacts.py closes as a narrow public
+      facade while feature-weight synthesis, change-impact analysis,
+      governance-event materialization, response assembly, and durable
+      lifecycle flows live in focused retrieval_learning_artifact_* owners.
+    - No focused retrieval_learning_artifact_* owner exceeds its exact ratchet
+      or transfers retrieval-learning debt into
+      app/services/retrieval_learning_candidates.py,
+      app/services/retrieval_learning.py, app/api/routers/search.py,
+      app/api/routers/search_learning.py, app/cli_commands/search_harness.py,
+      or tests/integration/retrieval_learning_ledger_support.py.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: "retrieval-learning-artifact-owner-closeout-2026-05-19"
+    notes: >-
+      Deployed locally in the 2026-05-19 retrieval-learning artifact owner
+      closeout. app/services/retrieval_learning_artifacts.py is now a
+      129 / 0 compatibility facade over app/services/retrieval_learning_artifact_contracts.py
+      at 20 / 0, app/services/retrieval_learning_artifact_weights.py at
+      181 / 4, app/services/retrieval_learning_artifact_impacts.py at
+      228 / 2, app/services/retrieval_learning_artifact_governance.py at
+      59 / 0, app/services/retrieval_learning_artifact_lifecycle.py at
+      232 / 0, and app/services/retrieval_learning_artifact_views.py at
+      122 / 0; hotspot prevention now routes the root as a
+      compatibility-facade trap; focused unit coverage now lives in
+      tests/unit/test_retrieval_learning_artifact_weights.py,
+      tests/unit/test_retrieval_learning_artifact_views.py, and
+      tests/unit/test_retrieval_learning_artifacts.py; and the adjacent
+      retrieval-learning consumer diff slice stayed empty so the split did not
+      transfer debt into retrieval_learning.py, retrieval_learning_candidates.py,
+      search.py, search_learning.py, the CLI entrypoints, or integration
+      support modules.
+  measurement:
+    metric_name: retrieval_learning_artifact_owner_line_count
+    current_value: 129.0
+    measurement_window: 2026-05-19 local retrieval-learning artifact owner split
+    notes: >-
+      app/services/retrieval_learning_artifacts.py now measures 129 lines /
+      0 private helpers. The extracted owner modules now measure 20 / 0,
+      181 / 4, 228 / 2, 59 / 0, 232 / 0, and 122 / 0 for the contracts,
+      weights, impacts, governance, lifecycle, and views owners while
+      app/services/retrieval_learning.py remains the 143 / 0 compatibility
+      facade and app/services/retrieval_learning_candidates.py remains the
+      separate candidate owner at 412 / 1.
+  created_at: '2026-05-19T00:00:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-1B643BA0AD90
   title: 'Architecture hotspot: app/ui/app.js'
   status: deployed

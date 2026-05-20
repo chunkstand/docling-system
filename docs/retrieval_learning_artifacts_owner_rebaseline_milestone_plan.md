@@ -1,10 +1,17 @@
 # Retrieval Learning Artifacts Owner Rebaseline Milestone Plan
 
 Date: 2026-05-19 local / 2026-05-19 UTC
-Status: queued broader-reselect follow-on drafted on 2026-05-19. The live
-routed queue remains `top_routed_hotspot_paths=[]`, so this packet selects the
-next app-side owner surface from current architecture evidence rather than from
-an active routed child queue.
+Status: deployed locally on 2026-05-19 after Milestones 0 through 3 completed.
+The root now closes at `129 / 0` over
+`app/services/retrieval_learning_artifact_contracts.py` at `20 / 0`,
+`app/services/retrieval_learning_artifact_weights.py` at `181 / 4`,
+`app/services/retrieval_learning_artifact_impacts.py` at `228 / 2`,
+`app/services/retrieval_learning_artifact_governance.py` at `59 / 0`,
+`app/services/retrieval_learning_artifact_lifecycle.py` at `232 / 0`, and
+`app/services/retrieval_learning_artifact_views.py` at `122 / 0`, with
+`IC-5F4E8C2B1A90` recorded as the deployed owner case. The packet now closes as
+its own atomic milestone and returns the live routed queue to
+`top_routed_hotspot_paths=[]`.
 Owner context: fresh broader rebaseline after
 `docs/semantic_registry_owner_rebaseline_milestone_plan.md` reduced
 `app/services/semantic_registry.py` to a deployed local compatibility facade
@@ -35,6 +42,29 @@ This packet exists to route that mixed retrieval-learning artifact owner into
 focused family-local modules while preserving the completed
 `app/services/retrieval_learning.py` compatibility facade and keeping the
 now-deployed semantic-registry packet as a separate closeout.
+
+## Local Closeout Update
+
+- Milestones 0 through 3 are now deployed locally. The retrieval-learning
+  artifact split landed entirely inside the new
+  `retrieval_learning_artifact_*` family, the root is now a narrow facade at
+  `129 / 0`, and the live routed queue remains `top_routed_hotspot_paths=[]`.
+- Verification now includes the focused retrieval-learning, API, CLI, and
+  hotspot-policy unit slice at `62 passed`, the focused DB-backed integration
+  slice at `4 passed`, `uv run docling-system-hotspot-prevention-check --strict`
+  at `blocked=0` with `exceptions=0`, `uv run docling-system-hygiene-check`
+  with no inherited debt or regressions, and
+  `uv run docling-system-improvement-case-summary` at
+  `status_counts={"measured":1,"deployed":64}`.
+- Debt-shift audit: `git diff --stat` over `app/services/retrieval_learning.py`,
+  `app/services/retrieval_learning_candidates.py`,
+  `app/services/capabilities/retrieval_learning_contract.py`,
+  `app/services/capabilities/retrieval_services.py`,
+  `app/api/routers/search.py`, `app/api/routers/search_learning.py`,
+  `app/cli.py`, `app/cli_commands/search_harness.py`, and
+  `tests/integration/retrieval_learning_ledger_support.py` remained empty
+  after the split, so the packet did not transfer reranker-artifact debt into
+  adjacent retrieval-learning consumers or support modules.
 
 ## Current Evidence
 
@@ -220,10 +250,13 @@ In scope:
 - `app/cli.py`
 - `app/cli_commands/search_harness.py`
 - `tests/unit/test_retrieval_learning_artifacts.py`
+- `tests/unit/test_retrieval_learning_artifact_weights.py`
+- `tests/unit/test_retrieval_learning_artifact_views.py`
 - `tests/unit/test_retrieval_learning_facade_contract.py`
 - `tests/unit/test_search_api_harnesses.py`
 - `tests/unit/test_search_api_learning_audit.py`
 - `tests/unit/test_cli_search_harness.py`
+- `tests/unit/test_hotspot_prevention_policy_contracts.py`
 - `tests/integration/test_retrieval_learning_ledger_candidates.py`
 - `tests/integration/test_search_harness_releases.py`
 - `config/improvement_cases.yaml`
@@ -491,18 +524,24 @@ uv run ruff check app/services/retrieval_learning.py \
   app/cli.py \
   app/cli_commands/search_harness.py \
   tests/unit/test_retrieval_learning_artifacts.py \
+  tests/unit/test_retrieval_learning_artifact_weights.py \
+  tests/unit/test_retrieval_learning_artifact_views.py \
   tests/unit/test_retrieval_learning_facade_contract.py \
   tests/unit/test_search_api_harnesses.py \
   tests/unit/test_search_api_learning_audit.py \
   tests/unit/test_cli_search_harness.py \
+  tests/unit/test_hotspot_prevention_policy_contracts.py \
   tests/integration/test_retrieval_learning_ledger_candidates.py \
   tests/integration/test_search_harness_releases.py
 
 uv run pytest -q tests/unit/test_retrieval_learning_artifacts.py \
+  tests/unit/test_retrieval_learning_artifact_weights.py \
+  tests/unit/test_retrieval_learning_artifact_views.py \
   tests/unit/test_retrieval_learning_facade_contract.py \
   tests/unit/test_search_api_harnesses.py \
   tests/unit/test_search_api_learning_audit.py \
-  tests/unit/test_cli_search_harness.py
+  tests/unit/test_cli_search_harness.py \
+  tests/unit/test_hotspot_prevention_policy_contracts.py
 
 DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q \
   tests/integration/test_retrieval_learning_ledger_candidates.py \
