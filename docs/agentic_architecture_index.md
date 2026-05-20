@@ -6,6 +6,7 @@ chat history or scanning the whole repository.
 ## Current Milestone Briefs
 
 - `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; complete through Milestone 8.
+- `docs/agent_task_runtime_and_verification_boundary_milestone_plan.md`: resolved locally on 2026-05-19 as the broader-reselect packet after queue exhaustion. `app/services/agent_task_worker.py` now closes at `77` lines over focused `223` / `253` / `155` line lease, finalization, and processing owners, `app/services/agent_task_verifications.py` now closes at `111` lines over focused `369` / `188` line search-harness and semantic owners, `IC-3F725D0A6C91` and `IC-86E1D4B72F0C` are deployed, and the routed queue remains empty with no new queued follow-on.
 - `docs/hotspot_owner_resolution_plan.md`: completed owner-scoped hotspot sequence through local Milestone 6; active execution has moved to the high-value paydown plan.
 - `docs/high_value_technical_paydown_milestone_plan.md`: completed local paydown program covering the next owner-scoped model splits, further evidence and agent-action splits, hotspot test decomposition, and the routed UI monolith split.
 - `docs/evaluation_feedback_model_domain_milestone_plan.md`: completed bounded milestone record for the `IC-F2A8110185EB` evaluation-feedback split covering `EvalObservation` and `EvalFailureCase`; Milestone 2 closeout is committed locally as `b69c4f6`, and the broader owner case remains reduced.
@@ -92,6 +93,13 @@ chat history or scanning the whole repository.
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
   `legibility_gap_count=0`, `hotspot_count=20`, and
   `max_hotspot_risk_score=471.06`.
+- The later 2026-05-19 agent-task runtime and verification boundary closeout
+  deploys `IC-3F725D0A6C91` and `IC-86E1D4B72F0C`, advances the live
+  improvement-case summary to `status_counts={"measured":1,"deployed":62}`,
+  keeps hotspot prevention at `blocked=0` and `exceptions=0`, keeps hygiene at
+  `inherited budget debt: none` and `new hygiene regressions: none`, and keeps
+  the routed queue honestly empty at `top_routed_hotspot_paths=[]` after the
+  broader rebaseline split.
 - The later 2026-05-19 registry-alignment sweep deploys the stale reduced-root
   cases left behind by earlier resolved packets: the agent-task residual
   quartet `IC-4098E8370B88`, `IC-5D14C2A0B6F7`, `IC-2E0A91B39C5D`, and

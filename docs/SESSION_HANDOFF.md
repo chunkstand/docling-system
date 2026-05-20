@@ -4,6 +4,34 @@ Date: 2026-05-19 local / 2026-05-19 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
+Current architecture control snapshot from the live 2026-05-19 checkout:
+`uv run docling-system-improvement-case-summary` reports
+`status_counts={"measured":1,"deployed":62}` with
+`open_unconverted_count=0` and `verified_undeployed_count=0`;
+`uv run docling-system-hygiene-check` reports `inherited budget debt: none`
+and `new hygiene regressions: none`;
+`uv run docling-system-hotspot-prevention-check --strict` reports `blocked=0`
+and `exceptions=0`;
+`uv run docling-system-architecture-inspect` remains `valid=true` with
+`violation_count=0`;
+`uv run docling-system-architecture-quality-report --summary` reports
+`agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+`hotspot_count=20`, `stale_facade_hotspot_count=20`,
+`max_hotspot_risk_score=471.06`, and `top_routed_hotspot_paths=[]`;
+the routed queue is exhausted, so future architecture work must start from a
+fresh broader Milestone 0 rebaseline rather than a queued packet.
+Latest broader-reselect closeout from that rebaseline:
+`docs/agent_task_runtime_and_verification_boundary_milestone_plan.md`
+now resolves the remaining worker and verification runtime debt while
+preserving the reduced `agent_task_actions` and `agent_tasks` facades. The
+worker root now closes at `77` lines over focused `223` / `253` / `155` line
+lease, finalization, and processing owners, the verification root now closes
+at `111` lines over focused `369` / `188` line search-harness and semantic
+owners, and the deployed owner cases are `IC-3F725D0A6C91` and
+`IC-86E1D4B72F0C`.
+Current full-suite closeout gate:
+`DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` passed at
+`2140 passed`.
 Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
 Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
 Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`
@@ -132,16 +160,25 @@ reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
-`docs/queue_exhaustion_honesty_sweep_milestone_plan.md`
+`docs/agent_task_runtime_and_verification_boundary_milestone_plan.md`
 Next routed bounded implementation brief:
 None. The live `top_routed_hotspot_paths=[]` queue is exhausted, so future
 architecture work must start from a fresh broader Milestone 0 rebaseline
 rather than a queued packet.
 Queued standalone follow-on:
-None. `docs/remaining_packet_queue_resolution_milestone_plan.md` is now
-resolved through the Packet E queue-exhaustion closeout.
+None. The broader rebaseline packet is now resolved, and no new queued
+standalone follow-on remains from this lane.
 Previous resolved bounded implementation brief:
-`docs/search_service_residual_ranking_split_milestone_plan.md`
+`docs/queue_exhaustion_honesty_sweep_milestone_plan.md`
+The later 2026-05-19 agent-task runtime and verification boundary closeout now
+deploys `IC-3F725D0A6C91` and `IC-86E1D4B72F0C`: the worker root remains at
+`77` lines with owner-local successors at `223`, `253`, and `155`, the
+verification root remains at `111` lines with owner-local successors at `369`
+and `188`, the focused integration slice passed at `13 passed`, the full
+DB-backed suite passed at `2140 passed`, the architecture probe still reports
+no Python cycles, and the live registry now reads
+`status_counts={"measured":1,"deployed":62}` without reactivating the routed
+queue.
 Post-Packet A/B alignment audit from the current 2026-05-19 checkout:
 `uv run docling-system-improvement-case-summary` now reports
 `status_counts={"measured":1,"deployed":58,"open":2}`,

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import app.hotspot_prevention_classifier_agent_task_runtime_rules as _agent_task_runtime_rules
 import app.hotspot_prevention_classifier_boundary_rules as _boundary_rules
 import app.hotspot_prevention_classifier_schema_facades as _schema_facades
 import app.hotspot_prevention_classifier_service_rules as _service_rules
@@ -47,14 +48,12 @@ _CLAIM_SUPPORT_COMPACT_SURFACE_PATHS = {
     "app/services/claim_support_policy_impact_views.py",
     "app/services/claim_support_policy_impact_replay.py",
     "app/services/claim_support_replay_alert_fixture_corpus.py",
-    "app/services/claim_support_replay_alert_promotions.py",
-}
+    "app/services/claim_support_replay_alert_promotions.py"}
 _COMPACT_SURFACE_MAX_LINES = 600
 _SCHEMA_FACADE_CLASSIFIERS = {
-    "app/schemas/agent_tasks.py": _schema_facades.classify_agent_task_schema_facade_addition,
-    "app/schemas/search.py": _schema_facades.classify_search_schema_facade_addition,
+    "app/schemas/agent_tasks.py": _schema_facades.classify_agent_task_schema_facade_addition,  # noqa: E501
+    "app/schemas/search.py": _schema_facades.classify_search_schema_facade_addition,  # noqa: E501
 }
-
 def classify_changed_file(
     *,
     rule: HotspotRule,
@@ -325,6 +324,12 @@ def classify_hotspot_implementation(
         ),
         "app/services/agent_task_actions.py": _boundary_rules.classify_agent_action_addition,
         "app/services/agent_task_context.py": _boundary_rules.classify_agent_task_context_addition,
+        "app/services/agent_task_verifications.py": (
+            _agent_task_runtime_rules.classify_agent_task_verifications_addition
+        ),
+        "app/services/agent_task_worker.py": (
+            _agent_task_runtime_rules.classify_agent_task_worker_addition
+        ),
         "app/services/search.py": _service_rules.classify_search_addition,
         "app/services/semantics.py": _service_rules.classify_semantics_addition,
         "app/services/claim_support_policy_impacts.py": (

@@ -37,6 +37,8 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "app/services/agent_task_context.py",
         "app/services/agent_task_context_search_harness.py",
         "app/services/agent_task_context_semantic_governance.py",
+        "app/services/agent_task_verifications.py",
+        "app/services/agent_task_worker.py",
         "app/services/agent_tasks.py",
         "app/services/audit_bundles.py",
         "app/services/claim_support_evaluations.py",
@@ -69,7 +71,8 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "tests/unit/test_documents_api.py",
         "tests/unit/test_evaluation_service.py",
         "tests/unit/test_hotspot_prevention.py",
-        "tests/unit/test_search_api.py", "tests/unit/test_search_service.py",
+        "tests/unit/test_search_api.py",
+        "tests/unit/test_search_service.py",
     ]
     for rule in policy.known_hotspots.values():
         assert rule.preferred_owner_modules
@@ -94,6 +97,8 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "tests/unit/test_documents_api.py",
         "tests/unit/test_agent_task_context_reports_claim_support.py",
         "tests/unit/test_agent_task_context_semantic_graph_promotions.py",
+        "app/services/agent_task_verifications.py",
+        "app/services/agent_task_worker.py",
         "app/schemas/search.py",
         "tests/unit/test_db_model_import_compatibility.py",
     ]:

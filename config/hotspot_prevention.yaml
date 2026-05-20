@@ -354,6 +354,58 @@ known_hotspots:
       - alias_forwarder
       - explicit_forwarding_function
       - deletion
+  app/services/agent_task_verifications.py:
+    target_role: public agent-task verification facade
+    preferred_owner_modules:
+      - app/services/agent_task_verifications_search_harness.py
+      - app/services/agent_task_verifications_semantics.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The verification root is now a narrow public facade, so future search-harness and semantic verification growth belongs in the focused verification owner modules instead of reopening app/services/agent_task_verifications.py.
+      route_to_case_ids:
+        - IC-86E1D4B72F0C
+      route_to_paths:
+        - app/services/agent_task_verifications_search_harness.py
+        - app/services/agent_task_verifications_semantics.py
+      route_to_plan_paths:
+        - docs/agent_task_runtime_and_verification_boundary_milestone_plan.md
+    block_new:
+      - search_harness_verification_logic
+      - semantic_verification_logic
+      - verification_helper
+      - verification_orchestration
+    allow:
+      - explicit_forwarding_function
+      - import_forwarder
+      - alias_forwarder
+      - deletion
+  app/services/agent_task_worker.py:
+    target_role: public agent-task worker runtime facade
+    preferred_owner_modules:
+      - app/services/agent_task_worker_leases.py
+      - app/services/agent_task_worker_finalization.py
+      - app/services/agent_task_worker_processing.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The worker root is now a narrow public runtime facade, so future lease, retry, and processing growth belongs in the focused worker owner modules instead of reopening app/services/agent_task_worker.py.
+      route_to_case_ids:
+        - IC-3F725D0A6C91
+      route_to_paths:
+        - app/services/agent_task_worker_leases.py
+        - app/services/agent_task_worker_finalization.py
+        - app/services/agent_task_worker_processing.py
+      route_to_plan_paths:
+        - docs/agent_task_runtime_and_verification_boundary_milestone_plan.md
+    block_new:
+      - lease_management_logic
+      - failure_retry_logic
+      - worker_runtime_helper
+      - worker_execution_orchestration
+    allow:
+      - explicit_forwarding_function
+      - import_forwarder
+      - alias_forwarder
+      - deletion
   app/services/agent_tasks.py:
     target_role: public agent-task service orchestration and compatibility surface
     preferred_owner_modules:

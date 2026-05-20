@@ -539,11 +539,47 @@ file_budgets:
       ratchet_max_private_helpers: 3
       owner_case_id: IC-E52B6C7B22FD
     app/services/agent_task_verifications.py:
-      max_lines: 636
-      max_private_helpers: 6
+      max_lines: 111
+      ratchet_max_lines: 111
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-86E1D4B72F0C
+    app/services/agent_task_verifications_search_harness.py:
+      max_lines: 369
+      ratchet_max_lines: 369
+      max_private_helpers: 4
+      ratchet_max_private_helpers: 4
+      owner_case_id: IC-86E1D4B72F0C
+    app/services/agent_task_verifications_semantics.py:
+      max_lines: 188
+      ratchet_max_lines: 188
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-86E1D4B72F0C
     app/services/agent_task_worker.py:
-      max_lines: 696
-      max_private_helpers: 11
+      max_lines: 77
+      ratchet_max_lines: 77
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-3F725D0A6C91
+    app/services/agent_task_worker_leases.py:
+      max_lines: 223
+      ratchet_max_lines: 223
+      max_private_helpers: 1
+      ratchet_max_private_helpers: 1
+      owner_case_id: IC-3F725D0A6C91
+    app/services/agent_task_worker_finalization.py:
+      max_lines: 253
+      ratchet_max_lines: 253
+      max_private_helpers: 2
+      ratchet_max_private_helpers: 2
+      owner_case_id: IC-3F725D0A6C91
+    app/services/agent_task_worker_processing.py:
+      max_lines: 155
+      ratchet_max_lines: 155
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-3F725D0A6C91
     app/services/agent_tasks.py:
       max_lines: 324
       ratchet_max_lines: 324
@@ -1707,18 +1743,54 @@ file_budgets:
       max_private_helpers: 3
       ratchet_max_private_helpers: 3
       owner_case_id: IC-08C078FD4F45
+    tests/unit/test_agent_task_worker.py:
+      max_lines: 42
+      ratchet_max_lines: 42
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-3F725D0A6C91
+    tests/unit/test_agent_task_worker_leases.py:
+      max_lines: 104
+      ratchet_max_lines: 104
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-3F725D0A6C91
+    tests/unit/test_agent_task_worker_finalization.py:
+      max_lines: 61
+      ratchet_max_lines: 61
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-3F725D0A6C91
+    tests/unit/test_agent_task_worker_processing.py:
+      max_lines: 462
+      ratchet_max_lines: 462
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-3F725D0A6C91
     tests/unit/test_agent_task_verifications.py:
-      max_lines: 324
-      ratchet_max_lines: 324
+      max_lines: 16
+      ratchet_max_lines: 16
       max_private_helpers: 0
       ratchet_max_private_helpers: 0
-      owner_case_id: IC-6C3E1A7B9D52
+      owner_case_id: IC-86E1D4B72F0C
+    tests/unit/test_agent_task_verifications_search_harness.py:
+      max_lines: 528
+      ratchet_max_lines: 528
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-86E1D4B72F0C
+    tests/unit/test_agent_task_verifications_semantics.py:
+      max_lines: 366
+      ratchet_max_lines: 366
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-86E1D4B72F0C
     tests/unit/test_agent_task_verifications_drafts.py:
-      max_lines: 567
-      ratchet_max_lines: 567
+      max_lines: 9
+      ratchet_max_lines: 9
       max_private_helpers: 0
       ratchet_max_private_helpers: 0
-      owner_case_id: IC-6C3E1A7B9D52
+      owner_case_id: IC-86E1D4B72F0C
     tests/unit/test_docling_parser.py:
       max_lines: 540
       ratchet_max_lines: 540

@@ -4023,6 +4023,174 @@ cases:
       siblings.
   created_at: '2026-05-18T00:00:00Z'
   updated_at: '2026-05-19T00:00:00Z'
+- case_id: IC-3F725D0A6C91
+  title: 'Architecture hotspot: app/services/agent_task_worker.py'
+  status: deployed
+  cause_class: unclear_ownership
+  observed_failure: >-
+    app/services/agent_task_worker.py previously mixed lease claiming,
+    heartbeat refresh, stale-task recovery, failure-artifact persistence,
+    retry classification, promotable checkpointing, completion finalization,
+    processing, and the worker loop in one 568-line runtime hotspot. The
+    current checkout reduces the public root to a 135-line runtime facade and
+    routes the mixed ownership into focused lease, finalization, and processing
+    modules without changing the public worker entrypoints.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:app/services/agent_task_worker.py
+    notes: >-
+      Refreshed during the 2026-05-19 agent-task runtime and verification
+      boundary rebaseline from the live architecture quality report, wc -l
+      snapshot, and focused worker function review.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/agent_task_worker.py
+    description: Agent-task runtime worker execution facade and owner-family routing contract.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check app/services/agent_task_worker.py
+      app/services/agent_task_worker_*.py tests/unit/test_agent_task_worker.py
+      tests/unit/test_agent_task_worker_*.py tests/unit/test_runtime_health.py
+      tests/unit/test_runtime_service.py tests/unit/test_run_logic.py
+    - uv run pytest -q tests/unit/test_agent_task_worker.py
+      tests/unit/test_agent_task_worker_*.py tests/unit/test_agent_task_actions.py
+      tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py
+      tests/unit/test_agent_tasks_api.py tests/unit/test_runtime_health.py
+      tests/unit/test_runtime_service.py tests/unit/test_run_logic.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_agent_task_semantic_orchestration_roundtrip.py
+      tests/integration/test_agent_task_triage_roundtrip.py
+      tests/integration/test_agent_task_triage_roundtrip_search_harness.py
+      tests/integration/test_agent_task_triage_roundtrip_search_harness_review.py
+      tests/integration/test_claim_support_judge_evaluation_roundtrip.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    acceptance_conditions:
+    - app/services/agent_task_worker.py remains a 77-line / 0-private-helper
+      public runtime facade while lease ownership stays in
+      app/services/agent_task_worker_leases.py at 223 lines, finalization stays
+      in app/services/agent_task_worker_finalization.py at 253 lines, and
+      processing stays in app/services/agent_task_worker_processing.py at 155
+      lines.
+    - Retry classification, failure-artifact persistence, promotable checkpoint
+      reuse, and runtime freshness remain covered by the split unit and
+      integration worker slices instead of regrowing the root.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: local-2026-05-19-runtime-verification-closeout
+    notes: >-
+      The agent-task runtime and verification boundary packet narrows
+      app/services/agent_task_worker.py to 77 lines, routes lease ownership to
+      app/services/agent_task_worker_leases.py at 223 lines, routes retry and
+      completion ownership to app/services/agent_task_worker_finalization.py at
+      253 lines, routes processing ownership to
+      app/services/agent_task_worker_processing.py at 155 lines, and splits the
+      worker unit coverage into 42-, 104-, 61-, and 462-line owner-local
+      surfaces.
+  measurement:
+    metric_name: agent_task_worker_runtime_root_line_count
+    current_value: 77.0
+    measurement_window: 2026-05-19 runtime and verification boundary closeout
+    notes: >-
+      The current local state keeps app/services/agent_task_worker.py at 77
+      lines / 0 private helpers, with app/services/agent_task_worker_leases.py
+      at 223 / 1, app/services/agent_task_worker_finalization.py at 253 / 2,
+      and app/services/agent_task_worker_processing.py at 155 / 0. The worker
+      unit slice now measures 42, 104, 61, and 462 lines and preserves the
+      public worker entrypoints across the runtime-health and agent-task test
+      families.
+  created_at: '2026-05-19T00:00:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
+- case_id: IC-86E1D4B72F0C
+  title: 'Architecture hotspot: app/services/agent_task_verifications.py'
+  status: deployed
+  cause_class: unclear_ownership
+  observed_failure: >-
+    app/services/agent_task_verifications.py previously mixed search-harness
+    release-gate verification, draft-harness comprehension checks, semantic
+    registry preview verification, and grounded-document verification in one
+    556-line service hotspot. The current checkout reduces the public root to a
+    111-line verification facade and routes the mixed ownership into focused
+    search-harness and semantic verification modules without changing the
+    public verification entrypoints or record contract.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:app/services/agent_task_verifications.py
+    notes: >-
+      Refreshed during the 2026-05-19 agent-task runtime and verification
+      boundary rebaseline from the live architecture quality report, wc -l
+      snapshot, and focused verification function review.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/agent_task_verifications.py
+    description: Agent-task verification facade and owner-family routing contract.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check app/services/agent_task_verifications.py
+      app/services/agent_task_verifications_*.py
+      tests/unit/test_agent_task_verifications.py
+      tests/unit/test_agent_task_verifications_*.py
+      tests/unit/test_agent_task_verifications_drafts.py
+    - uv run pytest -q tests/unit/test_agent_task_verifications.py
+      tests/unit/test_agent_task_verifications_*.py
+      tests/unit/test_agent_task_verifications_drafts.py
+      tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_action_lookup.py
+      tests/unit/test_agent_tasks.py tests/unit/test_agent_tasks_api.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_agent_task_semantic_orchestration_roundtrip.py
+      tests/integration/test_agent_task_triage_roundtrip.py
+      tests/integration/test_agent_task_triage_roundtrip_search_harness.py
+      tests/integration/test_agent_task_triage_roundtrip_search_harness_review.py
+      tests/integration/test_claim_support_judge_evaluation_roundtrip.py
+    - uv run docling-system-agent-task-action-index
+    - uv run docling-system-capability-contracts
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-quality-report --summary
+    acceptance_conditions:
+    - app/services/agent_task_verifications.py remains a 111-line / 0-private-helper
+      public verification facade while search-harness verification stays in
+      app/services/agent_task_verifications_search_harness.py at 369 lines / 4
+      private helpers and semantic verification stays in
+      app/services/agent_task_verifications_semantics.py at 188 lines / 0
+      private helpers.
+    - Verification record creation, draft-migration rejection, release-gate
+      evaluation, semantic preview checks, and grounded-document verification
+      remain covered by the split 16-, 9-, 528-, and 366-line verification
+      unit surfaces instead of regrowing the root.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: local-2026-05-19-runtime-verification-closeout
+    notes: >-
+      The agent-task runtime and verification boundary packet narrows
+      app/services/agent_task_verifications.py to 111 lines, routes
+      search-harness verification ownership to
+      app/services/agent_task_verifications_search_harness.py at 369 lines,
+      routes semantic verification ownership to
+      app/services/agent_task_verifications_semantics.py at 188 lines, and
+      splits the verification unit coverage into 16-, 9-, 528-, and 366-line
+      owner-local surfaces.
+  measurement:
+    metric_name: agent_task_verifications_root_line_count
+    current_value: 111.0
+    measurement_window: 2026-05-19 runtime and verification boundary closeout
+    notes: >-
+      The current local state keeps app/services/agent_task_verifications.py at
+      111 lines / 0 private helpers, with
+      app/services/agent_task_verifications_search_harness.py at 369 / 4 and
+      app/services/agent_task_verifications_semantics.py at 188 / 0. The
+      verification unit slice now measures 16, 9, 528, and 366 lines and keeps
+      the public verification entrypoints stable across action, API, and
+      orchestration consumers.
+  created_at: '2026-05-19T00:00:00Z'
+  updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-7D8AE7C83B8F
   title: 'Architecture hotspot: tests/unit/test_db_model_import_compatibility.py'
   status: deployed
