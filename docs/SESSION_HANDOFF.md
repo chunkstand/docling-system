@@ -52,8 +52,8 @@ Focused verification for the readiness chain:
   `violation_count=0`
 Current architecture control snapshot from the live 2026-05-20 checkout:
 `uv run docling-system-improvement-case-summary` reports
-`status_counts={"measured":1,"deployed":64}` with
-`open_unconverted_count=0` and `verified_undeployed_count=0`;
+`status_counts={"deployed":65}` with `open_unconverted_count=0`,
+`converted_unverified_count=0`, and `verified_undeployed_count=0`;
 `uv run docling-system-hygiene-check` reports `inherited budget debt: none`
 and `new hygiene regressions: none`;
 `uv run docling-system-hotspot-prevention-check --strict` reports `blocked=0`
@@ -262,12 +262,13 @@ transfer debt into `retrieval_learning.py`,
 passed at `62 passed`, the DB-backed integration slice passed at `4 passed`,
 `uv run docling-system-hotspot-prevention-check --strict` stayed at
 `blocked=0` with `exceptions=0`, hygiene still reports `inherited budget debt: none`
-and `new hygiene regressions: none`, the improvement-case summary now reads
+and `new hygiene regressions: none`, the improvement-case summary at that
+checkpoint read
 `status_counts={"measured":1,"deployed":64}`, and the live routed queue
 remains `top_routed_hotspot_paths=[]`, so future code-owning work again
 requires a fresh broader rebaseline rather than a queued follow-on.
 Post-Packet A/B alignment audit from the current 2026-05-19 checkout:
-`uv run docling-system-improvement-case-summary` now reports
+`uv run docling-system-improvement-case-summary` at that checkpoint reported
 `status_counts={"measured":1,"deployed":58,"open":2}`,
 `uv run docling-system-hygiene-check` still reports `new hygiene regressions: none`
 and `inherited budget debt: none`,
@@ -275,7 +276,8 @@ and `inherited budget debt: none`,
 `known_hotspots=42`, `changed_hotspots=0`, and `blocked=0`,
 `uv run docling-system-architecture-inspect` remains `valid=true` with
 `violation_count=0`, and
-`uv run docling-system-architecture-quality-report --summary` now reports
+`uv run docling-system-architecture-quality-report --summary` at that
+checkpoint reported
 `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
 `legibility_gap_count=0`, `hotspot_count=20`,
 `max_hotspot_risk_score=471.06`, and `top_routed_hotspot_paths=[]`, so the

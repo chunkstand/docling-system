@@ -126,7 +126,12 @@ consumer diff slice stayed empty so no debt was transferred into
 routers, CLI entrypoints, or integration support, and the live routed queue
 remains honestly empty again. Future code-owning work from this broader brief
 therefore requires another fresh broader rebaseline rather than a queued child
-packet.
+packet. The later 2026-05-20 hygiene-gate registry alignment sweep then
+deploys `IC-20260424-hygiene-gate`, advances the live summary to
+`status_counts={"deployed":65}`, keeps
+`max_hotspot_risk_score=466.06`, and leaves
+`top_routed_hotspot_paths=[]` so this coordination brief still points to a
+fresh broader rebaseline rather than a hidden queued packet.
 shared closeout docs of the live checkout.
 
 ## Purpose

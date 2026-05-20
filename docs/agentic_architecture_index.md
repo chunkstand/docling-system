@@ -57,6 +57,7 @@ chat history or scanning the whole repository.
 - `docs/documents_api_route_surface_boundary_milestone_plan.md`: resolved through the 2026-05-19 verified-to-deployed registry closeout after the broader-reselect follow-on for `IC-23F2C79C8AA7`. `tests/unit/test_documents_api.py` now closes at `154` lines, access coverage now lives in `tests/unit/test_documents_api_access.py` at `253`, run coverage now lives in `tests/unit/test_documents_api_runs.py` at `137`, latest-evaluation coverage now lives in `tests/unit/test_documents_api_evaluations.py` at `93`, the earlier artifact and semantic siblings remain at `286` and `394`, hotspot prevention now routes the reduced root as a deferred reduced facade, and the full document-route owner family is exact-ratcheted and durably deployed.
 - `docs/remaining_packet_queue_resolution_milestone_plan.md`: resolved through the 2026-05-19 Packet E queue-exhaustion closeout. Packets A through E are now resolved, the later runtime-and-verification broader rebaseline closeout also remains resolved, and the queue plan itself stays historically complete even though the current live routed owner surface is now `app/hotspot_prevention_classifier.py`.
 - `docs/queue_exhaustion_honesty_sweep_milestone_plan.md`: resolved through the 2026-05-19 Packet E closeout. The Packet E checkpoint landed at `status_counts={"measured":1,"deployed":60}`, `top_routed_hotspot_paths=[]`, `blocked=0`, `exceptions=0`, and `violation_count=0`; the later runtime, classifier, semantic, and retrieval-learning artifact broader-reselect follow-ons then advanced the live summary to `status_counts={"measured":1,"deployed":64}` while keeping `top_routed_hotspot_paths=[]` honest.
+- `docs/queue_exhaustion_honesty_sweep_milestone_plan.md`: resolved through the 2026-05-19 Packet E closeout. The Packet E checkpoint landed at `status_counts={"measured":1,"deployed":60}`, `top_routed_hotspot_paths=[]`, `blocked=0`, `exceptions=0`, and `violation_count=0`; the later runtime, classifier, semantic, and retrieval-learning artifact broader-reselect follow-ons advanced the then-live summary to `status_counts={"measured":1,"deployed":64}` while keeping `top_routed_hotspot_paths=[]` honest, and the later 2026-05-20 hygiene-gate registry alignment sweep moved the current live summary to `status_counts={"deployed":65}` without reopening the queue.
 - `docs/search_service_residual_ranking_split_milestone_plan.md`: resolved through the 2026-05-19 Packet D closeout. `tests/unit/test_search_service_ranking.py` now closes at `532` lines, `tests/unit/test_search_service_ranking_source_filename.py` now closes at `158`, the residual search-service root remains `117`, hotspot prevention now routes the reduced root as a deferred facade, and the strict hotspot-prevention, hygiene, and architecture gates stayed green through the later Packet E sweep that exhausted the queue.
 - `docs/agent_task_context_residual_successor_split_milestone_plan.md`: resolved through the 2026-05-19 Packet C closeout. `tests/unit/test_agent_task_context_reports_claim_support.py` now closes at `358` lines over a `294`-line family-local support module, `tests/unit/test_agent_task_context_semantic_graph_promotions.py` now closes at `236` lines over a `426`-line family-local support module, the residual compatibility root remains `328`, and the strict hotspot-prevention, hygiene, and architecture gates stayed green while Packet D became the next queued pass before the later Packet D closeout advanced the queue again.
 - `docs/stale_open_registry_closeout_milestone_plan.md`: resolved through the 2026-05-19 docs-only Packet A closeout. The stale `open` cases `IC-65AF4A6D8B1E`, `IC-FD18EE2D3309`, `IC-81C531769EB3`, `IC-9A0332D41F79`, `IC-33B4990DC366`, `IC-649D7B4E3AB5`, `IC-4B6E9F8D2A10`, `IC-81F2C6D4B9A7`, and `IC-2D5A7E9C4B18` are now deployed, the interim Packet A registry counts landed at `open=2`, `verified=9`, and `deployed=49`, the later Packet B closeout is now also complete, and Packet D `IC-25C1F7B9E4DA` was the next queued pass after Packet C closed before the later Packet D closeout completed the queue.
@@ -114,17 +115,19 @@ chat history or scanning the whole repository.
   architecture quality summary now reports
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
   `legibility_gap_count=0`, `hotspot_count=20`, and
-  `max_hotspot_risk_score=471.06`.
-- The later 2026-05-19 retrieval-learning artifact owner closeout advances the
-  live improvement-case summary to `status_counts={"measured":1,"deployed":64}`,
-  keeps hotspot prevention at `blocked=0` and `exceptions=0`, keeps hygiene at
-  `inherited budget debt: none` and `new hygiene regressions: none`, leaves
+  `max_hotspot_risk_score=466.06`.
+- The later 2026-05-19 retrieval-learning artifact owner closeout, plus the
+  2026-05-20 hygiene-gate registry alignment sweep, leave the live
+  improvement-case summary at `status_counts={"deployed":65}`, keep hotspot
+  prevention at `blocked=0` and `exceptions=0`, keep hygiene at
+  `inherited budget debt: none` and `new hygiene regressions: none`, leave
   the current live architecture-quality summary at
-  `stale_facade_hotspot_count=20` with `top_routed_hotspot_paths=[]`, confirms
+  `stale_facade_hotspot_count=20` with `top_routed_hotspot_paths=[]`, confirm
   the full `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` gate at
-  `2159 passed`, and records
-  `app/services/retrieval_learning_artifacts.py` as a compatibility-facade
-  trap without transferring debt into adjacent retrieval-learning consumers.
+  `2159 passed`, and keep
+  `app/services/retrieval_learning_artifacts.py` recorded as a
+  compatibility-facade trap without transferring debt into adjacent
+  retrieval-learning consumers.
 - The later 2026-05-20 readiness bootstrap slice remains docs/runtime state
   rather than a new routed architecture packet, but it is no longer queued
   follow-on debt: `docs/SESSION_HANDOFF.md` and

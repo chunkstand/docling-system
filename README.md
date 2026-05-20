@@ -29,15 +29,14 @@ Current repo-level signals:
 - `uv run docling-system-architecture-quality-report --summary` reports
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
   `hotspot_count=20`, `stale_facade_hotspot_count=20`,
-  `max_hotspot_risk_score=471.06`, and `top_routed_hotspot_paths=[]`.
+  `max_hotspot_risk_score=466.06`, and `top_routed_hotspot_paths=[]`.
 - `uv run docling-system-hygiene-check` is green when there are no new
   regressions and now reports `inherited budget debt: none`.
 - `uv run docling-system-hotspot-prevention-check --strict` passes on the
   current diff with `changed_hotspots=0`, `blocked=0`, and `exceptions=0`.
 - `uv run docling-system-improvement-case-summary` is now the explicit routing
   and closeout surface for architecture debt. The live summary now reports
-  `status_counts={"measured":1,"deployed":64}` with no actionable routed
-  backlog.
+  `status_counts={"deployed":65}` with no actionable routed backlog.
 - The canonical local release gate is `uv run docling-system-release-gate-parity`;
   the checked-in `Release Gate Parity` workflow runs that same command on pull
   requests and pushes to `main`, uploads
@@ -54,15 +53,15 @@ Current repo-level signals:
   harness-evaluation, and retrieval-learning lanes, and refuses empty,
   already-ready, or mixed advanced DB state.
 - Focused DB-backed verification for the two-step readiness chain passed at
-  `3 passed`; the regression step still surfaces one reviewed search-quality
-  miss while the court-grade step closes the six data-lane blockers.
+  `3 passed`; the court-grade step closes the six data-lane blockers and the
+  later replay-quality follow-on closes the prior reviewed search-quality miss.
 - The reviewed manual corpus now covers 5 documents, 10 table queries, 20
   chunk queries, 5 cross-document queries, and 5 answer queries.
 - The latest bootstrap replay coverage includes `evaluation_queries=7`,
-  `live_search_gaps=1`, and `cross_document_prose_regressions=2`, and it still
-  surfaces one reviewed search-quality miss:
-  `mesa restoration outlook distinct prose recall` currently ranks a table
-  result above the expected chunk.
+  `live_search_gaps=1`, and `cross_document_prose_regressions=2`; the
+  replay-quality follow-on refreshed the reviewed manual evaluation to `8 / 8`
+  and returned `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
+  to `observation_count=0`.
 
 ## What It Does
 
