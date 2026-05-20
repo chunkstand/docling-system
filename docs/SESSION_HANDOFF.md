@@ -51,7 +51,7 @@ owners, and the deployed owner cases are `IC-3F725D0A6C91` and
 `IC-86E1D4B72F0C`.
 Current full-suite closeout gate:
 `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` passed at
-`2143 passed`.
+`2149 passed`.
 Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
 Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
 Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`

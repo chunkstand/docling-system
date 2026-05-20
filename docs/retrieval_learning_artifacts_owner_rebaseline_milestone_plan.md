@@ -55,7 +55,9 @@ now-deployed semantic-registry packet as a separate closeout.
   at `blocked=0` with `exceptions=0`, `uv run docling-system-hygiene-check`
   with no inherited debt or regressions, and
   `uv run docling-system-improvement-case-summary` at
-  `status_counts={"measured":1,"deployed":64}`.
+  `status_counts={"measured":1,"deployed":64}`, plus the full
+  `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` gate at
+  `2149 passed`.
 - Debt-shift audit: `git diff --stat` over `app/services/retrieval_learning.py`,
   `app/services/retrieval_learning_candidates.py`,
   `app/services/capabilities/retrieval_learning_contract.py`,

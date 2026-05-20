@@ -96,14 +96,16 @@ chat history or scanning the whole repository.
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
   `legibility_gap_count=0`, `hotspot_count=20`, and
   `max_hotspot_risk_score=471.06`.
-- The later 2026-05-19 semantic-registry owner closeout advances the live
-  improvement-case summary to `status_counts={"measured":1,"deployed":63}`,
+- The later 2026-05-19 retrieval-learning artifact owner closeout advances the
+  live improvement-case summary to `status_counts={"measured":1,"deployed":64}`,
   keeps hotspot prevention at `blocked=0` and `exceptions=0`, keeps hygiene at
   `inherited budget debt: none` and `new hygiene regressions: none`, leaves
   the current live architecture-quality summary at
-  `stale_facade_hotspot_count=20` with `top_routed_hotspot_paths=[]`, and
-  records `app/services/semantic_registry.py` as a compatibility-facade trap
-  without transferring debt into adjacent semantic owners.
+  `stale_facade_hotspot_count=20` with `top_routed_hotspot_paths=[]`, confirms
+  the full `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` gate at
+  `2149 passed`, and records
+  `app/services/retrieval_learning_artifacts.py` as a compatibility-facade
+  trap without transferring debt into adjacent retrieval-learning consumers.
 - The later 2026-05-19 registry-alignment sweep deploys the stale reduced-root
   cases left behind by earlier resolved packets: the agent-task residual
   quartet `IC-4098E8370B88`, `IC-5D14C2A0B6F7`, `IC-2E0A91B39C5D`, and

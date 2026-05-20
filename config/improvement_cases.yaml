@@ -2787,7 +2787,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "retrieval-learning-artifact-owner-closeout-2026-05-19"
+    deployed_ref: "40fff07"
     notes: >-
       Deployed locally in the 2026-05-19 retrieval-learning artifact owner
       closeout. app/services/retrieval_learning_artifacts.py is now a
@@ -2805,7 +2805,9 @@ cases:
       retrieval-learning consumer diff slice stayed empty so the split did not
       transfer debt into retrieval_learning.py, retrieval_learning_candidates.py,
       search.py, search_learning.py, the CLI entrypoints, or integration
-      support modules.
+      support modules. The later closeout audit then confirmed the full
+      DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs suite at
+      2149 passed without reopening the owner family.
   measurement:
     metric_name: retrieval_learning_artifact_owner_line_count
     current_value: 129.0
