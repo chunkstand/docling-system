@@ -4,7 +4,8 @@ Date: 2026-05-20 local / 2026-05-20 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest evaluation-data readiness implementation in the 2026-05-20 working tree:
+Latest evaluation-data readiness implementation in the current 2026-05-20
+local checkout:
 `uv run docling-system-bootstrap-regression-readiness` remains the strict
 empty-DB baseline. It copies
 `docs/evaluation_corpus.auto.bootstrap.yaml` into
@@ -75,7 +76,10 @@ focused contracts, weights, impacts, governance, lifecycle, and views owners
 at `20 / 0`, `181 / 4`, `228 / 2`, `59 / 0`, `232 / 0`, and `122 / 0`;
 hotspot prevention now routes both roots as compatibility-facade traps, and
 `IC-0E4F1B9A2D73` plus `IC-5F4E8C2B1A90` are recorded as the current deployed
-owner cases. A debt-shift
+owner cases. The later docs-only registry alignment sweep also deploys
+`IC-20260424-hygiene-gate`, so the live improvement-case registry is fully
+closed at `status_counts={"deployed":65}` without reopening the routed queue
+or introducing a new governed hotspot. A debt-shift
 audit over the adjacent semantic owners and focused semantic test roots stayed
 empty after the split, so no semantic-registry logic was pushed into preview,
 ontology, candidate, graph, generation, or semantic-pass owners. The latest
@@ -314,8 +318,8 @@ governance gates green with `blocked=0`, `exceptions=0`, and
 `status_counts={"measured":1,"deployed":60}`.
 The later 2026-05-19 Packet E closeout now resolves
 `docs/remaining_packet_queue_resolution_milestone_plan.md` through
-`docs/queue_exhaustion_honesty_sweep_milestone_plan.md`: the live improvement
-case summary still reads `status_counts={"measured":1,"deployed":60}` with
+`docs/queue_exhaustion_honesty_sweep_milestone_plan.md`: the improvement case
+summary at that checkpoint still read `status_counts={"measured":1,"deployed":60}` with
 `open_unconverted_count=0` and `verified_undeployed_count=0`, hotspot
 prevention stays at `blocked=0` and `exceptions=0`, hygiene still reports no
 regressions or inherited debt, architecture inspection remains
