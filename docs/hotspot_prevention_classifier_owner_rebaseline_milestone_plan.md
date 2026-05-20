@@ -1,14 +1,16 @@
 # Hotspot Prevention Classifier Owner Rebaseline Milestone Plan
 
 Date: 2026-05-19 local / 2026-05-19 UTC
-Status: Milestone 0 resolved locally on 2026-05-19 through the standalone
-packet bootstrap and coordination-doc reroute. Milestones 1 through 3 remain
-pending.
+Status: resolved locally on 2026-05-19. Milestone 0 bootstrapped the packet
+and coordination-doc reroute; Milestones 1 through 3 then closed through the
+classifier-family control-plane refresh, self-hosting guard extraction, exact
+ratchet refresh, routed-queue reroute, and durable closeout.
 Owner context: fresh broader-reselect packet after
 `docs/agent_task_runtime_and_verification_boundary_milestone_plan.md`
-resolved the worker and verification follow-on. The routed queue is active
-again, and the current live architecture-quality summary now selects
-`app/hotspot_prevention_classifier.py` as the honest next owner surface.
+resolved the worker and verification follow-on. The packet began when the
+routed queue reselected `app/hotspot_prevention_classifier.py`; it now closes
+with the dispatcher routed as a deferred reduced facade and the live
+`top_routed_hotspot_paths` queue empty again.
 
 ## Purpose
 
@@ -156,6 +158,69 @@ Milestone 0 does not resolve the classifier-family code debt. It resolves the
 mechanical debt of having an active routed owner with no active child packet
 and no explicit rebaseline for whether the true next split belongs in the root
 dispatcher, the shared support sink, or a narrower rule cluster.
+
+## Milestones 1-3 Closeout Summary
+
+The later closeout proves the root dispatcher was already the correct reduced
+shape and that the remaining live problem was control-plane drift, not another
+hidden mixed monolith:
+
+- `app/hotspot_prevention_classifier.py` remains a `360` line / `1`
+  private-helper dispatcher, while new self-hosting guard logic now lives in
+  `app/hotspot_prevention_classifier_owner_rules.py` at `58` lines / `0`
+  private helpers instead of regrowing the dispatcher or the older
+  boundary-rule owner
+- `config/hotspot_prevention.yaml` now routes
+  `app/hotspot_prevention_classifier.py` as a `deferred_reduced_facade`
+  toward `app/hotspot_prevention_classifier_owner_rules.py`,
+  `app/hotspot_prevention_classifier_support.py`,
+  `app/hotspot_prevention_classifier_service_rules.py`,
+  `app/hotspot_prevention_classifier_boundary_rules.py`,
+  `app/hotspot_prevention_classifier_schema_facades.py`,
+  `app/hotspot_prevention_classifier_agent_task_runtime_rules.py`, and
+  `app/hotspot_prevention_claim_support_rules.py`
+- the family now carries refreshed exact ratchets at `360 / 1`, `58 / 0`,
+  `486 / 1`, `384 / 0`, `177 / 0`, `204 / 6`, `125 / 0`, and `436 / 1`
+  across the dispatcher, owner-rules, support, service-rule, boundary-rule,
+  schema-facade, runtime-rule, and claim-support modules
+- focused hotspot-prevention coverage now proves the dispatcher allows owner
+  registration wiring while blocking new dispatcher helpers, and that the
+  shared support owner blocks new helper-sink growth
+- the regenerated live architecture-quality summary now reports
+  `top_routed_hotspot_paths=[]`, so the classifier root is no longer the
+  active routed owner even though it remains in `routing_trap_paths` as a
+  measured deferred reduced facade
+
+Final closeout snapshot from the live checkout:
+
+```text
+uv run pytest -q tests/unit/test_hotspot_prevention.py \
+  tests/unit/test_hotspot_prevention_policy_contracts.py \
+  tests/unit/test_hotspot_prevention_family_rules.py \
+  tests/unit/test_hotspot_prevention_wrapper_rules.py
+  43 passed
+
+uv run docling-system-hotspot-prevention-check --strict
+  known_hotspots=50
+  changed_hotspots=1
+  blocked=0
+  allowed=4
+
+uv run docling-system-hygiene-check
+  inherited budget debt: none
+  new hygiene regressions: none
+
+uv run docling-system-improvement-case-summary
+  status_counts={"measured":1,"deployed":62}
+
+uv run docling-system-architecture-quality-report --summary
+  stale_facade_hotspot_count=20
+  top_routed_hotspot_paths=[]
+
+python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20
+  app/hotspot_prevention_classifier.py remains measured at 360 lines / score 7200
+  Python cycles: none detected
+```
 
 ## Goal
 
@@ -380,14 +445,14 @@ Milestone 3 is complete only if:
 ## Required Verification Gates
 
 - `git diff --check`
-- `uv run ruff check app/hotspot_prevention_classifier.py app/hotspot_prevention_classifier_support.py app/hotspot_prevention_classifier_service_rules.py app/hotspot_prevention_classifier_boundary_rules.py app/hotspot_prevention_classifier_schema_facades.py app/hotspot_prevention_classifier_agent_task_runtime_rules.py app/hotspot_prevention_claim_support_rules.py tests/unit/test_hotspot_prevention.py tests/unit/test_hotspot_prevention_policy_contracts.py tests/unit/test_hotspot_prevention_family_rules.py tests/unit/test_hotspot_prevention_wrapper_rules.py tests/unit/hotspot_prevention_test_support.py`
+- `uv run ruff check app/hotspot_prevention_classifier.py app/hotspot_prevention_classifier_owner_rules.py app/hotspot_prevention_classifier_support.py app/hotspot_prevention_classifier_service_rules.py app/hotspot_prevention_classifier_boundary_rules.py app/hotspot_prevention_classifier_schema_facades.py app/hotspot_prevention_classifier_agent_task_runtime_rules.py app/hotspot_prevention_claim_support_rules.py tests/unit/test_hotspot_prevention.py tests/unit/test_hotspot_prevention_policy_contracts.py tests/unit/test_hotspot_prevention_family_rules.py tests/unit/test_hotspot_prevention_wrapper_rules.py tests/unit/hotspot_prevention_test_support.py`
 - `uv run pytest -q tests/unit/test_hotspot_prevention.py tests/unit/test_hotspot_prevention_policy_contracts.py tests/unit/test_hotspot_prevention_family_rules.py tests/unit/test_hotspot_prevention_wrapper_rules.py`
 - `uv run docling-system-hotspot-prevention-check --strict`
 - `uv run docling-system-hygiene-check`
 - `uv run docling-system-improvement-case-summary`
 - `uv run docling-system-improvement-case-validate`
 - `uv run docling-system-architecture-quality-report --summary`
-- `uv run docling-system-architecture-quality-report`
+- `uv run docling-system-architecture-quality-report --output-path build/architecture-governance/architecture_quality_report.json`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`
 - targeted `rg` review proving the same routed-packet truth appears in this
   plan, the handoff, the architecture index, and the broader coordination

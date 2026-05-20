@@ -4,19 +4,21 @@ Docling-based PDF ingestion, retrieval, and auditable document-generation system
 
 ## Current State Snapshot
 
-As of the 2026-05-14 local / 2026-05-15 UTC CI release-gate parity Milestone 4
+As of the 2026-05-19 local / 2026-05-19 UTC classifier-owner rebaseline
 closeout, local `main` contains the repo-owned release gate runner, the
-checked-in `Release Gate Parity` workflow, and the runtime-health contract they
-share. Recent architecture work closed runtime-health orchestration, CI release
-gate parity, the search execution boundary series, claim-support policy
-impacts, the evaluations service boundary, evidence provenance export,
-semantics service boundary, CLI dispatch, agent-task schema aggregation, the
-architecture-governance cycle, and the oversized-test packet. Remaining
-architecture debt is now routed through owner-scoped improvement cases and
-inherited ratcheted hotspot ceilings rather than another open repo-wide
-milestone. The next drafted follow-on is
-`docs/boring_change_architecture_milestone_plan.md`, which must begin with a
-fresh Milestone 0 rebaseline before new implementation starts.
+checked-in `Release Gate Parity` workflow, the runtime-health contract they
+share, and the exhausted routed architecture queue. Recent architecture work
+closed runtime-health orchestration, CI release gate parity, the search
+execution boundary series, claim-support policy impacts, the evaluations
+service boundary, evidence provenance export, semantics service boundary, CLI
+dispatch, agent-task schema aggregation, the architecture-governance cycle, the
+oversized-test packet, the routed queue-alignment packets, the final
+queue-exhaustion sweep, the agent-task runtime-and-verification broader
+rebaseline, and the hotspot-prevention classifier-owner control-plane refresh.
+There is no queued Packet F or active routed child follow-on: future
+architecture work must start from a fresh broader Milestone 0 rebaseline from
+`docs/boring_change_architecture_milestone_plan.md` rather than from a stale
+routed packet.
 
 Current repo-level signals:
 
@@ -26,16 +28,16 @@ Current repo-level signals:
   and `function_count=111`.
 - `uv run docling-system-architecture-quality-report --summary` reports
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
-  `hotspot_count=10`, and `max_hotspot_risk_score=501.06`.
+  `hotspot_count=20`, `stale_facade_hotspot_count=20`,
+  `max_hotspot_risk_score=471.06`, and `top_routed_hotspot_paths=[]`.
 - `uv run docling-system-hygiene-check` is green when there are no new
-  regressions. It still reports inherited file/helper budget debt in routed
-  owner families such as search, evidence, semantics, claim-support support,
-  architecture governance, and the hotspot-prevention classifier.
+  regressions and now reports `inherited budget debt: none`.
 - `uv run docling-system-hotspot-prevention-check --strict` passes on the
-  current diff with `changed_hotspots=0` and `blocked=0`.
+  current diff with `changed_hotspots=0`, `blocked=0`, and `exceptions=0`.
 - `uv run docling-system-improvement-case-summary` is now the explicit routing
-  surface for the remaining owner-scoped backlog rather than an open repo-wide
-  milestone packet.
+  and closeout surface for architecture debt. The live summary now reports
+  `status_counts={"measured":1,"deployed":62}` with no actionable routed
+  backlog.
 - The canonical local release gate is `uv run docling-system-release-gate-parity`;
   the checked-in `Release Gate Parity` workflow runs that same command on pull
   requests and pushes to `main`, uploads

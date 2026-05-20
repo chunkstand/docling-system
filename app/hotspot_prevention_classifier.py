@@ -5,6 +5,7 @@ from typing import Any
 
 import app.hotspot_prevention_classifier_agent_task_runtime_rules as _agent_task_runtime_rules
 import app.hotspot_prevention_classifier_boundary_rules as _boundary_rules
+import app.hotspot_prevention_classifier_owner_rules as _owner_rules
 import app.hotspot_prevention_classifier_schema_facades as _schema_facades
 import app.hotspot_prevention_classifier_service_rules as _service_rules
 from app.hotspot_prevention_claim_support_rules import (
@@ -306,10 +307,7 @@ def classify_hotspot_implementation(
     if path in RESIDUAL_TEST_COMPATIBILITY_PATHS:
         return _boundary_rules.classify_residual_test_addition(stripped=stripped, line=line)
     if path in LOCAL_TEST_SUPPORT_PATHS:
-        return _boundary_rules.classify_local_test_support_addition(
-            stripped=stripped,
-            line=line,
-        )
+        return _boundary_rules.classify_local_test_support_addition(stripped=stripped, line=line)
     if path == "app/api/routers/agent_tasks.py":
         return _boundary_rules.classify_agent_task_router_addition(
             stripped=stripped,
@@ -354,6 +352,8 @@ def classify_hotspot_implementation(
             classify_claim_support_replay_alert_fixture_corpus_addition
         ),
         "app/services/evaluations.py": _service_rules.classify_evaluations_addition,
+        "app/hotspot_prevention_classifier.py": lambda *, stripped, line: _owner_rules.classify_hotspot_prevention_classifier_addition(stripped=stripped, line=line, rule=rule),  # noqa: E501
+        "app/hotspot_prevention_classifier_support.py": lambda *, stripped, line: _owner_rules.classify_hotspot_prevention_classifier_support_addition(stripped=stripped, line=line, rule=rule),  # noqa: E501
         "tests/unit/test_cli.py": _boundary_rules.classify_cli_test_addition,
     }
     classifier = classifiers.get(path)

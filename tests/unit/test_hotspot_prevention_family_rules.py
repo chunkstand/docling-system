@@ -48,6 +48,44 @@ def test_support_hotspot_blocks_new_helper_sink_growth() -> None:
     assert report["findings"][0]["category"] == "broad_helper"
 
 
+def test_classifier_dispatcher_hotspot_routes_entries_and_blocks_new_helpers() -> None:
+    route_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/hotspot_prevention_classifier.py",
+            ['"app/services/new_surface.py": _service_rules.classify_search_addition,'],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+    helper_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/hotspot_prevention_classifier.py",
+            ["def _classify_new_surface():", "    return None"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert route_report["summary"]["blocked_count"] == 0
+    assert route_report["findings"][0]["category"] == "registry_composition"
+    assert helper_report["summary"]["blocked_count"] == 1
+    assert helper_report["findings"][0]["category"] == "dispatcher_helper"
+
+
+def test_classifier_support_hotspot_blocks_new_helper_growth() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/hotspot_prevention_classifier_support.py",
+            ["def classify_unrelated_surface():", "    return None"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 1
+    assert report["findings"][0]["category"] == "broad_helper"
+
+
 def test_search_hotspot_blocks_persistence_and_operator_trace_growth() -> None:
     persistence_report = build_hotspot_prevention_report(
         _diff_for(

@@ -16,12 +16,15 @@ and `exceptions=0`;
 `violation_count=0`;
 `uv run docling-system-architecture-quality-report --summary` reports
 `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
-`hotspot_count=20`, `stale_facade_hotspot_count=19`,
-`max_hotspot_risk_score=471.06`, and
-`top_routed_hotspot_paths=["app/hotspot_prevention_classifier.py"]`;
-the routed queue is no longer empty: the current honest next owner surface is
-`app/hotspot_prevention_classifier.py`, and the fresh standalone child brief is
-`docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md`.
+`hotspot_count=20`, `stale_facade_hotspot_count=20`,
+`max_hotspot_risk_score=471.06`, and `top_routed_hotspot_paths=[]`;
+the routed queue is empty again. The latest resolved closeout now routes
+`app/hotspot_prevention_classifier.py` as a deferred reduced facade through
+`docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md`, whose
+control-plane refresh adds `app/hotspot_prevention_classifier_owner_rules.py`
+at `58` lines and exact-ratchets the classifier-family owners at
+`360 / 1`, `58 / 0`, `486 / 1`, `384 / 0`, `177 / 0`, `204 / 6`, `125 / 0`,
+and `436 / 1`.
 Latest broader-reselect closeout from that rebaseline:
 `docs/agent_task_runtime_and_verification_boundary_milestone_plan.md`
 now resolves the remaining worker and verification runtime debt while
@@ -33,7 +36,7 @@ owners, and the deployed owner cases are `IC-3F725D0A6C91` and
 `IC-86E1D4B72F0C`.
 Current full-suite closeout gate:
 `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` passed at
-`2140 passed`.
+`2143 passed`.
 Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
 Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
 Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`
@@ -161,26 +164,24 @@ above `800` with `0` Python cycle components, the improvement-case summary now
 reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
+Latest verified bounded implementation brief:
+none; the live routed queue is empty again and the next code-owning packet
+requires a fresh broader Milestone 0 rebaseline
 Latest resolved bounded implementation brief:
-`docs/agent_task_runtime_and_verification_boundary_milestone_plan.md`
+`docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md`
 Next routed bounded implementation brief:
-`docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md`
+none; the live `top_routed_hotspot_paths` queue is empty again, so the next
+code-owning packet requires a fresh broader rebaseline
 Queued standalone follow-on:
-`docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md`
+none; future code-owning work now begins from the broader rebaseline step
 Previous resolved bounded implementation brief:
-`docs/queue_exhaustion_honesty_sweep_milestone_plan.md`
-The later 2026-05-19 agent-task runtime and verification boundary closeout now
-deploys `IC-3F725D0A6C91` and `IC-86E1D4B72F0C`: the worker root remains at
-`77` lines with owner-local successors at `223`, `253`, and `155`, the
-verification root remains at `111` lines with owner-local successors at `369`
-and `188`, the focused integration slice passed at `13 passed`, the full
-DB-backed suite passed at `2140 passed`, the architecture probe still reports
-no Python cycles, and the live registry now reads
-`status_counts={"measured":1,"deployed":62}`. The current live
-architecture-quality summary now routes
-`app/hotspot_prevention_classifier.py` as the next honest owner surface, so
-the routed queue is no longer empty and now has the standalone child brief
-`docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md`.
+`docs/agent_task_runtime_and_verification_boundary_milestone_plan.md`
+The later 2026-05-19 classifier-owner rebaseline closeout now keeps the
+dispatcher at `360` lines with a focused `58`-line self-hosting guard owner in
+`app/hotspot_prevention_classifier_owner_rules.py`, routes the dispatcher as a
+deferred reduced facade in `config/hotspot_prevention.yaml`, exact-ratchets the
+focused classifier-family siblings, and regenerates the live routed queue back
+to `top_routed_hotspot_paths=[]` without reopening a narrower follow-on packet.
 Post-Packet A/B alignment audit from the current 2026-05-19 checkout:
 `uv run docling-system-improvement-case-summary` now reports
 `status_counts={"measured":1,"deployed":58,"open":2}`,

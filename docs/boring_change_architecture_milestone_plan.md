@@ -93,15 +93,17 @@ broader brief now requires a fresh broader rebaseline rather than another
 queued packet. The later 2026-05-19
 `docs/agent_task_runtime_and_verification_boundary_milestone_plan.md`
 closeout then resolves that first broader rebaseline packet, deploys
-`IC-3F725D0A6C91` and `IC-86E1D4B72F0C`, advances the live improvement-case
-summary to `status_counts={"measured":1,"deployed":62}`. The current live
-architecture-quality summary now routes
-`app/hotspot_prevention_classifier.py`, so this broader coordination brief is
-again the honest parent surface for the next bounded child packet rather than
-an empty queue. The fresh child brief is now
-`docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md`, whose
-Milestone 0 closes the "queue active but no packet exists" mechanical gap
-before the next classifier-family code split begins.
+`IC-3F725D0A6C91` and `IC-86E1D4B72F0C`, and advances the live improvement-case
+summary to `status_counts={"measured":1,"deployed":62}`. The later
+`docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md`
+closeout then resolves the next broader-reselect follow-on without forcing a
+fake classifier split: `app/hotspot_prevention_classifier.py` stays at
+`360 / 1`, the new self-hosting guard owner lives in
+`app/hotspot_prevention_classifier_owner_rules.py` at `58 / 0`, the focused
+classifier-family siblings are exact-ratcheted, and the live architecture-quality
+summary returns to `top_routed_hotspot_paths=[]`. This broader coordination
+brief is therefore back at the "fresh broader rebaseline before the next
+packet" state rather than carrying an active routed classifier child packet.
 
 ## Purpose
 

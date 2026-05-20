@@ -161,8 +161,11 @@ Later live-state alignment shows that this packet remains resolved, but the
 broader rebaseline did not stay queue-empty: the current
 `uv run docling-system-architecture-quality-report --summary` output now
 reports `top_routed_hotspot_paths=["app/hotspot_prevention_classifier.py"]`.
-No fresh standalone child brief has been drafted for that reopened routed owner
-surface yet.
+The later child brief
+`docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md` now
+closes that reopened routed owner surface and returns the live queue to
+`top_routed_hotspot_paths=[]` by routing the classifier root as a deferred
+reduced facade instead of leaving it active.
 
 ## Verification Snapshot
 

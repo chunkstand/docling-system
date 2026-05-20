@@ -243,32 +243,42 @@ cases:
   cause_class: unclear_ownership
   observed_failure: The hotspot-prevention family packet now reduces
     app/hotspot_prevention_classifier.py to 360 lines while keeping the
-    broader rule family distributed across app/hotspot_prevention_claim_support_rules.py
-    at 436 lines, app/hotspot_prevention_classifier_service_rules.py at 384
-    lines, app/hotspot_prevention_classifier_boundary_rules.py at 209 lines,
-    and app/hotspot_prevention_classifier_support.py at 571 lines. The
-    companion hotspot-prevention tests now also close locally at 343, 317,
-    318, 296, and 50 lines, so the full family is locally verified rather
-    than still waiting on the companion-test sink.
+    broader rule family distributed across
+    app/hotspot_prevention_classifier_owner_rules.py at 58 lines,
+    app/hotspot_prevention_claim_support_rules.py at 436 lines,
+    app/hotspot_prevention_classifier_service_rules.py at 384 lines,
+    app/hotspot_prevention_classifier_boundary_rules.py at 177 lines,
+    app/hotspot_prevention_classifier_schema_facades.py at 204 lines,
+    app/hotspot_prevention_classifier_agent_task_runtime_rules.py at 125
+    lines, and app/hotspot_prevention_classifier_support.py at 486 lines.
+    The current follow-on closes the remaining control-plane drift by routing
+    the dispatcher as a deferred reduced facade and exact-ratcheting the
+    focused classifier-family siblings.
   source:
     source_type: hygiene_finding
     source_ref: hygiene:file-budget:app/hotspot_prevention_classifier.py
     notes: Refreshed during Milestone 3 of
       docs/hotspot_prevention_family_boundary_milestone_plan.md after the
       classifier split reduced the root to 360 lines / 1 private helper,
-      kept the support siblings at 571 / 1, 436 / 1, 384 / 0, and 209 / 0,
-      and left the full family below the architecture-probe 800-line
-      threshold.
+      and refreshed during
+      docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md
+      after the routed queue omission was closed through explicit root
+      routing, focused dispatcher/support guard coverage, and tighter exact
+      ratchets at 360 / 1, 58 / 0, 486 / 1, 436 / 1, 384 / 0, 177 / 0,
+      204 / 6, and 125 / 0.
   artifact:
     artifact_type: contract
     target_path: app/hotspot_prevention_classifier.py
-    description: Ready-to-close hotspot-prevention classifier owner packet.
+    description: Deployed hotspot-prevention classifier family control plane.
   verification:
     commands:
     - git diff --check
     - uv run ruff check app/hotspot_prevention_classifier.py
+      app/hotspot_prevention_classifier_owner_rules.py
       app/hotspot_prevention_classifier_service_rules.py
       app/hotspot_prevention_classifier_boundary_rules.py
+      app/hotspot_prevention_classifier_schema_facades.py
+      app/hotspot_prevention_classifier_agent_task_runtime_rules.py
       app/hotspot_prevention_claim_support_rules.py
       app/hotspot_prevention_classifier_support.py
       tests/unit/test_hotspot_prevention.py
@@ -282,21 +292,27 @@ cases:
       tests/unit/test_hotspot_prevention_wrapper_rules.py
     - uv run docling-system-hotspot-prevention-check --strict
     - uv run docling-system-hygiene-check
+    - uv run docling-system-improvement-case-summary
     - uv run docling-system-improvement-case-validate
     - uv run docling-system-architecture-quality-report --summary
+    - uv run docling-system-architecture-quality-report --output-path build/architecture-governance/architecture_quality_report.json
     - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
       --format markdown --top 20
     acceptance_conditions:
+    - app/hotspot_prevention_classifier_owner_rules.py remains the focused
+      self-hosting guard surface for dispatcher and support growth.
     - app/hotspot_prevention_classifier.py remains a 360-line / 1-private-helper
-      dispatcher with no regrowth above its exact closeout ratchet.
+      dispatcher with routed follow-on ownership recorded in
+      config/hotspot_prevention.yaml.
     - app/hotspot_prevention_classifier_support.py,
       app/hotspot_prevention_claim_support_rules.py,
       app/hotspot_prevention_classifier_service_rules.py, and
       app/hotspot_prevention_classifier_boundary_rules.py remain governed at
-      or below their same-milestone exact ratchets.
+      or below their tighter same-milestone exact ratchets, and the schema
+      facade plus runtime rule siblings now also carry explicit exact ratchets.
     - Hotspot prevention fixture coverage remains green for registry
-      composition, policy contracts, wrapper allowances, and strict blocking
-      behavior.
+      composition, policy contracts, wrapper allowances, strict blocking
+      behavior, and classifier-family self-hosting guards.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
@@ -312,42 +328,59 @@ cases:
       app/hotspot_prevention_claim_support_rules.py at 436 / 1, source-family
       routes now live in app/hotspot_prevention_classifier_service_rules.py
       at 384 / 0, boundary and wrapper routes now live in
-      app/hotspot_prevention_classifier_boundary_rules.py at 209 / 0, and the
-      shared support helpers remain in app/hotspot_prevention_classifier_support.py
-      at 571 / 1. The 2026-05-18 companion-test closeout now verifies the full
-      family locally with tests/unit/test_hotspot_prevention.py at 343 / 0,
-      tests/unit/test_hotspot_prevention_policy_contracts.py at 317 / 0,
-      tests/unit/test_hotspot_prevention_family_rules.py at 318 / 0,
+      app/hotspot_prevention_classifier_boundary_rules.py at 177 / 0, schema
+      facade routes now live in
+      app/hotspot_prevention_classifier_schema_facades.py at 204 / 6, runtime
+      routes now live in
+      app/hotspot_prevention_classifier_agent_task_runtime_rules.py at 125 / 0,
+      dispatcher self-hosting guard rules now live in
+      app/hotspot_prevention_classifier_owner_rules.py at 58 / 0,
+      and the shared support helpers remain in
+      app/hotspot_prevention_classifier_support.py at 486 / 1. The later
+      classifier-owner rebaseline then routes the dispatcher as a deferred
+      reduced facade in config/hotspot_prevention.yaml, exact-ratchets the
+      classifier-family siblings to the current live sizes, and keeps the root
+      off the active routed queue without forcing an artificial follow-on
+      split. The 2026-05-18 companion-test closeout now verifies the full
+      family locally with tests/unit/test_hotspot_prevention.py at 341 / 0,
+      tests/unit/test_hotspot_prevention_policy_contracts.py at 376 / 0,
+      tests/unit/test_hotspot_prevention_family_rules.py at 356 / 0,
       tests/unit/test_hotspot_prevention_wrapper_rules.py at 296 / 0, and
       tests/unit/hotspot_prevention_test_support.py at 50 / 2.
   measurement:
     metric_name: hotspot_prevention_classifier_line_count
     current_value: 360.0
-    measurement_window: 2026-05-16 local hotspot-prevention packet closeout
+    measurement_window: 2026-05-19 classifier-owner rebaseline closeout
     notes: The current local state keeps the primary classifier at
       360 lines / 1 private helper, routes source-family rules through
       app/hotspot_prevention_classifier_service_rules.py at 384 / 0,
       routes boundary or wrapper rules through
-      app/hotspot_prevention_classifier_boundary_rules.py at 209 / 0,
+      app/hotspot_prevention_classifier_boundary_rules.py at 177 / 0,
+      routes schema-facade logic through
+      app/hotspot_prevention_classifier_schema_facades.py at 204 / 6,
+      routes runtime logic through
+      app/hotspot_prevention_classifier_agent_task_runtime_rules.py at 125 / 0,
+      keeps dispatcher self-hosting guards in
+      app/hotspot_prevention_classifier_owner_rules.py at 58 / 0,
       keeps claim-support routes in
       app/hotspot_prevention_claim_support_rules.py at 436 / 1,
-      and keeps shared support helpers in
-      app/hotspot_prevention_classifier_support.py at 571 / 1.
-      `uv run pytest -q tests/unit/test_hotspot_prevention.py
-      tests/unit/test_hotspot_prevention_policy_contracts.py
-      tests/unit/test_hotspot_prevention_family_rules.py
-      tests/unit/test_hotspot_prevention_wrapper_rules.py`
-      passes at 41 passed, and the full family is locally verified.
+      keeps shared support helpers in
+      app/hotspot_prevention_classifier_support.py at 486 / 1, and routes the
+      root dispatcher off the active queue through config/hotspot_prevention.yaml.
+      The focused hotspot-prevention slice remains locally verified.
   created_at: '2026-05-13T00:00:00+00:00'
-  updated_at: '2026-05-19T04:02:22Z'
+  updated_at: '2026-05-19T23:44:37Z'
 - case_id: IC-15F6E41A9C77
   title: 'Architecture hotspot: tests/unit/test_hotspot_prevention.py'
   status: deployed
   cause_class: unclear_ownership
-  observed_failure: tests/unit/test_hotspot_prevention.py now measures 343
-    lines and remains the analyzer-behavior residual surface over focused
+  observed_failure: tests/unit/test_hotspot_prevention.py had regrown to 343
+    lines and became the analyzer-behavior residual surface over focused
     policy-contract, blocked-family, wrapper-allowance, and shared-support
-    hotspot-prevention siblings at 317, 318, 296, and 50 lines.
+    hotspot-prevention siblings. The latest classifier-owner rebaseline keeps
+    the smoke root narrow at 341 lines while adding the dispatcher and support
+    self-hosting guard coverage in the focused siblings at 376, 356, 296, and
+    50 lines.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:tests/unit/test_hotspot_prevention.py
@@ -358,7 +391,11 @@ cases:
       owner contract. Refreshed during the 2026-05-18 companion-test closeout
       after the routed queue reselected this packet because the root test had
       regrown above its prior 595-line exact ratchet while the focused sibling
-      test owners remained below the default 600-line budget.
+      test owners remained below the default 600-line budget, and refreshed
+      again during docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md
+      after the focused family-rules and policy-contract suites absorbed the
+      classifier self-hosting guard assertions without regrowing the smoke
+      root.
   artifact:
     artifact_type: test
     target_path: tests/unit/test_hotspot_prevention.py
@@ -367,8 +404,11 @@ cases:
     commands:
     - git diff --check
     - uv run ruff check app/hotspot_prevention_classifier.py
+      app/hotspot_prevention_classifier_owner_rules.py
       app/hotspot_prevention_classifier_service_rules.py
       app/hotspot_prevention_classifier_boundary_rules.py
+      app/hotspot_prevention_classifier_schema_facades.py
+      app/hotspot_prevention_classifier_agent_task_runtime_rules.py
       app/hotspot_prevention_claim_support_rules.py
       app/hotspot_prevention_classifier_support.py
       tests/unit/test_hotspot_prevention.py
@@ -409,24 +449,29 @@ cases:
       the current active bounded follow-on, and closeout commit 463d3fc now
       records the 2026-05-18 companion-test packet as deployed locally
       instead of leaving the re-growth state open. The root analyzer file is
-      now 343 / 0, the policy
+      now 341 / 0, the policy
       and report contract coverage now lives in
-      tests/unit/test_hotspot_prevention_policy_contracts.py at 317 / 0, the
+      tests/unit/test_hotspot_prevention_policy_contracts.py at 376 / 0, the
       blocked-family coverage remains in
-      tests/unit/test_hotspot_prevention_family_rules.py at 318 / 0, the
+      tests/unit/test_hotspot_prevention_family_rules.py at 356 / 0, the
       wrapper-allowance coverage remains in
       tests/unit/test_hotspot_prevention_wrapper_rules.py at 296 / 0, and the
       shared test support remains in
-      tests/unit/hotspot_prevention_test_support.py at 50 / 2.
+      tests/unit/hotspot_prevention_test_support.py at 50 / 2. The later
+      classifier-owner rebaseline keeps the smoke root routed as a deferred
+      reduced facade while the new self-hosting guard coverage stays in the
+      focused policy-contract and family-rules siblings instead of regrowing
+      the root.
   measurement:
     metric_name: test_hotspot_prevention_line_count
-    current_value: 343.0
-    measurement_window: 2026-05-18 companion-test closeout
+    current_value: 341.0
+    measurement_window: 2026-05-19 classifier-owner rebaseline closeout
     notes: The current local state keeps tests/unit/test_hotspot_prevention.py
-      at 343 lines / 0 private helpers, moves policy, report, and CLI wiring
+      at 341 lines / 0 private helpers, moves policy, report, CLI wiring, and
+      self-hosting guard coverage
       coverage into tests/unit/test_hotspot_prevention_policy_contracts.py at
-      317 / 0, preserves blocked-family coverage in
-      tests/unit/test_hotspot_prevention_family_rules.py at 318 / 0, keeps
+      376 / 0, preserves blocked-family coverage in
+      tests/unit/test_hotspot_prevention_family_rules.py at 356 / 0, keeps
       wrapper and allowance coverage in
       tests/unit/test_hotspot_prevention_wrapper_rules.py at 296 / 0, and
       keeps shared test support in

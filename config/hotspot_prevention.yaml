@@ -102,6 +102,56 @@ known_hotspots:
       - alias_forwarder
       - table_metadata_alignment
       - deletion
+  app/hotspot_prevention_classifier.py:
+    target_role: hotspot-prevention classifier dispatch surface
+    preferred_owner_modules:
+      - app/hotspot_prevention_classifier_owner_rules.py
+      - app/hotspot_prevention_classifier_support.py
+      - app/hotspot_prevention_classifier_service_rules.py
+      - app/hotspot_prevention_classifier_boundary_rules.py
+      - app/hotspot_prevention_classifier_schema_facades.py
+      - app/hotspot_prevention_classifier_agent_task_runtime_rules.py
+      - app/hotspot_prevention_claim_support_rules.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The classifier root is already a narrow dispatcher, so future
+        family-local growth belongs in the focused support, service, boundary,
+        schema-facade, runtime, or claim-support classifier modules instead of
+        reopening app/hotspot_prevention_classifier.py by default.
+      route_to_case_ids:
+        - IC-6C1B516A3F92
+      route_to_paths:
+        - app/hotspot_prevention_classifier_owner_rules.py
+        - app/hotspot_prevention_classifier_support.py
+        - app/hotspot_prevention_classifier_service_rules.py
+        - app/hotspot_prevention_classifier_boundary_rules.py
+        - app/hotspot_prevention_classifier_schema_facades.py
+        - app/hotspot_prevention_classifier_agent_task_runtime_rules.py
+        - app/hotspot_prevention_claim_support_rules.py
+      route_to_plan_paths:
+        - docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md
+        - docs/boring_change_architecture_milestone_plan.md
+    block_new:
+      - dispatcher_rule_logic
+      - dispatcher_helper
+      - broad_helper
+    allow:
+      - import_forwarder
+      - registry_composition
+      - deletion
+  app/hotspot_prevention_classifier_support.py:
+    target_role: hotspot-prevention classifier shared support utilities
+    preferred_owner_modules:
+      - app/hotspot_prevention_classifier_service_rules.py
+      - app/hotspot_prevention_classifier_boundary_rules.py
+      - app/hotspot_prevention_classifier_schema_facades.py
+      - app/hotspot_prevention_classifier_agent_task_runtime_rules.py
+      - app/hotspot_prevention_claim_support_rules.py
+    block_new:
+      - broad_helper
+    allow:
+      - import_forwarder
+      - deletion
   app/schemas/agent_tasks.py:
     target_role: agent-task schema compatibility facade
     preferred_owner_modules:
