@@ -1,8 +1,8 @@
 # Court-Grade Readiness DB Blockers Resolution Milestone Plan
 
 Date: 2026-05-20
-Status: resolved locally in the current working tree on 2026-05-20
-(uncommitted)
+Status: resolved locally in committed but unpushed state on 2026-05-20
+(unpushed)
 Owner context: standalone follow-on after the 2026-05-20 regression-readiness
 bootstrap refresh in `docs/evaluation_data_readiness.md` and
 `docs/SESSION_HANDOFF.md`
@@ -25,7 +25,7 @@ Live closeout result on 2026-05-20:
 - The court-grade owner split closed without shifting architecture debt:
   `app/services/court_grade_readiness_bootstrap.py` now closes at `287` lines,
   with focused owners at `400`, `600`, and `338` lines; the CLI closes at
-  `app/cli.py=212`, `app/cli_commands/runtime.py=384`, and
+  `app/cli.py=213`, `app/cli_commands/runtime.py=384`, and
   `app/cli_commands/readiness.py=278`.
 - `uv run docling-system-hotspot-prevention-check --strict`,
   `uv run docling-system-hygiene-check`, `uv run docling-system-architecture-inspect`,

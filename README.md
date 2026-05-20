@@ -857,10 +857,11 @@ deterministic.
 
 Live local verification on 2026-05-20 now closes that two-step chain at
 `regression_ready=true`, `court_grade_ready=true`, and `failed_gate_count=0`.
-The broader DB-backed suite also passed at `2154 passed`. The retained replay
-observations from `feedback`, `technical_report_claim_feedback`, and the
-reviewed `evaluation_queries` miss stay routed as separate replay-quality debt,
-not as DB-readiness blockers.
+The broader DB-backed suite also passed at `2159 passed`. The later
+replay-quality follow-on refreshed the reviewed manual evaluation to `8 / 8`
+and returned `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
+to `observation_count=0`, so the readiness lane no longer carries retained
+replay debt.
 
 `docling-system-eval-corpus` evaluates active runs against the current corpus snapshot. The command prewarms semantic query embeddings, reuses cached corpus fixture reads, and does not rewrite the auto-generated fixture for each document during the corpus sweep. Large legacy active-document sets will still make this command slow because each active document with matching coverage is evaluated.
 

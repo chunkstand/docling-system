@@ -12,7 +12,7 @@ chat history or scanning the whole repository.
   the deterministic follow-on, refuses empty / already-ready / mixed advanced
   DB state, closes the live readiness report at `court_grade_ready=true` /
   `failed_gate_count=0`, and keeps the owner split honest at
-  `app/cli.py=212`, `app/cli_commands/runtime.py=384`,
+  `app/cli.py=213`, `app/cli_commands/runtime.py=384`,
   `app/cli_commands/readiness.py=278`,
   `app/services/court_grade_readiness_bootstrap.py=287`,
   `app/services/court_grade_readiness_bootstrap_support.py=400`,
@@ -122,7 +122,7 @@ chat history or scanning the whole repository.
   the current live architecture-quality summary at
   `stale_facade_hotspot_count=20` with `top_routed_hotspot_paths=[]`, confirms
   the full `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` gate at
-  `2151 passed`, and records
+  `2159 passed`, and records
   `app/services/retrieval_learning_artifacts.py` as a compatibility-facade
   trap without transferring debt into adjacent retrieval-learning consumers.
 - The later 2026-05-20 readiness bootstrap slice remains docs/runtime state

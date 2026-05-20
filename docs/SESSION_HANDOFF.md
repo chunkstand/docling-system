@@ -50,7 +50,7 @@ Focused verification for the readiness chain:
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
 - `uv run docling-system-architecture-inspect`: `valid=true`,
   `violation_count=0`
-Current architecture control snapshot from the live 2026-05-19 checkout:
+Current architecture control snapshot from the live 2026-05-20 checkout:
 `uv run docling-system-improvement-case-summary` reports
 `status_counts={"measured":1,"deployed":64}` with
 `open_unconverted_count=0` and `verified_undeployed_count=0`;
@@ -63,7 +63,7 @@ and `exceptions=0`;
 `uv run docling-system-architecture-quality-report --summary` reports
 `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
 `hotspot_count=20`, `stale_facade_hotspot_count=20`,
-`max_hotspot_risk_score=471.06`, and `top_routed_hotspot_paths=[]`;
+`max_hotspot_risk_score=466.06`, and `top_routed_hotspot_paths=[]`;
 the routed queue is empty again. The latest broader-reselect closeouts are now
 deployed locally through
 `docs/semantic_registry_owner_rebaseline_milestone_plan.md` and
@@ -97,7 +97,7 @@ owners, and the deployed owner cases are `IC-3F725D0A6C91` and
 `IC-86E1D4B72F0C`.
 Current full-suite closeout gate:
 `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` passed at
-`2151 passed`.
+`2159 passed`.
 Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
 Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
 Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`
@@ -234,12 +234,12 @@ none; the live `top_routed_hotspot_paths` queue is empty again, so the next
 code-owning packet requires a fresh broader rebaseline
 Queued standalone follow-on:
 none. `docs/court_grade_readiness_db_blockers_resolution_milestone_plan.md`
-is now resolved in the current working tree through the new
+is now resolved in committed but unpushed state via the new
 `docling-system-bootstrap-court-grade-readiness` command, live readiness
 verification, the owner-family debt-shift closeout, and the later
 replay-quality follow-on that refreshed the reviewed manual evaluation to
-`8 / 8` and returned `agent-trace-review` to `observation_count=0`; only
-commit / push coordination remains for the packet itself.
+`8 / 8` and returned `agent-trace-review` to `observation_count=0`; only push
+coordination remains for the packet itself.
 Previous resolved bounded implementation brief:
 `docs/semantic_registry_owner_rebaseline_milestone_plan.md`
 The later 2026-05-19 semantic-registry owner closeout now keeps
