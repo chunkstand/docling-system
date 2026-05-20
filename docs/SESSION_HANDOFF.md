@@ -64,8 +64,12 @@ and `exceptions=0`;
 `uv run docling-system-architecture-quality-report --summary` reports
 `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
 `hotspot_count=20`, `stale_facade_hotspot_count=20`,
-`max_hotspot_risk_score=466.06`, and `top_routed_hotspot_paths=[]`;
-the routed queue is empty again. The latest broader-reselect closeouts are now
+`max_hotspot_risk_score=466.06`, `top_routed_hotspot_paths=[]`,
+`broader_rebaseline_candidate_count=5`, and
+`top_broader_rebaseline_paths=[app/services/search_retrieval_primitives.py, app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`;
+the routed queue is empty again, but the fresh broader-rebaseline output now
+points first at the search residual family rather than back at the already
+deployed facade traps. The latest broader-reselect closeouts are now
 deployed locally through
 `docs/semantic_registry_owner_rebaseline_milestone_plan.md` and
 `docs/retrieval_learning_artifacts_owner_rebaseline_milestone_plan.md`:
@@ -234,8 +238,12 @@ Latest verified bounded implementation brief:
 Latest resolved bounded implementation brief:
 `docs/retrieval_learning_artifacts_owner_rebaseline_milestone_plan.md`
 Next routed bounded implementation brief:
-none; the live `top_routed_hotspot_paths` queue is empty again, so the next
-code-owning packet requires a fresh broader rebaseline
+none active; the live `top_routed_hotspot_paths` queue is empty again, but the
+fresh broader rebaseline now points first at the search residual family
+through `app/services/search_retrieval_primitives.py`,
+`app/services/search_harnesses.py`, `app/cli_commands/search_harness.py`,
+`tests/unit/test_cli_search_harness.py`, and
+`tests/unit/test_search_api_harnesses.py`
 Queued standalone follow-on:
 none. `docs/court_grade_readiness_db_blockers_resolution_milestone_plan.md`
 is now resolved in committed but unpushed state via the new

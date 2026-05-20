@@ -89,6 +89,8 @@ def test_architecture_quality_report_excludes_routing_traps_from_routed_queue(
 
     assert report["summary"]["top_hotspot_paths"][0] == "app/db/models.py"
     assert report["summary"]["top_routed_hotspot_paths"] == ["app/services/agent_tasks.py"]
+    assert report["summary"]["top_broader_rebaseline_paths"] == []
+    assert report["summary"]["broader_rebaseline_candidate_count"] == 0
     assert report["summary"]["routing_trap_paths"] == ["app/db/models.py"]
     assert report["summary"]["stale_facade_hotspot_count"] == 1
     assert report["hotspots"][0]["routing_status"] == "compatibility_facade_trap"
@@ -125,6 +127,8 @@ def test_architecture_quality_summary_includes_routed_fields(
     )
 
     assert summary["top_routed_hotspot_paths"] == ["app/small.py"]
+    assert summary["top_broader_rebaseline_paths"] == []
+    assert summary["broader_rebaseline_candidate_count"] == 0
     assert summary["routing_trap_paths"] == []
     assert summary["stale_facade_hotspot_count"] == 0
 
@@ -186,7 +190,122 @@ def test_architecture_quality_report_excludes_accepted_residual_from_routed_queu
 
     assert report["summary"]["top_hotspot_paths"][0] == "app/api/main.py"
     assert report["summary"]["top_routed_hotspot_paths"] == ["app/api/routers/agent_tasks.py"]
+    assert report["summary"]["top_broader_rebaseline_paths"] == []
+    assert report["summary"]["broader_rebaseline_candidate_count"] == 0
     assert report["summary"]["routing_trap_paths"] == []
     assert report["hotspots"][0]["routing_status"] == "accepted_residual"
     assert report["hotspots"][0]["selected_for_routed_queue"] is False
     assert report["hotspots"][0]["route_to_case_ids"] == ["IC-API-BOOTSTRAP"]
+
+
+def test_architecture_quality_report_surfaces_broader_rebaseline_candidates_when_queue_empty(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    app_dir = tmp_path / "app" / "services"
+    app_dir.mkdir(parents=True)
+    (app_dir / "search.py").write_text(
+        "\n".join(f"def search_{index}():\n    return {index}\n" for index in range(18))
+    )
+    (app_dir / "search_retrieval_primitives.py").write_text(
+        "\n".join(
+            f"def retrieval_{index}():\n    return {index}\n"
+            for index in range(310)
+        )
+    )
+    (app_dir / "search_harnesses.py").write_text(
+        "\n".join(f"def harness_{index}():\n    return {index}\n" for index in range(305))
+    )
+
+    monkeypatch.setattr(
+        "app.architecture_quality.build_capability_contract_map",
+        lambda _root: {"facades": []},
+    )
+    monkeypatch.setattr(
+        "app.architecture_quality.collect_git_churn_metrics",
+        lambda _root: {
+            "app/services/search.py": {"changes_30d": 1, "changes_90d": 4},
+            "app/services/search_retrieval_primitives.py": {
+                "changes_30d": 2,
+                "changes_90d": 5,
+            },
+            "app/services/search_harnesses.py": {"changes_30d": 1, "changes_90d": 3},
+        },
+    )
+    monkeypatch.setattr(
+        "app.architecture_quality._improvement_case_registry_index",
+        lambda _root: (
+            {},
+            {
+                "IC-SEARCH": {"status": "deployed", "deployed_ref": "abc123"},
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        "app.architecture_quality._build_hotspots",
+        lambda **_kwargs: [
+            {
+                "relative_path": "app/services/search.py",
+                "risk_score": 120.0,
+                "line_count": 36,
+                "public_function_count": 18,
+                "private_function_count": 0,
+                "class_count": 0,
+                "changes_30d": 1,
+                "changes_90d": 4,
+                "hygiene_finding_count": 0,
+                "open_improvement_case_count": 0,
+                "hygiene_findings": [],
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "app.architecture_quality.load_hotspot_policy",
+        lambda project_root=None: HotspotPolicy(
+            schema_name="hotspot_prevention_policy",
+            schema_version="1.0",
+            known_hotspots={
+                "app/services/search.py": HotspotRule(
+                    relative_path="app/services/search.py",
+                    target_role="compatibility facade",
+                    preferred_owner_modules=("app/services/search_retrieval_primitives.py",),
+                    block_new=("search_family_implementation",),
+                    allow=("facade_forwarder",),
+                    routing=HotspotRouting(
+                        status="compatibility_facade_trap",
+                        reason="Search facade is already reduced.",
+                        route_to_case_ids=("IC-SEARCH",),
+                        route_to_paths=(
+                            "app/services/search_retrieval_primitives.py",
+                            "app/services/search_harnesses.py",
+                        ),
+                        route_to_plan_paths=(
+                            "docs/search_compatibility_facade_boundary_milestone_plan.md",
+                        ),
+                    ),
+                )
+            },
+        ),
+    )
+
+    report = build_architecture_quality_report(
+        tmp_path,
+        inspection_report=_inspection_report(),
+        include_hygiene=False,
+    )
+
+    assert report["summary"]["top_routed_hotspot_paths"] == []
+    assert report["summary"]["top_broader_rebaseline_paths"] == [
+        "app/services/search_retrieval_primitives.py",
+        "app/services/search_harnesses.py",
+    ]
+    assert report["summary"]["broader_rebaseline_candidate_count"] == 2
+    assert report["broader_rebaseline_candidates"][0]["artifact_target_path"] == (
+        "app/services/search_retrieval_primitives.py"
+    )
+    assert report["broader_rebaseline_candidates"][0]["source_hotspot_path"] == (
+        "app/services/search.py"
+    )
+    assert report["broader_rebaseline_candidates"][0]["route_to_case_statuses"] == {
+        "IC-SEARCH": "deployed"
+    }

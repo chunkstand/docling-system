@@ -131,7 +131,10 @@ deploys `IC-20260424-hygiene-gate`, advances the live summary to
 `status_counts={"deployed":65}`, keeps
 `max_hotspot_risk_score=466.06`, and leaves
 `top_routed_hotspot_paths=[]` so this coordination brief still points to a
-fresh broader rebaseline rather than a hidden queued packet.
+fresh broader rebaseline rather than a hidden queued packet. The later
+architecture-quality broader-rebaseline refresh then adds
+`broader_rebaseline_candidate_count=5` plus
+`top_broader_rebaseline_paths=[app/services/search_retrieval_primitives.py, app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`, so the next honest packet now starts with the search residual family instead of falling back to the already-deployed facade traps.
 shared closeout docs of the live checkout.
 
 ## Purpose

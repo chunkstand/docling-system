@@ -23,6 +23,12 @@ from app.architecture_quality_hotspots import (
     load_hotspot_policy_safe,
     quality_candidates_from_hotspots,
 )
+from app.architecture_quality_support import (
+    build_broader_rebaseline_candidates,
+)
+from app.architecture_quality_support import (
+    build_hotspots as _build_hotspots,
+)
 from app.capability_contracts import build_capability_contract_map
 from app.core.files import repo_root
 from app.core.time import utcnow
@@ -231,30 +237,6 @@ def _open_improvement_cases_by_path(project_root: Path) -> dict[str, int]:
     return counts
 
 
-def _risk_score(
-    *,
-    line_count: int,
-    public_function_count: int,
-    private_function_count: int,
-    class_count: int,
-    changes_30d: int,
-    changes_90d: int,
-    hygiene_finding_count: int,
-    open_improvement_case_count: int,
-) -> float:
-    return round(
-        (line_count / 150)
-        + (public_function_count * 2.0)
-        + (private_function_count * 0.75)
-        + (class_count * 1.5)
-        + (changes_30d * 5.0)
-        + (changes_90d * 2.0)
-        + (hygiene_finding_count * 8.0)
-        + (open_improvement_case_count * 6.0),
-        2,
-    )
-
-
 def _existing_hint_paths(project_root: Path, paths: tuple[str, ...]) -> list[str]:
     return [path for path in paths if (project_root / path).exists()]
 
@@ -308,65 +290,6 @@ def _meets_legibility_stop_condition(criteria: dict[str, bool]) -> bool:
         for key, value in criteria.items()
         if key != "bounded_surface"
     )
-
-
-def _build_hotspots(
-    *,
-    file_metrics: dict[str, dict[str, int | str]],
-    churn_metrics: dict[str, dict[str, int]],
-    hygiene_findings_by_path: dict[str, list[HygieneFinding]],
-    open_cases_by_path: dict[str, int],
-    max_hotspots: int,
-) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for relative_path, metrics in file_metrics.items():
-        churn = churn_metrics.get(relative_path, {})
-        hygiene_findings = hygiene_findings_by_path.get(relative_path, [])
-        line_count = int(metrics["line_count"])
-        public_function_count = int(metrics["public_function_count"])
-        private_function_count = int(metrics["private_function_count"])
-        class_count = int(metrics["class_count"])
-        changes_30d = int(churn.get("changes_30d", 0))
-        changes_90d = int(churn.get("changes_90d", 0))
-        open_improvement_case_count = int(open_cases_by_path.get(relative_path, 0))
-        score = _risk_score(
-            line_count=line_count,
-            public_function_count=public_function_count,
-            private_function_count=private_function_count,
-            class_count=class_count,
-            changes_30d=changes_30d,
-            changes_90d=changes_90d,
-            hygiene_finding_count=len(hygiene_findings),
-            open_improvement_case_count=open_improvement_case_count,
-        )
-        if score <= 0:
-            continue
-        rows.append(
-            {
-                "relative_path": relative_path,
-                "risk_score": score,
-                "line_count": line_count,
-                "public_function_count": public_function_count,
-                "private_function_count": private_function_count,
-                "class_count": class_count,
-                "changes_30d": changes_30d,
-                "changes_90d": changes_90d,
-                "hygiene_finding_count": len(hygiene_findings),
-                "open_improvement_case_count": open_improvement_case_count,
-                "hygiene_findings": [
-                    {
-                        "kind": finding.kind,
-                        "message": finding.message,
-                        "lineno": finding.lineno,
-                    }
-                    for finding in hygiene_findings[:5]
-                ],
-            }
-        )
-    return sorted(
-        rows,
-        key=lambda row: (-row["risk_score"], row["relative_path"]),
-    )[:max_hotspots]
 
 
 def _legibility_quality_candidates(
@@ -442,6 +365,13 @@ def build_architecture_quality_report(
         for row in hotspots
         if row["routing_status"] in HOTSPOT_ROUTING_TRAP_STATUSES
     ]
+    broader_rebaseline_candidates = build_broader_rebaseline_candidates(
+        hotspots=hotspots,
+        file_metrics=file_metrics,
+        churn_metrics=churn_metrics,
+        hygiene_findings_by_path=hygiene_findings_by_path,
+        open_cases_by_path=open_cases_by_path,
+    )
     legibility = [
         _surface_legibility_score(
             surface,
@@ -476,6 +406,7 @@ def build_architecture_quality_report(
             *quality_candidates_from_hotspots(routed_hotspots),
             *legibility_candidates,
         ],
+        "broader_rebaseline_candidates": broader_rebaseline_candidates,
         "raw_improvement_case_candidates": [
             *quality_candidates_from_hotspots(hotspots),
             *legibility_candidates,
@@ -485,6 +416,12 @@ def build_architecture_quality_report(
             "top_routed_hotspot_paths": [
                 row["relative_path"] for row in routed_hotspots[:5]
             ],
+            "top_broader_rebaseline_paths": [
+                row["artifact_target_path"] for row in broader_rebaseline_candidates[:5]
+            ],
+            "broader_rebaseline_candidate_count": len(
+                broader_rebaseline_candidates
+            ),
             "routing_trap_paths": routing_trap_paths,
             "stale_facade_hotspot_count": len(routing_trap_paths),
             "max_hotspot_risk_score": hotspots[0]["risk_score"] if hotspots else 0.0,
@@ -514,6 +451,12 @@ def build_architecture_quality_summary(
         "hotspot_count": report["hotspot_count"],
         "top_hotspot_paths": report["summary"]["top_hotspot_paths"],
         "top_routed_hotspot_paths": report["summary"]["top_routed_hotspot_paths"],
+        "top_broader_rebaseline_paths": report["summary"][
+            "top_broader_rebaseline_paths"
+        ],
+        "broader_rebaseline_candidate_count": report["summary"][
+            "broader_rebaseline_candidate_count"
+        ],
         "routing_trap_paths": report["summary"]["routing_trap_paths"],
         "stale_facade_hotspot_count": report["summary"]["stale_facade_hotspot_count"],
         "max_hotspot_risk_score": report["summary"]["max_hotspot_risk_score"],

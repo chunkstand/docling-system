@@ -158,6 +158,8 @@ def test_architecture_quality_summary_is_compact(monkeypatch, tmp_path: Path) ->
     assert summary["schema_name"] == "architecture_quality_summary"
     assert "top_hotspot_paths" in summary
     assert "top_routed_hotspot_paths" in summary
+    assert "top_broader_rebaseline_paths" in summary
+    assert "broader_rebaseline_candidate_count" in summary
     assert "routing_trap_paths" in summary
     assert "stale_facade_hotspot_count" in summary
     assert "legibility_gap_count" in summary
@@ -183,15 +185,17 @@ def test_architecture_quality_summary_uses_extended_hotspot_window(
             "summary": {
                 "top_hotspot_paths": [],
                 "top_routed_hotspot_paths": ["tests/unit/test_search_api.py"],
-            "routing_trap_paths": ["tests/unit/test_hotspot_prevention.py"],
-            "stale_facade_hotspot_count": 1,
-            "max_hotspot_risk_score": 1.0,
-            "agent_legibility_average_score": 100.0,
-            "broad_facade_count": 0,
-            "legibility_gap_count": 0,
-        },
-        "hotspot_count": 1,
-    }
+                "top_broader_rebaseline_paths": ["app/services/search.py"],
+                "broader_rebaseline_candidate_count": 1,
+                "routing_trap_paths": ["tests/unit/test_hotspot_prevention.py"],
+                "stale_facade_hotspot_count": 1,
+                "max_hotspot_risk_score": 1.0,
+                "agent_legibility_average_score": 100.0,
+                "broad_facade_count": 0,
+                "legibility_gap_count": 0,
+            },
+            "hotspot_count": 1,
+        }
 
     monkeypatch.setattr(
         "app.architecture_quality.build_architecture_quality_report",
@@ -204,6 +208,7 @@ def test_architecture_quality_summary_uses_extended_hotspot_window(
 
     assert seen["max_hotspots"] == 20
     assert summary["top_routed_hotspot_paths"] == ["tests/unit/test_search_api.py"]
+    assert summary["top_broader_rebaseline_paths"] == ["app/services/search.py"]
 
 
 def test_architecture_quality_summary_prefers_routed_queue_over_deferred_facade(

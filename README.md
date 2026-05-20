@@ -29,7 +29,9 @@ Current repo-level signals:
 - `uv run docling-system-architecture-quality-report --summary` reports
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
   `hotspot_count=20`, `stale_facade_hotspot_count=20`,
-  `max_hotspot_risk_score=466.06`, and `top_routed_hotspot_paths=[]`.
+  `max_hotspot_risk_score=466.06`, `top_routed_hotspot_paths=[]`,
+  `broader_rebaseline_candidate_count=5`, and
+  `top_broader_rebaseline_paths=[app/services/search_retrieval_primitives.py, app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`.
 - `uv run docling-system-hygiene-check` is green when there are no new
   regressions and now reports `inherited budget debt: none`.
 - `uv run docling-system-hotspot-prevention-check --strict` passes on the
@@ -37,6 +39,11 @@ Current repo-level signals:
 - `uv run docling-system-improvement-case-summary` is now the explicit routing
   and closeout surface for architecture debt. The live summary now reports
   `status_counts={"deployed":65}` with no actionable routed backlog.
+- The routed queue is still intentionally empty, but the new broader-rebaseline
+  output now points first at the search residual family, led by
+  `app/services/search_retrieval_primitives.py` and
+  `app/services/search_harnesses.py`, before the inherited CLI/test harness
+  siblings.
 - The canonical local release gate is `uv run docling-system-release-gate-parity`;
   the checked-in `Release Gate Parity` workflow runs that same command on pull
   requests and pushes to `main`, uploads

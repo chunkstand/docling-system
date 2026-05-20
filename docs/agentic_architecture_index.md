@@ -114,8 +114,10 @@ chat history or scanning the whole repository.
   capability contracts are valid across 6 facades and 111 functions, and the
   architecture quality summary now reports
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
-  `legibility_gap_count=0`, `hotspot_count=20`, and
-  `max_hotspot_risk_score=466.06`.
+  `legibility_gap_count=0`, `hotspot_count=20`,
+  `max_hotspot_risk_score=466.06`,
+  `broader_rebaseline_candidate_count=5`, and
+  `top_broader_rebaseline_paths=[app/services/search_retrieval_primitives.py, app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`.
 - The later 2026-05-19 retrieval-learning artifact owner closeout, plus the
   2026-05-20 hygiene-gate registry alignment sweep, leave the live
   improvement-case summary at `status_counts={"deployed":65}`, keep hotspot
@@ -124,7 +126,11 @@ chat history or scanning the whole repository.
   the current live architecture-quality summary at
   `stale_facade_hotspot_count=20` with `top_routed_hotspot_paths=[]`, confirm
   the full `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` gate at
-  `2159 passed`, and keep
+  `2159 passed`, and now surface the next honest broader-reselect family
+  through the search residual owner paths led by
+  `app/services/search_retrieval_primitives.py` and
+  `app/services/search_harnesses.py` rather than reopening a reduced facade,
+  while keeping
   `app/services/retrieval_learning_artifacts.py` recorded as a
   compatibility-facade trap without transferring debt into adjacent
   retrieval-learning consumers.

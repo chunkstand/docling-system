@@ -19,6 +19,7 @@ ARCHITECTURE_QUALITY_REPORT_FIELDS = (
     "hotspots",
     "agent_legibility",
     "improvement_case_candidates",
+    "broader_rebaseline_candidates",
     "raw_improvement_case_candidates",
     "summary",
 )
@@ -29,6 +30,8 @@ ARCHITECTURE_QUALITY_SUMMARY_FIELDS = (
     "hotspot_count",
     "top_hotspot_paths",
     "top_routed_hotspot_paths",
+    "top_broader_rebaseline_paths",
+    "broader_rebaseline_candidate_count",
     "routing_trap_paths",
     "stale_facade_hotspot_count",
     "max_hotspot_risk_score",
