@@ -98,7 +98,10 @@ summary to `status_counts={"measured":1,"deployed":62}`. The current live
 architecture-quality summary now routes
 `app/hotspot_prevention_classifier.py`, so this broader coordination brief is
 again the honest parent surface for the next bounded child packet rather than
-an empty queue.
+an empty queue. The fresh child brief is now
+`docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md`, whose
+Milestone 0 closes the "queue active but no packet exists" mechanical gap
+before the next classifier-family code split begins.
 
 ## Purpose
 

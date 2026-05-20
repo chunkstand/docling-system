@@ -20,8 +20,8 @@ and `exceptions=0`;
 `max_hotspot_risk_score=471.06`, and
 `top_routed_hotspot_paths=["app/hotspot_prevention_classifier.py"]`;
 the routed queue is no longer empty: the current honest next owner surface is
-`app/hotspot_prevention_classifier.py`, and no fresh standalone child brief is
-drafted for it yet.
+`app/hotspot_prevention_classifier.py`, and the fresh standalone child brief is
+`docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md`.
 Latest broader-reselect closeout from that rebaseline:
 `docs/agent_task_runtime_and_verification_boundary_milestone_plan.md`
 now resolves the remaining worker and verification runtime debt while
@@ -164,14 +164,9 @@ DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
 `docs/agent_task_runtime_and_verification_boundary_milestone_plan.md`
 Next routed bounded implementation brief:
-None yet. The live
-`top_routed_hotspot_paths=["app/hotspot_prevention_classifier.py"]` queue is
-active again, but no fresh bounded child brief has been drafted for that
-routed owner surface.
+`docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md`
 Queued standalone follow-on:
-None yet. The broader rebaseline packet is resolved, but the current routed
-owner surface is `app/hotspot_prevention_classifier.py` and still needs a
-fresh standalone child brief before code-owning implementation resumes.
+`docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md`
 Previous resolved bounded implementation brief:
 `docs/queue_exhaustion_honesty_sweep_milestone_plan.md`
 The later 2026-05-19 agent-task runtime and verification boundary closeout now
@@ -184,8 +179,8 @@ no Python cycles, and the live registry now reads
 `status_counts={"measured":1,"deployed":62}`. The current live
 architecture-quality summary now routes
 `app/hotspot_prevention_classifier.py` as the next honest owner surface, so
-the routed queue is no longer empty even though no fresh child brief is
-drafted yet.
+the routed queue is no longer empty and now has the standalone child brief
+`docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md`.
 Post-Packet A/B alignment audit from the current 2026-05-19 checkout:
 `uv run docling-system-improvement-case-summary` now reports
 `status_counts={"measured":1,"deployed":58,"open":2}`,
