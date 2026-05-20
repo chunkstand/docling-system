@@ -4,7 +4,12 @@ Date: 2026-05-19 local / 2026-05-19 UTC
 Status: resolved through the 2026-05-19 Packet D residual ranking split.
 `IC-25C1F7B9E4DA` is now deployed, the reduced search-service root is routed as
 a deferred facade, and the later Packet E queue-exhaustion sweep retires the
-remaining queue without creating a new follow-on packet.
+remaining queue without creating a new follow-on packet. The later
+runtime-and-verification broader rebaseline closeout then advances the live
+improvement-case summary to `status_counts={"measured":1,"deployed":62}`. The
+current live architecture-quality report now routes
+`app/hotspot_prevention_classifier.py`, which leaves Packet D retired while
+making the classifier the next honest owner surface.
 Owner context: code-owning closeout for the last over-budget focused successor
 left behind by the earlier `tests/unit/test_search_service.py` family split.
 
@@ -75,7 +80,11 @@ The later Packet D alignment sweep updates the owner-case deployment ref to
 `deployed=60`, and removes stale "Packet D remains open" wording from the
 current-state adjacent summaries. The later Packet E queue-exhaustion sweep
 then retires the queue plan itself, so this Packet D closeout no longer stands
-as a "next packet" handoff surface.
+as a "next packet" handoff surface. The later runtime-and-verification broader
+rebaseline closeout then advances the live summary to
+`status_counts={"measured":1,"deployed":62}`. The current live
+architecture-quality report now routes
+`app/hotspot_prevention_classifier.py`, while leaving Packet D fully retired.
 
 ## Weak-Point Prevention Contract
 

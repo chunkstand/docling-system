@@ -44,8 +44,8 @@ API bootstrap entry, the reduced architecture-inspection smoke root, and the
 reduced `app/api/routers/agent_tasks.py` route root from the active queue. The
 later retrieval-learning residual-smoke closeout now routes that already-split
 family off the active queue as well, so the live `top_routed_hotspot_paths`
-queue is currently empty and the next code-owning packet must be reselected
-from this broader brief rather than from a stale residual root. The later
+queue was empty at that checkpoint and the next code-owning packet had to be
+reselected from this broader brief rather than from a stale residual root. The later
 2026-05-19 registry-alignment sweep also deploys the stale reduced-root
 agent-task, claim-support, action-test, and UI bootstrap cases left behind by
 earlier packets, bringing the live case summary to `open=12`, `verified=8`,
@@ -90,7 +90,15 @@ those counts stayed closed, keeps `top_routed_hotspot_paths=[]`,
 `blocked=0`, `exceptions=0`, and `violation_count=0`, and retires the
 remaining packet queue with no new queued follow-on. Future work from this
 broader brief now requires a fresh broader rebaseline rather than another
-queued packet.
+queued packet. The later 2026-05-19
+`docs/agent_task_runtime_and_verification_boundary_milestone_plan.md`
+closeout then resolves that first broader rebaseline packet, deploys
+`IC-3F725D0A6C91` and `IC-86E1D4B72F0C`, advances the live improvement-case
+summary to `status_counts={"measured":1,"deployed":62}`. The current live
+architecture-quality summary now routes
+`app/hotspot_prevention_classifier.py`, so this broader coordination brief is
+again the honest parent surface for the next bounded child packet rather than
+an empty queue.
 
 ## Purpose
 

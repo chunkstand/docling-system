@@ -3,8 +3,10 @@
 Date: 2026-05-19 local / 2026-05-19 UTC
 Status: resolved locally in the current 2026-05-19 checkout. The worker and
 verification owner cases `IC-3F725D0A6C91` and `IC-86E1D4B72F0C` are now
-deployed, the mixed runtime roots are reduced to narrow facades, and no new
-queued follow-on remains after the broader rebaseline.
+deployed, the mixed runtime roots are reduced to narrow facades, and the later
+live architecture-quality report now routes
+`app/hotspot_prevention_classifier.py` as the honest next owner surface rather
+than leaving the queue empty.
 Owner context: broader rebaseline packet for the remaining hard-to-change
 agent-task runtime lane after the earlier
 `docs/agent_task_orchestration_boundary_milestone_plan.md` and
@@ -154,6 +156,13 @@ facades:
   `app/services/agent_task_worker.py` or
   `app/services/agent_task_verifications.py` among the top hotspots, and the
   checkout still reports no Python cycles.
+
+Later live-state alignment shows that this packet remains resolved, but the
+broader rebaseline did not stay queue-empty: the current
+`uv run docling-system-architecture-quality-report --summary` output now
+reports `top_routed_hotspot_paths=["app/hotspot_prevention_classifier.py"]`.
+No fresh standalone child brief has been drafted for that reopened routed owner
+surface yet.
 
 ## Verification Snapshot
 

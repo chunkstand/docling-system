@@ -16,10 +16,12 @@ and `exceptions=0`;
 `violation_count=0`;
 `uv run docling-system-architecture-quality-report --summary` reports
 `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
-`hotspot_count=20`, `stale_facade_hotspot_count=20`,
-`max_hotspot_risk_score=471.06`, and `top_routed_hotspot_paths=[]`;
-the routed queue is exhausted, so future architecture work must start from a
-fresh broader Milestone 0 rebaseline rather than a queued packet.
+`hotspot_count=20`, `stale_facade_hotspot_count=19`,
+`max_hotspot_risk_score=471.06`, and
+`top_routed_hotspot_paths=["app/hotspot_prevention_classifier.py"]`;
+the routed queue is no longer empty: the current honest next owner surface is
+`app/hotspot_prevention_classifier.py`, and no fresh standalone child brief is
+drafted for it yet.
 Latest broader-reselect closeout from that rebaseline:
 `docs/agent_task_runtime_and_verification_boundary_milestone_plan.md`
 now resolves the remaining worker and verification runtime debt while
@@ -162,12 +164,14 @@ DB-backed suite passed at `2078 passed`.
 Latest resolved bounded implementation brief:
 `docs/agent_task_runtime_and_verification_boundary_milestone_plan.md`
 Next routed bounded implementation brief:
-None. The live `top_routed_hotspot_paths=[]` queue is exhausted, so future
-architecture work must start from a fresh broader Milestone 0 rebaseline
-rather than a queued packet.
+None yet. The live
+`top_routed_hotspot_paths=["app/hotspot_prevention_classifier.py"]` queue is
+active again, but no fresh bounded child brief has been drafted for that
+routed owner surface.
 Queued standalone follow-on:
-None. The broader rebaseline packet is now resolved, and no new queued
-standalone follow-on remains from this lane.
+None yet. The broader rebaseline packet is resolved, but the current routed
+owner surface is `app/hotspot_prevention_classifier.py` and still needs a
+fresh standalone child brief before code-owning implementation resumes.
 Previous resolved bounded implementation brief:
 `docs/queue_exhaustion_honesty_sweep_milestone_plan.md`
 The later 2026-05-19 agent-task runtime and verification boundary closeout now
@@ -177,8 +181,11 @@ verification root remains at `111` lines with owner-local successors at `369`
 and `188`, the focused integration slice passed at `13 passed`, the full
 DB-backed suite passed at `2140 passed`, the architecture probe still reports
 no Python cycles, and the live registry now reads
-`status_counts={"measured":1,"deployed":62}` without reactivating the routed
-queue.
+`status_counts={"measured":1,"deployed":62}`. The current live
+architecture-quality summary now routes
+`app/hotspot_prevention_classifier.py` as the next honest owner surface, so
+the routed queue is no longer empty even though no fresh child brief is
+drafted yet.
 Post-Packet A/B alignment audit from the current 2026-05-19 checkout:
 `uv run docling-system-improvement-case-summary` now reports
 `status_counts={"measured":1,"deployed":58,"open":2}`,
