@@ -1241,14 +1241,35 @@ file_budgets:
       ratchet_max_private_helpers: 5
       owner_case_id: IC-2D5A7E9C4B18
     app/services/semantic_registry.py:
-      max_lines: 730
-      max_private_helpers: 9
+      max_lines: 31
+      ratchet_max_lines: 31
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-0E4F1B9A2D73
+    app/services/semantic_registry_contracts.py:
+      max_lines: 400
+      ratchet_max_lines: 400
+      max_private_helpers: 2
+      ratchet_max_private_helpers: 2
+      owner_case_id: IC-0E4F1B9A2D73
     app/services/semantics.py:
       max_lines: 56
       ratchet_max_lines: 56
       max_private_helpers: 0
       ratchet_max_private_helpers: 0
       owner_case_id: IC-9E6B8F5D62A1
+    app/services/semantic_registry_state.py:
+      max_lines: 322
+      ratchet_max_lines: 322
+      max_private_helpers: 3
+      ratchet_max_private_helpers: 3
+      owner_case_id: IC-0E4F1B9A2D73
+    app/services/semantic_registry_storage.py:
+      max_lines: 85
+      ratchet_max_lines: 85
+      max_private_helpers: 3
+      ratchet_max_private_helpers: 3
+      owner_case_id: IC-0E4F1B9A2D73
     app/services/semantic_pass_lifecycle.py:
       max_lines: 529
       ratchet_max_lines: 529

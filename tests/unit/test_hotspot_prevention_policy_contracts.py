@@ -54,6 +54,7 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "app/services/evidence.py",
         "app/services/evidence_provenance_exports.py",
         "app/services/search.py",
+        "app/services/semantic_registry.py",
         "app/services/semantics.py",
         "tests/db_model_contract.py",
         "tests/integration/retrieval_learning_ledger_support.py",
@@ -86,6 +87,11 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
     assert policy.known_hotspots["app/services/audit_bundles.py"].routing is not None
     assert (
         policy.known_hotspots["app/services/audit_bundles.py"].routing.status
+        == "compatibility_facade_trap"
+    )
+    assert policy.known_hotspots["app/services/semantic_registry.py"].routing is not None
+    assert (
+        policy.known_hotspots["app/services/semantic_registry.py"].routing.status
         == "compatibility_facade_trap"
     )
     for path in [

@@ -6,7 +6,7 @@ Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Current architecture control snapshot from the live 2026-05-19 checkout:
 `uv run docling-system-improvement-case-summary` reports
-`status_counts={"measured":1,"deployed":62}` with
+`status_counts={"measured":1,"deployed":63}` with
 `open_unconverted_count=0` and `verified_undeployed_count=0`;
 `uv run docling-system-hygiene-check` reports `inherited budget debt: none`
 and `new hygiene regressions: none`;
@@ -18,7 +18,17 @@ and `exceptions=0`;
 `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
 `hotspot_count=20`, `stale_facade_hotspot_count=20`,
 `max_hotspot_risk_score=471.06`, and `top_routed_hotspot_paths=[]`;
-the routed queue is empty again. The latest resolved closeout now routes
+the routed queue is empty again. The semantic-registry owner packet is now
+deployed locally through
+`docs/semantic_registry_owner_rebaseline_milestone_plan.md`: the public root
+`app/services/semantic_registry.py` closes at `31 / 0` over focused owner
+modules at `400 / 2`, `85 / 3`, and `322 / 3`, hotspot prevention now routes
+the root as a compatibility-facade trap, and `IC-0E4F1B9A2D73` is recorded as
+the current deployed owner case. A debt-shift
+audit over the adjacent semantic owners and focused semantic test roots stayed
+empty after the split, so no semantic-registry logic was pushed into preview,
+ontology, candidate, graph, generation, or semantic-pass owners. The latest
+resolved closeout before that still routes
 `app/hotspot_prevention_classifier.py` as a deferred reduced facade through
 `docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md`, whose
 control-plane refresh adds `app/hotspot_prevention_classifier_owner_rules.py`
@@ -165,23 +175,32 @@ reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
 Latest verified bounded implementation brief:
-none; the live routed queue is empty again and the next code-owning packet
-requires a fresh broader Milestone 0 rebaseline
+none; the latest bounded packet is already deployed locally
 Latest resolved bounded implementation brief:
-`docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md`
+`docs/semantic_registry_owner_rebaseline_milestone_plan.md`
 Next routed bounded implementation brief:
 none; the live `top_routed_hotspot_paths` queue is empty again, so the next
 code-owning packet requires a fresh broader rebaseline
 Queued standalone follow-on:
-none; future code-owning work now begins from the broader rebaseline step
+`docs/retrieval_learning_artifacts_owner_rebaseline_milestone_plan.md`
 Previous resolved bounded implementation brief:
-`docs/agent_task_runtime_and_verification_boundary_milestone_plan.md`
-The later 2026-05-19 classifier-owner rebaseline closeout now keeps the
-dispatcher at `360` lines with a focused `58`-line self-hosting guard owner in
-`app/hotspot_prevention_classifier_owner_rules.py`, routes the dispatcher as a
-deferred reduced facade in `config/hotspot_prevention.yaml`, exact-ratchets the
-focused classifier-family siblings, and regenerates the live routed queue back
-to `top_routed_hotspot_paths=[]` without reopening a narrower follow-on packet.
+`docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md`
+The later 2026-05-19 semantic-registry owner closeout now keeps
+`app/services/semantic_registry.py` at `31` lines with focused contract,
+storage, and state owners at `400`, `85`, and `322` lines, records explicit
+hygiene ownership under `IC-0E4F1B9A2D73`, routes the root as a
+compatibility-facade trap in `config/hotspot_prevention.yaml`, and keeps the
+adjacent semantic-owner diff slice empty so the split does not transfer debt
+into preview, ontology, candidate, graph, generation, or semantic-pass owners.
+The next broader-reselect follow-on is now written at
+`docs/retrieval_learning_artifacts_owner_rebaseline_milestone_plan.md`:
+`app/services/retrieval_learning_artifacts.py` is the strongest remaining
+app-side owner candidate at `774` lines with `16` defs/classes and `7`
+private helpers, it still mixes feature-weight proposal synthesis, change-impact
+and trace analysis, semantic-governance event materialization, response
+serialization, and durable read or write flows, and the live worktree now
+requires a fresh Milestone 0 isolation pass for retrieval-learning work rather
+than a cleanup step for the now-deployed semantic-registry packet.
 Post-Packet A/B alignment audit from the current 2026-05-19 checkout:
 `uv run docling-system-improvement-case-summary` now reports
 `status_counts={"measured":1,"deployed":58,"open":2}`,

@@ -1168,6 +1168,111 @@ cases:
       carried only by the semantics facade owner case.
   created_at: '2026-05-13T20:30:00Z'
   updated_at: '2026-05-19T00:00:00Z'
+- case_id: IC-0E4F1B9A2D73
+  title: 'Architecture hotspot: app/services/semantic_registry.py'
+  status: deployed
+  cause_class: unclear_ownership
+  observed_failure: app/services/semantic_registry.py had regrown into a
+    726-line mixed owner that combined registry contract parsing, seed-file
+    load or write and caching behavior, relation validation helpers, snapshot
+    persistence, workspace-state synchronization, and active-registry
+    resolution behind one high-fan-in import surface.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:app/services/semantic_registry.py
+    notes: Created during the 2026-05-19 semantic registry owner rebaseline
+      after the routed queue returned to top_routed_hotspot_paths=[] and the
+      broader architecture evidence still selected app/services/semantic_registry.py
+      as the strongest next non-trap owner surface at 726 lines with local
+      import fan-in 36.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/semantic_registry.py
+    description: Semantic registry compatibility facade and owner-family
+      routing contract.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check app/services/semantic_registry.py
+      app/services/semantic_registry_preview.py
+      app/services/semantic_registry_contracts.py
+      app/services/semantic_registry_storage.py
+      app/services/semantic_registry_state.py
+      app/services/semantic_ontology.py
+      app/services/semantic_bootstrap.py
+      app/services/semantic_candidates.py
+      app/services/semantic_candidate_evaluation.py
+      app/services/semantic_graph_build.py
+      app/services/semantic_facts.py
+      app/services/semantic_pass_artifacts.py
+      tests/unit/test_semantic_registry.py
+      tests/unit/test_semantic_registry_preview.py
+      tests/unit/test_semantic_candidates.py
+      tests/unit/test_semantic_orchestration.py
+      tests/unit/test_agent_task_actions_semantic_registry.py
+      tests/unit/test_agent_task_verifications_semantics.py
+    - uv run pytest -q tests/unit/test_semantic_registry.py
+      tests/unit/test_semantic_registry_preview.py
+      tests/unit/test_semantic_candidates.py
+      tests/unit/test_semantic_orchestration.py
+      tests/unit/test_agent_task_actions_semantic_registry.py
+      tests/unit/test_agent_task_verifications_semantics.py
+      tests/unit/test_semantic_bootstrap.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_semantic_governance_ledger.py
+      tests/integration/test_postgres_roundtrip_semantics.py
+      tests/integration/test_semantic_bootstrap_roundtrip.py
+      tests/integration/test_semantic_candidate_roundtrip.py
+      tests/integration/test_semantic_generation_roundtrip.py
+      tests/integration/test_semantic_graph_roundtrip.py
+      tests/integration/test_agent_task_semantic_orchestration_roundtrip.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-inspect
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+    acceptance_conditions:
+    - app/services/semantic_registry.py closes as a narrow public facade while
+      registry contract parsing, seed-file load or write and cache behavior,
+      and workspace snapshot or activation behavior live in focused owner
+      modules.
+    - No new semantic_registry owner file exceeds the current milestone ceiling
+      or transfers registry debt into semantic_registry_preview.py,
+      semantic_ontology.py, or adjacent semantic owners.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: "semantic-registry-owner-closeout-2026-05-19"
+    notes: >-
+      Deployed locally in the 2026-05-19 semantic registry owner closeout
+      after the classifier-family blocker was isolated into closeout commit
+      594d91c. app/services/semantic_registry.py is now a 31 / 0 compatibility
+      facade over app/services/semantic_registry_contracts.py at 400 / 2,
+      app/services/semantic_registry_storage.py at 85 / 3, and
+      app/services/semantic_registry_state.py at 322 / 3; hotspot prevention
+      routes the root as a compatibility-facade trap; and the adjacent
+      semantic-owner diff slice stayed empty so the split did not transfer
+      debt into preview, ontology, candidate, graph, generation, or
+      semantic-pass owners.
+  measurement:
+    metric_name: semantic_registry_owner_line_count
+    current_value: 31.0
+    measurement_window: 2026-05-19 local semantic registry owner split
+    notes: >-
+      app/services/semantic_registry.py now measures 31 lines / 0 private
+      helpers. The extracted owner modules now measure 400 lines / 2 private
+      helpers for app/services/semantic_registry_contracts.py, 85 lines / 3
+      private helpers for app/services/semantic_registry_storage.py, and 322
+      lines / 3 private helpers for app/services/semantic_registry_state.py
+      while preserving the public import path and leaving
+      semantic_registry_preview.py unchanged as a separate owner.
+  created_at: '2026-05-19T00:00:00Z'
+  updated_at: '2026-05-20T05:05:10Z'
 - case_id: IC-8304248AB64C
   title: 'Architecture hotspot: app/services/semantic_pass_lifecycle.py'
   status: deployed

@@ -600,6 +600,35 @@ known_hotspots:
       - alias_forwarder
       - explicit_forwarding_function
       - deletion
+  app/services/semantic_registry.py:
+    target_role: semantic registry compatibility facade
+    preferred_owner_modules:
+      - app/services/semantic_registry_contracts.py
+      - app/services/semantic_registry_storage.py
+      - app/services/semantic_registry_state.py
+    routing:
+      status: compatibility_facade_trap
+      reason: The semantic registry root is now a narrow public facade, so follow-on registry contract, file-cache, or workspace-state work belongs in the extracted owner modules rather than back in app/services/semantic_registry.py.
+      route_to_case_ids:
+        - IC-0E4F1B9A2D73
+      route_to_paths:
+        - app/services/semantic_registry_contracts.py
+        - app/services/semantic_registry_storage.py
+        - app/services/semantic_registry_state.py
+      route_to_plan_paths:
+        - docs/semantic_registry_owner_rebaseline_milestone_plan.md
+    block_new:
+      - registry_contract_parsing_logic
+      - seed_registry_file_io
+      - seed_registry_cache_logic
+      - workspace_snapshot_activation_logic
+      - snapshot_persistence_logic
+      - workspace_state_synchronization_logic
+    allow:
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
+      - deletion
   app/services/claim_support_policy_impacts.py:
     target_role: claim-support policy impact compatibility facade
     preferred_owner_modules:

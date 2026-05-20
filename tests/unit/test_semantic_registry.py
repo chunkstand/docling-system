@@ -4,7 +4,10 @@ from pathlib import Path
 
 import pytest
 
+from app.core.config import get_settings
 from app.services.semantic_registry import (
+    clear_semantic_registry_cache,
+    get_semantic_registry,
     semantic_registry_from_payload,
     validate_semantic_relation_instance,
     write_semantic_registry_payload,
@@ -98,3 +101,35 @@ def test_validate_semantic_relation_instance_enforces_domain_and_range() -> None
     assert valid == []
     assert any("subject entity type" in reason for reason in invalid)
     assert any("object entity type" in reason for reason in invalid)
+
+
+def test_get_semantic_registry_without_session_reads_seed_registry(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "semantic_registry.yaml"
+    registry_path.write_text(
+        """registry_name: semantic_registry
+registry_version: alpha.2
+categories:
+  - category_key: governance
+    preferred_label: Governance
+concepts:
+  - concept_key: control_point
+    preferred_label: Control Point
+    category_keys:
+      - governance
+"""
+    )
+    monkeypatch.setenv("DOCLING_SYSTEM_SEMANTIC_REGISTRY_PATH", str(registry_path))
+    get_settings.cache_clear()
+    clear_semantic_registry_cache()
+
+    registry = get_semantic_registry()
+
+    assert registry.registry_version == "alpha.2"
+    assert registry.categories[0].category_key == "governance"
+    assert registry.concepts[0].concept_key == "control_point"
+
+    get_settings.cache_clear()
+    clear_semantic_registry_cache()

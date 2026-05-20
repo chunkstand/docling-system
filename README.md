@@ -4,7 +4,7 @@ Docling-based PDF ingestion, retrieval, and auditable document-generation system
 
 ## Current State Snapshot
 
-As of the 2026-05-19 local / 2026-05-19 UTC classifier-owner rebaseline
+As of the 2026-05-19 local / 2026-05-19 UTC semantic-registry owner
 closeout, local `main` contains the repo-owned release gate runner, the
 checked-in `Release Gate Parity` workflow, the runtime-health contract they
 share, and the exhausted routed architecture queue. Recent architecture work
@@ -14,11 +14,10 @@ service boundary, evidence provenance export, semantics service boundary, CLI
 dispatch, agent-task schema aggregation, the architecture-governance cycle, the
 oversized-test packet, the routed queue-alignment packets, the final
 queue-exhaustion sweep, the agent-task runtime-and-verification broader
-rebaseline, and the hotspot-prevention classifier-owner control-plane refresh.
-There is no queued Packet F or active routed child follow-on: future
-architecture work must start from a fresh broader Milestone 0 rebaseline from
-`docs/boring_change_architecture_milestone_plan.md` rather than from a stale
-routed packet.
+rebaseline, the hotspot-prevention classifier-owner control-plane refresh, and
+the semantic-registry owner rebaseline. There is still no active routed child
+follow-on; the next broader-reselect packet is now
+`docs/retrieval_learning_artifacts_owner_rebaseline_milestone_plan.md`.
 
 Current repo-level signals:
 
@@ -36,7 +35,7 @@ Current repo-level signals:
   current diff with `changed_hotspots=0`, `blocked=0`, and `exceptions=0`.
 - `uv run docling-system-improvement-case-summary` is now the explicit routing
   and closeout surface for architecture debt. The live summary now reports
-  `status_counts={"measured":1,"deployed":62}` with no actionable routed
+  `status_counts={"measured":1,"deployed":63}` with no actionable routed
   backlog.
 - The canonical local release gate is `uv run docling-system-release-gate-parity`;
   the checked-in `Release Gate Parity` workflow runs that same command on pull
