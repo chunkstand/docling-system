@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from uuid import uuid4
 
+from sqlalchemy import func
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateTable
 
@@ -12,6 +13,7 @@ from app.db.models import (
 from app.schemas.search import SearchRequest
 from app.services.search import RankedResult, execute_search
 from app.services.search_metadata_supplement import (
+    _document_metadata_candidate_statement,
     _ranked_metadata_overlap_score,
     _run_prose_metadata_chunk_search,
     _should_run_metadata_supplement,
@@ -38,6 +40,8 @@ def test_metadata_supplement_runs_for_prose_v3_and_identifier_zero_result_querie
             query="What is the main claim of The Bitter Lesson?",
             query_intent="prose_broad",
             strict_keyword_count=5,
+            keyword_chunk_count=1,
+            keyword_table_count=1,
             harness_name="prose_v3",
         )
         is True
@@ -47,6 +51,8 @@ def test_metadata_supplement_runs_for_prose_v3_and_identifier_zero_result_querie
             query="fseprd1091222",
             query_intent="prose_lookup",
             strict_keyword_count=0,
+            keyword_chunk_count=0,
+            keyword_table_count=0,
             harness_name="default_v1",
         )
         is True
@@ -56,15 +62,30 @@ def test_metadata_supplement_runs_for_prose_v3_and_identifier_zero_result_querie
             query="what does appendix h alternative costs show",
             query_intent="prose_broad",
             strict_keyword_count=0,
+            keyword_chunk_count=0,
+            keyword_table_count=0,
             harness_name="default_v1",
         )
         is False
     )
     assert (
         _should_run_metadata_supplement(
+            query="mesa restoration outlook distinct prose recall",
+            query_intent="prose_lookup",
+            strict_keyword_count=1,
+            keyword_chunk_count=0,
+            keyword_table_count=1,
+            harness_name="default_v1",
+        )
+        is True
+    )
+    assert (
+        _should_run_metadata_supplement(
             query="TABLE 701.2",
             query_intent="tabular",
             strict_keyword_count=1,
+            keyword_chunk_count=0,
+            keyword_table_count=1,
             harness_name="prose_v3",
         )
         is False
@@ -271,7 +292,12 @@ def test_run_prose_metadata_chunk_search_uses_textsearch_queries_without_ilike()
             if len(self.statements) == 1:
                 return FakeResult([])
             if len(self.statements) == 2:
-                return FakeResult([winning_document, losing_document])
+                return FakeResult(
+                    [
+                        (winning_document, 0.8),
+                        (losing_document, 0.2),
+                    ]
+                )
             return FakeResult(
                 [
                     (winning_chunk, winning_document),
@@ -289,6 +315,26 @@ def test_run_prose_metadata_chunk_search_uses_textsearch_queries_without_ilike()
     assert any("metadata_textsearch" in statement for statement in session.statements)
     assert any("@@" in statement for statement in session.statements)
     assert all("ILIKE" not in statement.upper() for statement in session.statements)
+
+
+def test_document_metadata_candidate_statement_uses_exists_for_run_scope() -> None:
+    request = SearchRequest(query="Blue Mesas readiness narrative", mode="keyword", limit=5)
+    run_id = uuid4()
+    tsquery = func.to_tsquery("english", "blue | mesas | readiness")
+    rank = func.ts_rank_cd(Document.metadata_textsearch, tsquery)
+    statement = _document_metadata_candidate_statement(
+        request,
+        run_id=run_id,
+        document_conditions=[Document.metadata_textsearch.op("@@")(tsquery)],
+        document_rank=rank,
+        candidate_limit=6,
+    )
+
+    compiled = str(statement.compile(dialect=postgresql.dialect()))
+
+    assert "SELECT DISTINCT" not in compiled
+    assert "EXISTS (" in compiled
+    assert "document_chunks.run_id" in compiled
 
 
 def test_document_metadata_textsearch_ddl_uses_valid_generated_column_syntax() -> None:

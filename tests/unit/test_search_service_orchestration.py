@@ -578,3 +578,110 @@ def test_execute_search_default_v1_does_not_run_metadata_supplement(monkeypatch)
         request_rows[0].details_json["candidate_source_breakdown"].get("metadata_supplement", 0)
         == 0
     )
+
+
+def test_execute_search_default_v1_uses_metadata_supplement_for_table_only_prose_hits(
+    monkeypatch,
+) -> None:
+    class FakeSession:
+        def __init__(self) -> None:
+            self.added: list[object] = []
+
+        def add(self, value) -> None:
+            self.added.append(value)
+
+        def execute(self, _statement):
+            return SimpleNamespace(all=lambda: [])
+
+        def flush(self) -> None:
+            return None
+
+    chunk_id = uuid4()
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_chunk_search",
+        lambda session, request, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_table_search",
+        lambda session, request, candidate_limit=None, run_id=None: [
+            RankedResult(
+                result_type="table",
+                result_id=uuid4(),
+                document_id=uuid4(),
+                run_id=uuid4(),
+                source_filename="regression_doc_03.pdf",
+                page_from=1,
+                page_to=1,
+                table_title=None,
+                table_heading=None,
+                table_preview=(
+                    "Metric | State | Narrative\nblue mesas table lane | required | "
+                    "erosion inventory governed query lane\nblue mesas chunk lane | "
+                    "required | mesa restoration outlook distinct prose recall"
+                ),
+                row_count=3,
+                col_count=3,
+                keyword_score=0.1,
+                retrieval_sources=("keyword_primary",),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_relaxed_keyword_chunk_search",
+        lambda session, request, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_relaxed_keyword_table_search",
+        lambda session, request, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_prose_metadata_chunk_search",
+        lambda session, request, run_id=None, candidate_limit=None: [
+            RankedResult(
+                result_type="chunk",
+                result_id=chunk_id,
+                document_id=uuid4(),
+                run_id=uuid4(),
+                source_filename="regression_doc_03.pdf",
+                document_title="Blue Mesas",
+                page_from=1,
+                page_to=1,
+                chunk_index=0,
+                chunk_text=(
+                    "Blue Mesas readiness narrative explains how milestone six protects "
+                    "chunk recall while table retrieval stays auditable. This mesa "
+                    "restoration outlook packet records distinctive operator evidence."
+                ),
+                heading=None,
+                keyword_score=3.33,
+                retrieval_sources=("metadata_supplement",),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search.observe_search_results",
+        lambda table_hits, mixed_request: None,
+    )
+    monkeypatch.setattr(
+        "app.services.search.get_embedding_provider",
+        lambda: (_ for _ in ()).throw(RuntimeError("no embeddings")),
+    )
+
+    session = FakeSession()
+    execution = execute_search(
+        session,
+        SearchRequest(
+            query="mesa restoration outlook distinct prose recall",
+            mode="hybrid",
+            limit=5,
+            harness_name="default_v1",
+        ),
+        origin="api",
+    )
+
+    request_rows = [row for row in session.added if isinstance(row, SearchRequestRecord)]
+
+    assert execution.results[0].result_type == "chunk"
+    assert execution.results[0].chunk_id == chunk_id
+    assert request_rows[0].details_json["keyword_strategy"] == "strict_plus_metadata"
+    assert request_rows[0].details_json["candidate_source_breakdown"]["metadata_supplement"] == 1

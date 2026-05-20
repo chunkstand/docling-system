@@ -1,0 +1,56 @@
+schema_name: court_grade_claim_feedback_seed
+schema_version: "1.0"
+source_filename: regression_doc_03.pdf
+groups:
+  - claim_id_prefix: supported
+    query: Blue Mesas readiness narrative explains how milestone six
+    mode: hybrid
+    result_rank: 1
+    count: 5
+    claim_text_template: Bootstrap supported claim {index} says milestone six protects chunk recall.
+    support_verdict: supported
+    support_score: 0.92
+    feedback_status: supported
+    learning_label: positive
+  - claim_id_prefix: weak
+    query: Blue Mesas readiness narrative protects chunk recall
+    mode: hybrid
+    result_rank: 1
+    count: 5
+    claim_text_template: Bootstrap weak claim {index} says the readiness narrative tentatively protects chunk recall.
+    support_verdict: supported
+    support_score: 0.31
+    feedback_status: weak
+    learning_label: positive
+  - claim_id_prefix: missing
+    query: Blue Mesas table retrieval stays auditable
+    mode: hybrid
+    count: 5
+    claim_text_template: Bootstrap missing-evidence claim {index} needs additional traceable support.
+    support_verdict: insufficient_evidence
+    support_score: 0.0
+    feedback_status: missing
+    learning_label: missing
+    hard_negative_kind: missing_expected
+  - claim_id_prefix: contradicted
+    query: Narrative blue mesas table erosion inventory governed query
+    mode: hybrid
+    result_rank: 1
+    count: 5
+    claim_text_template: Bootstrap contradicted claim {index} overstates the cited erosion table evidence.
+    support_verdict: unsupported
+    support_score: 0.11
+    feedback_status: contradicted
+    learning_label: negative
+    hard_negative_kind: explicit_irrelevant
+  - claim_id_prefix: rejected
+    query: Blue Mesas readiness narrative explains how milestone six
+    mode: hybrid
+    result_rank: 1
+    count: 5
+    claim_text_template: Bootstrap rejected claim {index} cites the wrong Blue Mesas evidence.
+    support_verdict: unsupported
+    support_score: 0.12
+    feedback_status: rejected
+    learning_label: negative
+    hard_negative_kind: explicit_irrelevant

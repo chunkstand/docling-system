@@ -1,9 +1,55 @@
 # Session Handoff
 
-Date: 2026-05-19 local / 2026-05-19 UTC
+Date: 2026-05-20 local / 2026-05-20 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
+Latest evaluation-data readiness implementation in the 2026-05-20 working tree:
+`uv run docling-system-bootstrap-regression-readiness` remains the strict
+empty-DB baseline. It copies
+`docs/evaluation_corpus.auto.bootstrap.yaml` into
+`storage/evaluation_corpus.auto.yaml`, ingests and promotes
+`docs/evaluation_bootstrap/regression_doc_03.pdf`, runs the reviewed manual
+fixture from `docs/evaluation_corpus.yaml`, executes
+`evaluation_queries`, `live_search_gaps`, and
+`cross_document_prose_regressions`, writes
+`storage/evaluation_data_readiness.latest.json`, and refuses to rerun on a
+non-empty DB. The later 2026-05-20 replay-quality follow-on then refreshed the
+reviewed manual evaluation to `8 / 8`, returned the
+`evaluation_queries` replay to `7 / 7`, and closed the reviewed
+`mesa restoration outlook distinct prose recall` miss instead of leaving it as
+separate residual debt.
+
+The follow-on closeout now exists as
+`uv run docling-system-bootstrap-court-grade-readiness`. It requires the exact
+regression-only baseline, seeds `25` operator-feedback rows, seeds `25`
+technical-report claim-feedback rows with manifests / PROV artifacts /
+readiness-gate / semantic-governance linkage, publishes `1` active governed
+claim-support replay-alert fixture snapshot with `5` rows, runs the missing
+`feedback` and `technical_report_claim_feedback` replay suites, persists the
+required harness-evaluation source coverage, materializes retrieval-learning
+rows, rewrites `storage/evaluation_data_readiness.latest.json`, and refuses
+empty, already-ready, or mixed advanced DB state.
+
+Focused verification for the readiness chain:
+- `uv run pytest tests/unit/test_cli_entrypoints.py tests/unit/test_cli_runtime.py -q`: `16 passed`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_regression_readiness_bootstrap.py tests/integration/test_court_grade_readiness_bootstrap.py -q`: `3 passed`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `2159 passed`
+- `uv run docling-system-bootstrap-court-grade-readiness --compact` succeeded
+  on the live regression-only local baseline and rewrote
+  `storage/evaluation_data_readiness.latest.json`.
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`:
+  `regression_ready=true`, `court_grade_ready=true`, `passed_gate_count=11`,
+  `failed_gate_count=0`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`:
+  `observation_count=0` after the replay-quality follow-on separates
+  intentional learning-suite failures from actionable regressions and closes
+  the reviewed `evaluation_queries` miss.
+- `uv run docling-system-hotspot-prevention-check --strict`: `blocked=0`,
+  `exceptions=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-architecture-inspect`: `valid=true`,
+  `violation_count=0`
 Current architecture control snapshot from the live 2026-05-19 checkout:
 `uv run docling-system-improvement-case-summary` reports
 `status_counts={"measured":1,"deployed":64}` with
@@ -51,7 +97,7 @@ owners, and the deployed owner cases are `IC-3F725D0A6C91` and
 `IC-86E1D4B72F0C`.
 Current full-suite closeout gate:
 `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` passed at
-`2149 passed`.
+`2151 passed`.
 Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
 Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
 Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`
@@ -187,7 +233,13 @@ Next routed bounded implementation brief:
 none; the live `top_routed_hotspot_paths` queue is empty again, so the next
 code-owning packet requires a fresh broader rebaseline
 Queued standalone follow-on:
-none; the live queue is empty and no broader-reselect follow-on is selected yet
+none. `docs/court_grade_readiness_db_blockers_resolution_milestone_plan.md`
+is now resolved in the current working tree through the new
+`docling-system-bootstrap-court-grade-readiness` command, live readiness
+verification, the owner-family debt-shift closeout, and the later
+replay-quality follow-on that refreshed the reviewed manual evaluation to
+`8 / 8` and returned `agent-trace-review` to `observation_count=0`; only
+commit / push coordination remains for the packet itself.
 Previous resolved bounded implementation brief:
 `docs/semantic_registry_owner_rebaseline_milestone_plan.md`
 The later 2026-05-19 semantic-registry owner closeout now keeps

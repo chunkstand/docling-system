@@ -14,7 +14,7 @@ from app.architecture_inspection import (
 )
 from app.core.files import repo_root
 from app.core.time import utcnow
-from app.db.models import AgentTask, AgentTaskStatus, SearchReplayRun
+from app.db.models import AgentTask, AgentTaskStatus, SearchReplayQuery, SearchReplayRun
 from app.db.session import get_session_factory
 from app.hygiene import run_improvement_case_contract_checks, run_python_hygiene_checks
 from app.services.improvement_cases import (
@@ -87,23 +87,78 @@ def _collect_search_replay_regression_observations(
     limit: int,
     workflow_version: str,
 ) -> list[ImprovementCaseObservation]:
+    scan_limit = max(limit * 10, limit)
     rows = (
         session.execute(
             select(SearchReplayRun)
-            .where(
-                (SearchReplayRun.status == "failed")
-                | (SearchReplayRun.failed_count > 0)
-                | (
-                    (SearchReplayRun.source_type != "feedback")
-                    & (SearchReplayRun.zero_result_count > 0)
-                )
-            )
             .order_by(SearchReplayRun.created_at.desc())
-            .limit(limit)
+            .limit(scan_limit)
         )
         .scalars()
         .all()
     )
+    latest_rows: list[SearchReplayRun] = []
+    seen_signatures: set[tuple[str | None, ...]] = set()
+    for row in rows:
+        signature = (
+            row.source_type,
+            row.harness_name,
+            row.reranker_name,
+            row.reranker_version,
+            row.retrieval_profile_name,
+        )
+        if signature in seen_signatures:
+            continue
+        seen_signatures.add(signature)
+        latest_rows.append(row)
+
+    def _is_intentional_feedback_failure(details: dict[str, Any]) -> bool:
+        return details.get("source_reason") == "feedback_label" and details.get(
+            "feedback_type"
+        ) in {"irrelevant", "no_answer"}
+
+    def _is_intentional_claim_feedback_failure(details: dict[str, Any]) -> bool:
+        return (
+            details.get("learning_label") == "negative"
+            and details.get("claim_feedback_replay_verdict") == "negative_target_still_prominent"
+            and details.get("claim_feedback_traceability_complete") is True
+        )
+
+    def _has_actionable_failed_queries(row: SearchReplayRun) -> bool:
+        if row.status != "completed" or (row.failed_count or 0) <= 0:
+            return row.status != "completed"
+        failed_queries = (
+            session.execute(
+                select(SearchReplayQuery)
+                .where(
+                    SearchReplayQuery.replay_run_id == row.id,
+                    SearchReplayQuery.passed.is_(False),
+                )
+                .order_by(SearchReplayQuery.created_at.asc())
+            )
+            .scalars()
+            .all()
+        )
+        if not failed_queries:
+            return True
+        for query_row in failed_queries:
+            details = query_row.details_json or {}
+            if row.source_type == "feedback" and _is_intentional_feedback_failure(details):
+                continue
+            if row.source_type == "technical_report_claim_feedback" and (
+                _is_intentional_claim_feedback_failure(details)
+            ):
+                continue
+            return True
+        return False
+
+    actionable_rows = [
+        row
+        for row in latest_rows
+        if row.status != "completed"
+        or (row.zero_result_count > 0 and row.source_type != "feedback")
+        or _has_actionable_failed_queries(row)
+    ]
     return [
         ImprovementCaseObservation(
             title=f"Search replay regression: {row.source_type}",
@@ -123,7 +178,7 @@ def _collect_search_replay_regression_observations(
             ),
             workflow_version=workflow_version,
         )
-        for row in rows
+        for row in actionable_rows[:limit]
     ]
 
 

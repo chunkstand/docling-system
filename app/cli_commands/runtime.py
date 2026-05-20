@@ -5,11 +5,17 @@ import json
 from pathlib import Path
 from uuid import UUID
 
+from app.cli_commands import readiness as readiness_commands
 from app.cli_commands.common import lazy_service_attr
 from app.db.models import Document, DocumentRun
 from app.db.session import get_session_factory
 from app.schemas.search import SearchReplayRunRequest
 from app.services.storage import StorageService
+
+run_eval_candidates = readiness_commands.run_eval_candidates
+run_evaluation_data_readiness = readiness_commands.run_evaluation_data_readiness
+run_regression_readiness_bootstrap = readiness_commands.run_regression_readiness_bootstrap
+run_court_grade_readiness_bootstrap = readiness_commands.run_court_grade_readiness_bootstrap
 
 
 def run_eval_run(
@@ -308,91 +314,6 @@ def run_replay_search(
         payload = replay_search_request_func(session, UUID(args.search_request_id))
         session.commit()
     print(json.dumps(payload.model_dump(mode="json")))
-
-
-def run_eval_candidates(
-    *,
-    session_factory_func=get_session_factory,
-    list_quality_eval_candidates_func=None,
-) -> None:
-    if list_quality_eval_candidates_func is None:
-        list_quality_eval_candidates_func = lazy_service_attr(
-            "app.services.quality",
-            "list_quality_eval_candidates",
-        )
-    parser = argparse.ArgumentParser(
-        description="List mined evaluation candidates from failed evals and live search gaps."
-    )
-    parser.add_argument("--limit", type=int, default=12, help="Maximum number of candidates.")
-    parser.add_argument(
-        "--include-resolved",
-        action="store_true",
-        help="Include candidates that later evidence has already resolved.",
-    )
-    args = parser.parse_args()
-    if args.limit < 1 or args.limit > 100:
-        parser.error("--limit must be between 1 and 100.")
-
-    session_factory = session_factory_func()
-    with session_factory() as session:
-        payload = list_quality_eval_candidates_func(
-            session,
-            limit=args.limit,
-            include_resolved=args.include_resolved,
-        )
-    print(json.dumps([row.model_dump(mode="json") for row in payload]))
-
-
-def run_evaluation_data_readiness(
-    *,
-    session_factory_func=get_session_factory,
-    build_evaluation_data_readiness_report_func=None,
-) -> None:
-    if build_evaluation_data_readiness_report_func is None:
-        build_evaluation_data_readiness_report_func = lazy_service_attr(
-            "app.services.evaluation_data_readiness",
-            "build_evaluation_data_readiness_report",
-        )
-    parser = argparse.ArgumentParser(
-        description="Inspect whether the live DB has enough data to run retrieval gates."
-    )
-    parser.add_argument(
-        "--manual-corpus-path",
-        type=Path,
-        default=Path("docs/evaluation_corpus.yaml"),
-        help="Hand-authored evaluation corpus path.",
-    )
-    parser.add_argument(
-        "--auto-corpus-path",
-        type=Path,
-        default=Path("storage/evaluation_corpus.auto.yaml"),
-        help="Auto-generated evaluation corpus path.",
-    )
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=None,
-        help="Optional path to write the JSON readiness report.",
-    )
-    parser.add_argument(
-        "--compact",
-        action="store_true",
-        help="Print compact JSON instead of indented JSON.",
-    )
-    args = parser.parse_args()
-
-    session_factory = session_factory_func()
-    with session_factory() as session:
-        payload = build_evaluation_data_readiness_report_func(
-            session,
-            manual_corpus_path=args.manual_corpus_path,
-            auto_corpus_path=args.auto_corpus_path,
-        )
-    rendered = json.dumps(payload, indent=None if args.compact else 2)
-    if args.output is not None:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(rendered + "\n")
-    print(rendered)
 
 
 def run_replay_suite(

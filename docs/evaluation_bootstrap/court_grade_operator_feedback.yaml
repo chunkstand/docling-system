@@ -1,0 +1,31 @@
+schema_name: court_grade_operator_feedback_seed
+schema_version: "1.0"
+source_filename: regression_doc_03.pdf
+groups:
+  - feedback_type: relevant
+    query: Blue Mesas readiness narrative explains how milestone six
+    mode: hybrid
+    result_rank: 1
+    count: 5
+    note_template: court-grade relevant bootstrap {index}
+  - feedback_type: irrelevant
+    query: Blue Mesas readiness narrative explains how milestone six
+    mode: hybrid
+    result_rank: 1
+    count: 5
+    note_template: court-grade irrelevant bootstrap {index}
+  - feedback_type: missing_table
+    query: Narrative blue mesas table erosion inventory governed query
+    mode: hybrid
+    count: 5
+    note_template: court-grade missing-table bootstrap {index}
+  - feedback_type: missing_chunk
+    query: Blue Mesas readiness narrative protects chunk recall
+    mode: hybrid
+    count: 5
+    note_template: court-grade missing-chunk bootstrap {index}
+  - feedback_type: no_answer
+    query_template: Court grade no answer bootstrap {index} improbable retrieval token
+    mode: hybrid
+    count: 5
+    note_template: court-grade no-answer bootstrap {index}

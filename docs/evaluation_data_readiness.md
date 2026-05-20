@@ -1,28 +1,86 @@
 # Evaluation Data Readiness
 
-Status refreshed: 2026-05-10. The command remains the required preflight before
-trusting retrieval, reranker, or court-grade document-generation gates. The
-latest run reached local Postgres and reported `regression_ready=true`,
-`court_grade_ready=true`, `passed_gate_count=11`, and `failed_gate_count=0`.
-The live DB now satisfies both tiers with 26 active documents, 26 completed
-evaluations, 52 passed evaluation queries, 26 auto-corpus documents, 26 auto
-table queries, 25 auto chunk queries, and a reviewed manual corpus in
-`docs/evaluation_corpus.yaml` that contributes 5 documents, 10 table queries,
-20 chunk queries, 5 cross-document queries, and 5 answer queries. Court-grade
-lanes are now present in the live DB as well: 25 operator-feedback rows across
-all required feedback types, 25 technical-report claim-feedback rows across all
-required labels and support statuses with no traceability gaps, one active
-claim-support replay-alert snapshot with 5 governed rows, completed replay
-coverage for `evaluation_queries`, `feedback`, `live_search_gaps`,
-`cross_document_prose_regressions`, and `technical_report_claim_feedback`, one
-harness-evaluation source row for each required replay source, and one
-materialized retrieval-learning judgment/training set with 122 training
-examples.
+Status refreshed: 2026-05-20. A fresh empty local checkout can now
+deterministically reach both readiness levels through two tracked bootstrap
+commands:
+
+```bash
+uv run docling-system-bootstrap-regression-readiness
+uv run docling-system-bootstrap-court-grade-readiness
+```
+
+The regression bootstrap installs the tracked auto-corpus seed from
+`docs/evaluation_corpus.auto.bootstrap.yaml` into
+`storage/evaluation_corpus.auto.yaml`, seeds one zero-result live gap, ingests
+and promotes `docs/evaluation_bootstrap/regression_doc_03.pdf`, runs the
+manual reviewed evaluation from `docs/evaluation_corpus.yaml`, executes the
+minimum replay trio (`evaluation_queries`, `live_search_gaps`,
+`cross_document_prose_regressions`), and writes the standard report to
+`storage/evaluation_data_readiness.latest.json`. The command refuses to run on
+a non-empty DB so the outcome stays deterministic.
+
+The court-grade bootstrap requires that exact regression-only baseline. It
+seeds the missing operator-feedback, technical-report claim-feedback, and
+governed replay-alert rows from tracked bootstrap YAML, runs the missing
+`feedback` and `technical_report_claim_feedback` replay suites, persists a
+harness evaluation covering every required source type, materializes
+retrieval-learning rows, rewrites
+`storage/evaluation_data_readiness.latest.json`, and refuses empty,
+already-ready, or mixed advanced DB state.
+
+Regression-step baseline result on 2026-05-20:
+
+- `regression_ready=true`
+- `court_grade_ready=false`
+- `passed_gate_count=5`
+- `failed_gate_count=6`
+- live DB counts: `1` active document, `2` completed evaluations, `10`
+  persisted evaluation queries
+- replay coverage: `evaluation_queries=7`, `live_search_gaps=1`,
+  `cross_document_prose_regressions=2`
+
+This closes the reproducibility debt for the regression lane. The later
+2026-05-20 replay-quality follow-on also fixed the reviewed
+`mesa restoration outlook distinct prose recall` miss, refreshed the latest
+manual evaluation to `8 / 8` with
+`DOCLING_SYSTEM_MANUAL_EVALUATION_CORPUS_PATH=docs/evaluation_corpus.yaml uv run docling-system-eval-corpus`,
+and brought the `evaluation_queries` replay back to `7 / 7`. The current live
+repo DB therefore keeps the rebuildable readiness gate and the reviewed
+search-quality lane aligned instead of leaving a known miss behind.
+
+Focused Postgres-backed verification of the full two-step chain on 2026-05-20:
+
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_regression_readiness_bootstrap.py tests/integration/test_court_grade_readiness_bootstrap.py -q` passed at `3 passed`
+- The verified court-grade step created `25` operator-feedback rows, `25`
+  technical-report claim-feedback rows, `1` active governed replay-alert
+  snapshot with `5` rows, persisted all required harness source types, and
+  closed the readiness report with `court_grade_ready=true` and
+  `failed_gate_count=0`
+- Live local closeout on the current repo DB also passed:
+  `uv run docling-system-bootstrap-court-grade-readiness --compact` succeeded,
+  and `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
+  now reports `passed_gate_count=11` and `failed_gate_count=0`.
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
+  now reports `observation_count=0` after the replay-quality follow-on
+  separates intentional learning-suite failures from actionable regressions and
+  closes the reviewed `evaluation_queries` miss.
 
 Use the data-readiness preflight before trusting retrieval, reranker, or
 court-grade document-generation gates. The check is intentionally stricter than
 unit/integration tests: it verifies that the live database contains enough
 evaluation evidence to make the gates meaningful.
+
+Bootstrap first when the checkout is empty:
+
+```bash
+uv run docling-system-bootstrap-regression-readiness
+```
+
+Then close the court-grade blockers from that strict baseline:
+
+```bash
+uv run docling-system-bootstrap-court-grade-readiness
+```
 
 Run:
 
@@ -64,13 +122,16 @@ Required data lanes:
 
 Current interpretation:
 
-- Empty `regression_blockers` and empty `court_grade_blockers` mean the live
-  database is ready for both broad regression detection and the stricter
-  court-grade technical-report and claim-support gates.
-- The checked-in manual corpus is intentionally seeded and reviewed. To persist
-  manual-fixture evaluation rows into a fresh local database, rerun:
-  `DOCLING_SYSTEM_MANUAL_EVALUATION_CORPUS_PATH=docs/evaluation_corpus.yaml uv run docling-system-eval-corpus`.
-- Court-grade feedback replay now includes intentional `no_answer` cases. Those
-  replays can legitimately produce zero search results, so trace review should
-  treat them as expected feedback coverage rather than as replay regressions
-  when the replay run otherwise completed successfully.
+- Empty `regression_blockers` means the live database has enough active runs,
+  persisted evaluations, auto-corpus coverage, and basic replay coverage to
+  make the regression gate meaningful.
+- Empty `court_grade_blockers` means the stricter operator-feedback,
+  claim-feedback, replay-alert, harness-evaluation, and retrieval-learning lanes
+  are present as well.
+- The checked-in manual corpus is intentionally seeded and reviewed. The new
+  bootstrap command is now the canonical way to persist manual-fixture
+  evaluation rows plus the minimum replay trio into a fresh local database.
+- Court-grade feedback replay now includes intentional `no_answer`,
+  contradicted, and other negative cases. Those rows are required for readiness
+  coverage, and the trace-review pass now filters those intentional failed-case
+  suites away from actionable replay regressions.

@@ -16,6 +16,8 @@ def test_runtime_entrypoint_forwarders_delegate_to_runtime_owner(monkeypatch) ->
         "run_replay_search",
         "run_eval_candidates",
         "run_evaluation_data_readiness",
+        "run_regression_readiness_bootstrap",
+        "run_court_grade_readiness_bootstrap",
         "run_replay_suite",
         "run_export_ranking_dataset",
     ]

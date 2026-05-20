@@ -47,6 +47,9 @@ def test_eval_run_cli_prints_summary(monkeypatch, capsys) -> None:
         def __exit__(self, exc_type, exc, tb):
             return False
 
+        def commit(self):
+            return None
+
         def get(self, model, key):
             if model.__name__ == "DocumentRun" and key == run_id:
                 return SimpleNamespace(id=run_id, document_id=document_id)
@@ -189,6 +192,9 @@ def test_semantic_backfill_cli_prints_payload(monkeypatch, capsys) -> None:
 
         def __exit__(self, exc_type, exc, tb):
             return False
+
+        def commit(self):
+            return None
 
     class FakeStorageService:
         pass
@@ -367,6 +373,140 @@ def test_evaluation_data_readiness_cli_writes_output(monkeypatch, capsys, tmp_pa
     output = json.loads(capsys.readouterr().out.strip())
     assert output["schema_name"] == "evaluation_data_readiness_report"
     assert json.loads(written_path.read_text()) == output
+
+
+def test_regression_readiness_bootstrap_cli_prints_payload(monkeypatch, capsys) -> None:
+    captured = {}
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def commit(self):
+            return None
+
+    class FakeStorageService:
+        pass
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-bootstrap-regression-readiness",
+            "--bootstrap-document-path",
+            "docs/bootstrap.pdf",
+            "--manual-corpus-path",
+            "docs/manual.yaml",
+            "--auto-corpus-seed-path",
+            "docs/auto-seed.yaml",
+            "--auto-corpus-path",
+            "storage/custom.auto.yaml",
+            "--output",
+            "storage/readiness.json",
+            "--live-gap-query",
+            "blue mesas gap",
+            "--replay-limit",
+            "7",
+            "--compact",
+        ],
+    )
+
+    runtime_commands.run_regression_readiness_bootstrap(
+        session_factory_func=lambda: lambda: FakeSession(),
+        storage_service_factory=FakeStorageService,
+        bootstrap_regression_readiness_func=lambda session, **kwargs: (
+            captured.update(kwargs)
+            or {
+                "schema_name": "regression_readiness_bootstrap_result",
+                "readiness": {"summary": {"regression_ready": True}},
+            }
+        ),
+    )
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["schema_name"] == "regression_readiness_bootstrap_result"
+    assert output["readiness"]["summary"]["regression_ready"] is True
+    assert str(captured["bootstrap_document_path"]) == "docs/bootstrap.pdf"
+    assert str(captured["manual_corpus_path"]) == "docs/manual.yaml"
+    assert str(captured["auto_corpus_seed_path"]) == "docs/auto-seed.yaml"
+    assert str(captured["auto_corpus_path"]) == "storage/custom.auto.yaml"
+    assert str(captured["output_path"]) == "storage/readiness.json"
+    assert captured["live_gap_query"] == "blue mesas gap"
+    assert captured["replay_limit"] == 7
+    assert isinstance(captured["storage_service"], FakeStorageService)
+
+
+def test_court_grade_readiness_bootstrap_cli_prints_payload(monkeypatch, capsys) -> None:
+    captured = {}
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def commit(self):
+            return None
+
+    class FakeStorageService:
+        pass
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-bootstrap-court-grade-readiness",
+            "--manual-corpus-path",
+            "docs/manual.yaml",
+            "--auto-corpus-path",
+            "storage/custom.auto.yaml",
+            "--operator-feedback-seed-path",
+            "docs/operator-feedback.yaml",
+            "--claim-feedback-seed-path",
+            "docs/claim-feedback.yaml",
+            "--replay-alert-fixture-seed-path",
+            "docs/replay-alerts.yaml",
+            "--output",
+            "storage/readiness.json",
+            "--replay-limit",
+            "9",
+            "--retrieval-learning-limit",
+            "40",
+            "--harness-name",
+            "wide_v2",
+            "--compact",
+        ],
+    )
+
+    runtime_commands.run_court_grade_readiness_bootstrap(
+        session_factory_func=lambda: lambda: FakeSession(),
+        storage_service_factory=FakeStorageService,
+        bootstrap_court_grade_readiness_func=lambda session, **kwargs: (
+            captured.update(kwargs)
+            or {
+                "schema_name": "court_grade_readiness_bootstrap_result",
+                "readiness": {"summary": {"court_grade_ready": True}},
+            }
+        ),
+    )
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["schema_name"] == "court_grade_readiness_bootstrap_result"
+    assert output["readiness"]["summary"]["court_grade_ready"] is True
+    assert str(captured["manual_corpus_path"]) == "docs/manual.yaml"
+    assert str(captured["auto_corpus_path"]) == "storage/custom.auto.yaml"
+    assert str(captured["operator_feedback_seed_path"]) == "docs/operator-feedback.yaml"
+    assert str(captured["claim_feedback_seed_path"]) == "docs/claim-feedback.yaml"
+    assert str(captured["replay_alert_fixture_seed_path"]) == "docs/replay-alerts.yaml"
+    assert str(captured["output_path"]) == "storage/readiness.json"
+    assert captured["replay_limit"] == 9
+    assert captured["retrieval_learning_limit"] == 40
+    assert captured["harness_name"] == "wide_v2"
+    assert isinstance(captured["storage_service"], FakeStorageService)
 
 
 def test_replay_suite_cli_prints_summary(monkeypatch, capsys) -> None:

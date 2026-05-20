@@ -1,0 +1,48 @@
+schema_name: court_grade_replay_alert_fixture_seed
+schema_version: "1.0"
+source_filename: regression_doc_03.pdf
+fixtures:
+  - case_id: court-grade-supported-1
+    claim_id: claim:court-grade-supported-1
+    query: Blue Mesas readiness narrative explains how milestone six
+    mode: hybrid
+    result_rank: 1
+    expected_verdict: supported
+    hard_case_kind: policy_change_supported
+    description: Bootstrap supported replay-alert fixture for the Blue Mesas readiness narrative.
+    claim_text: The Blue Mesas readiness narrative says milestone six protects chunk recall.
+  - case_id: court-grade-supported-2
+    claim_id: claim:court-grade-supported-2
+    query: Blue Mesas readiness narrative protects chunk recall
+    mode: hybrid
+    result_rank: 1
+    expected_verdict: supported
+    hard_case_kind: policy_change_supported
+    description: Bootstrap supported replay-alert fixture for chunk-recall wording.
+    claim_text: The Blue Mesas readiness narrative explicitly protects chunk recall.
+  - case_id: court-grade-unsupported-1
+    claim_id: claim:court-grade-unsupported-1
+    query: Narrative blue mesas table erosion inventory governed query
+    mode: hybrid
+    result_rank: 1
+    expected_verdict: unsupported
+    hard_case_kind: policy_change_unsupported
+    description: Bootstrap unsupported replay-alert fixture for the erosion inventory table.
+    claim_text: The erosion inventory table alone proves the readiness narrative protects unrelated wildlife actions.
+  - case_id: court-grade-unsupported-2
+    claim_id: claim:court-grade-unsupported-2
+    query: Blue Mesas table retrieval stays auditable
+    mode: hybrid
+    result_rank: 1
+    expected_verdict: unsupported
+    hard_case_kind: policy_change_unsupported
+    description: Bootstrap unsupported replay-alert fixture for the auditable-table sentence.
+    claim_text: The auditable-table sentence proves a different unsupported mitigation claim.
+  - case_id: court-grade-insufficient-1
+    claim_id: claim:court-grade-insufficient-1
+    query: Blue Mesas readiness narrative explains how milestone six
+    mode: hybrid
+    expected_verdict: insufficient_evidence
+    hard_case_kind: policy_change_insufficient_evidence
+    description: Bootstrap insufficient-evidence replay-alert fixture for missing traceable support.
+    claim_text: The Blue Mesas readiness narrative resolves a claim without traceable evidence.

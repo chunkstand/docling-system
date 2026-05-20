@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
 from uuid import UUID
 
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+import app.services.search_metadata_supplement_support as _search_metadata_supplement_support
 import app.services.search_query_features as _query_features
 import app.services.search_ranking as _search_ranking
 import app.services.search_retrieval_primitives as _search_retrieval_primitives
@@ -18,50 +18,25 @@ QUERY_INTENT_PROSE_BROAD = _query_features.QUERY_INTENT_PROSE_BROAD
 looks_like_identifier_lookup = _query_features.looks_like_identifier_lookup
 metadata_query_tokens = _query_features.metadata_query_tokens
 salient_tokens = _query_features.salient_tokens
-token_coverage = _query_features.token_coverage
 dedupe_ranked_results = _search_ranking.dedupe_ranked_results
 strongest_ranked_score = _search_ranking.strongest_ranked_score
 apply_chunk_filters = _search_retrieval_primitives.apply_chunk_filters
-apply_document_filters = _search_retrieval_primitives.apply_document_filters
 chunk_query = _search_retrieval_primitives.chunk_query
-document_query = _search_retrieval_primitives.document_query
+document_metadata_candidate_statement = (
+    _search_metadata_supplement_support.document_metadata_candidate_statement
+)
+metadata_tsquery = _search_metadata_supplement_support.metadata_tsquery
+ranked_metadata_overlap_score = _search_metadata_supplement_support.ranked_metadata_overlap_score
 
 PROSE_SUPPLEMENTARY_CANDIDATE_LIMIT = 12
 PROSE_ADJACENT_EXPANSION_LIMIT = 12
 PROSE_ADJACENT_SEED_LIMIT = 6
 METADATA_SUPPLEMENT_DIRECT_CHUNK_MULTIPLIER = 4
-METADATA_SUPPLEMENT_DOCUMENT_LIMIT = 8
+METADATA_SUPPLEMENT_DOCUMENT_LIMIT = (
+    _search_metadata_supplement_support.METADATA_SUPPLEMENT_DOCUMENT_LIMIT
+)
 METADATA_SUPPLEMENT_DOCUMENT_CHUNK_MULTIPLIER = 6
 METADATA_SUPPLEMENT_SCORE_SCALE = 4.0
-
-
-def ranked_metadata_overlap_score(
-    query: str,
-    *,
-    document_title: str | None,
-    heading: str | None,
-    chunk_text: str | None,
-    source_filename: str,
-    include_document_context: bool = True,
-) -> float:
-    title_overlap = token_coverage(query, document_title) if include_document_context else 0.0
-    heading_overlap = token_coverage(query, heading)
-    chunk_overlap = token_coverage(query, chunk_text)
-    filename_overlap = (
-        token_coverage(query, Path(source_filename).stem) if include_document_context else 0.0
-    )
-    return max(title_overlap, heading_overlap, chunk_overlap, filename_overlap) + (
-        0.2 * title_overlap
-        + 0.15 * heading_overlap
-        + 0.25 * chunk_overlap
-        + 0.15 * filename_overlap
-    )
-
-
-def metadata_tsquery(config: str, tokens: list[str]):
-    if not tokens:
-        return None
-    return func.to_tsquery(config, " | ".join(tokens))
 
 
 def run_prose_metadata_chunk_search(
@@ -114,13 +89,14 @@ def run_prose_metadata_chunk_search(
             if len(document_rank_expressions) > 1
             else document_rank_expressions[0]
         )
-        document_statement = (
-            apply_document_filters(document_query(run_id), request.filters)
-            .where(or_(*document_conditions))
-            .order_by(document_rank.desc(), Document.id.asc())
-            .limit(max(candidate_limit * 2, METADATA_SUPPLEMENT_DOCUMENT_LIMIT))
+        document_statement = document_metadata_candidate_statement(
+            request,
+            run_id=run_id,
+            document_conditions=document_conditions,
+            document_rank=document_rank,
+            candidate_limit=candidate_limit,
         )
-        document_rows = session.execute(document_statement).scalars().all()
+        document_rows = [document for document, _rank in session.execute(document_statement).all()]
 
     if document_rows:
         document_ids = [document.id for document in document_rows]
@@ -188,6 +164,8 @@ def should_run_metadata_supplement(
     query: str,
     query_intent: str,
     strict_keyword_count: int,
+    keyword_chunk_count: int,
+    keyword_table_count: int,
     harness_name: str,
 ) -> bool:
     prose_query = query_intent in {
@@ -197,6 +175,8 @@ def should_run_metadata_supplement(
     if not prose_query:
         return False
     if harness_name == "prose_v3":
+        return True
+    if keyword_table_count > 0 and keyword_chunk_count == 0:
         return True
     return strict_keyword_count == 0 and looks_like_identifier_lookup(query)
 
@@ -257,6 +237,7 @@ def expand_adjacent_chunk_context(
 
 _ranked_metadata_overlap_score = ranked_metadata_overlap_score
 _metadata_tsquery = metadata_tsquery
+_document_metadata_candidate_statement = document_metadata_candidate_statement
 _run_prose_metadata_chunk_search = run_prose_metadata_chunk_search
 _should_run_metadata_supplement = should_run_metadata_supplement
 _expand_adjacent_chunk_context = expand_adjacent_chunk_context

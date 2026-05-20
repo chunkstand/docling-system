@@ -5,6 +5,25 @@ chat history or scanning the whole repository.
 
 ## Current Milestone Briefs
 
+- `docs/court_grade_readiness_db_blockers_resolution_milestone_plan.md`:
+  resolved locally in the current working tree on 2026-05-20. The packet keeps
+  `uv run docling-system-bootstrap-regression-readiness` as the strict empty-DB
+  baseline, adds `uv run docling-system-bootstrap-court-grade-readiness` as
+  the deterministic follow-on, refuses empty / already-ready / mixed advanced
+  DB state, closes the live readiness report at `court_grade_ready=true` /
+  `failed_gate_count=0`, and keeps the owner split honest at
+  `app/cli.py=212`, `app/cli_commands/runtime.py=384`,
+  `app/cli_commands/readiness.py=278`,
+  `app/services/court_grade_readiness_bootstrap.py=287`,
+  `app/services/court_grade_readiness_bootstrap_support.py=400`,
+  `app/services/court_grade_readiness_bootstrap_claim_feedback.py=600`, and
+  `app/services/court_grade_readiness_bootstrap_replay_alerts.py=338`. Focused
+  bootstrap coverage passed at `3 passed`, the full DB-backed suite passed at
+  `2159 passed`, hotspot prevention / hygiene / architecture all stayed green,
+  and the later replay-quality follow-on cleared the reviewed
+  `mesa restoration outlook distinct prose recall` miss, refreshed the manual
+  evaluation to `8 / 8`, and returned `agent-trace-review` to
+  `observation_count=0` without shifting DB-readiness debt.
 - `docs/retrieval_learning_artifacts_owner_rebaseline_milestone_plan.md`: deployed locally on 2026-05-19 as the broader-reselect follow-on after the semantic-registry closeout returned the live routed queue to `top_routed_hotspot_paths=[]`. `app/services/retrieval_learning_artifacts.py` now closes at `129` lines / `0` private helpers over `app/services/retrieval_learning_artifact_contracts.py` at `20 / 0`, `app/services/retrieval_learning_artifact_weights.py` at `181 / 4`, `app/services/retrieval_learning_artifact_impacts.py` at `228 / 2`, `app/services/retrieval_learning_artifact_governance.py` at `59 / 0`, `app/services/retrieval_learning_artifact_lifecycle.py` at `232 / 0`, and `app/services/retrieval_learning_artifact_views.py` at `122 / 0`; `IC-5F4E8C2B1A90` is the deployed owner case; hotspot prevention now routes the root as a compatibility-facade trap; the adjacent retrieval-learning consumer diff slice stayed empty so debt was not transferred into `retrieval_learning.py`, `retrieval_learning_candidates.py`, the search routers, CLI entrypoints, or integration support; and the live queue remains honestly empty so the next code-owning brief again requires a fresh broader rebaseline.
 - `docs/semantic_registry_owner_rebaseline_milestone_plan.md`: deployed locally on 2026-05-19 as the broader-reselect follow-on after the classifier-family closeout returned the live routed queue to `top_routed_hotspot_paths=[]`. `app/services/semantic_registry.py` now closes at `31` lines / `0` private helpers over `app/services/semantic_registry_contracts.py` at `400 / 2`, `app/services/semantic_registry_storage.py` at `85 / 3`, and `app/services/semantic_registry_state.py` at `322 / 3`; `IC-0E4F1B9A2D73` is the deployed owner case; hotspot prevention now routes the root as a compatibility-facade trap; the adjacent semantic-owner diff slice stayed empty so debt was not transferred into preview, ontology, candidate, graph, generation, or semantic-pass owners; and the later retrieval-learning artifact packet is now also deployed so the queue remains at `top_routed_hotspot_paths=[]` pending a fresh broader rebaseline.
 - `docs/hotspot_prevention_classifier_owner_rebaseline_milestone_plan.md`: resolved locally on 2026-05-19 through the classifier-family control-plane refresh. The root dispatcher remains `360` lines / `1` private helper, self-hosting guard logic now lives in `app/hotspot_prevention_classifier_owner_rules.py` at `58 / 0`, the focused family owners remain at `486 / 1`, `384 / 0`, `177 / 0`, `204 / 6`, `125 / 0`, and `436 / 1`, `config/hotspot_prevention.yaml` now routes the root as a deferred reduced facade, and the live architecture-quality summary is back to `top_routed_hotspot_paths=[]` so the next code-owning packet again requires a fresh broader rebaseline.
@@ -103,9 +122,17 @@ chat history or scanning the whole repository.
   the current live architecture-quality summary at
   `stale_facade_hotspot_count=20` with `top_routed_hotspot_paths=[]`, confirms
   the full `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` gate at
-  `2149 passed`, and records
+  `2151 passed`, and records
   `app/services/retrieval_learning_artifacts.py` as a compatibility-facade
   trap without transferring debt into adjacent retrieval-learning consumers.
+- The later 2026-05-20 readiness bootstrap slice remains docs/runtime state
+  rather than a new routed architecture packet, but it is no longer queued
+  follow-on debt: `docs/SESSION_HANDOFF.md` and
+  `docs/evaluation_data_readiness.md` now record the two-step bootstrap chain
+  (`docling-system-bootstrap-regression-readiness` then
+  `docling-system-bootstrap-court-grade-readiness`) plus focused DB-backed
+  verification that the second step closes the former six court-grade
+  data-lane blockers.
 - The later 2026-05-19 registry-alignment sweep deploys the stale reduced-root
   cases left behind by earlier resolved packets: the agent-task residual
   quartet `IC-4098E8370B88`, `IC-5D14C2A0B6F7`, `IC-2E0A91B39C5D`, and
@@ -568,13 +595,15 @@ chat history or scanning the whole repository.
   complete. Follow-up work now routes through owner-scoped improvement cases
   and hotspot owners rather than another open milestone in this sequence.
 - Runtime note: local Docker/Postgres is available for DB-backed milestone
-  verification. Evaluation-data readiness now reports
-  `regression_ready=true`, `court_grade_ready=true`, and
-  `failed_gate_count=0` on the rebuilt local DB. The live DB now includes the
-  reviewed five-document manual corpus, full replay/harness source coverage,
-  operator feedback coverage, technical-report claim-feedback coverage, an
-  active claim-support replay-alert corpus snapshot, and materialized
-  retrieval-learning data.
+  verification. The residual-weakness sequence previously closed the
+  court-grade readiness lane, but the current rebuilt local DB state is now
+  tracked in `docs/evaluation_data_readiness.md` and reports
+  `regression_ready=true`, `court_grade_ready=false`, and
+  `failed_gate_count=6` after the deterministic fresh-DB bootstrap. The
+  remaining blockers are operator feedback coverage, technical-report
+  claim-feedback coverage, claim-support replay-alert publication, full replay
+  source coverage, harness-evaluation source coverage, and retrieval-learning
+  materialization.
 - Residual risk note: the improvement-case registry remains the durable map for
   remaining architecture debt. Current summary:
   `case_count=28`, `status_counts.open=20`, `status_counts.deployed=7`,

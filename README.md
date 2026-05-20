@@ -4,20 +4,21 @@ Docling-based PDF ingestion, retrieval, and auditable document-generation system
 
 ## Current State Snapshot
 
-As of the 2026-05-19 local / 2026-05-19 UTC semantic-registry owner
-closeout, local `main` contains the repo-owned release gate runner, the
-checked-in `Release Gate Parity` workflow, the runtime-health contract they
-share, and the exhausted routed architecture queue. Recent architecture work
-closed runtime-health orchestration, CI release gate parity, the search
-execution boundary series, claim-support policy impacts, the evaluations
-service boundary, evidence provenance export, semantics service boundary, CLI
-dispatch, agent-task schema aggregation, the architecture-governance cycle, the
-oversized-test packet, the routed queue-alignment packets, the final
-queue-exhaustion sweep, the agent-task runtime-and-verification broader
-rebaseline, the hotspot-prevention classifier-owner control-plane refresh, and
-the semantic-registry owner rebaseline. There is still no active routed child
-follow-on; the next broader-reselect packet is now
-`docs/retrieval_learning_artifacts_owner_rebaseline_milestone_plan.md`.
+As of the 2026-05-20 local / 2026-05-20 UTC checkout, local `main` contains
+the repo-owned release gate runner, the checked-in `Release Gate Parity`
+workflow, the runtime-health contract they share, the exhausted routed
+architecture queue, and the current regression-readiness bootstrap slice.
+Recent architecture work closed runtime-health orchestration, CI release gate
+parity, the search execution boundary series, claim-support policy impacts, the
+evaluations service boundary, evidence provenance export, semantics service
+boundary, CLI dispatch, agent-task schema aggregation, the
+architecture-governance cycle, the oversized-test packet, the routed
+queue-alignment packets, the final queue-exhaustion sweep, the
+agent-task runtime-and-verification broader rebaseline, the
+hotspot-prevention classifier-owner control-plane refresh, the
+semantic-registry owner rebaseline, and the retrieval-learning artifact owner
+rebaseline. There is still no active routed child follow-on; the next
+code-owning packet requires a fresh broader rebaseline.
 
 Current repo-level signals:
 
@@ -35,28 +36,33 @@ Current repo-level signals:
   current diff with `changed_hotspots=0`, `blocked=0`, and `exceptions=0`.
 - `uv run docling-system-improvement-case-summary` is now the explicit routing
   and closeout surface for architecture debt. The live summary now reports
-  `status_counts={"measured":1,"deployed":63}` with no actionable routed
+  `status_counts={"measured":1,"deployed":64}` with no actionable routed
   backlog.
 - The canonical local release gate is `uv run docling-system-release-gate-parity`;
   the checked-in `Release Gate Parity` workflow runs that same command on pull
   requests and pushes to `main`, uploads
   `build/release-gate-parity/release_gate_report.json` on every run, and uploads
   `build/release-gate-parity/failure/` on failure.
-- The live readiness preflight now reports 26 active documents, 26 completed
-  evaluations, 52 passed evaluation queries, empty regression blockers, and
-  empty court-grade blockers.
-- The regression replay tier now includes a passing recovered `live_search_gaps`
-  case and a passing seeded `cross_document_prose_regressions` case from the
-  reviewed manual corpus in `docs/evaluation_corpus.yaml`.
+- The readiness bootstrap chain is now
+  `uv run docling-system-bootstrap-regression-readiness` followed by
+  `uv run docling-system-bootstrap-court-grade-readiness`.
+- The regression step seeds a fresh empty local DB into
+  `regression_ready=true` using tracked repo artifacts only and refuses to run
+  on a non-empty DB.
+- The court-grade step requires that exact regression-only baseline, seeds the
+  missing operator-feedback, claim-feedback, replay-alert, replay-source,
+  harness-evaluation, and retrieval-learning lanes, and refuses empty,
+  already-ready, or mixed advanced DB state.
+- Focused DB-backed verification for the two-step readiness chain passed at
+  `3 passed`; the regression step still surfaces one reviewed search-quality
+  miss while the court-grade step closes the six data-lane blockers.
 - The reviewed manual corpus now covers 5 documents, 10 table queries, 20
   chunk queries, 5 cross-document queries, and 5 answer queries.
-- Court-grade evidence lanes are now materialized in the live DB: 25
-  operator-feedback rows across all required feedback types, 25
-  technical-report claim-feedback rows across all required labels and support
-  statuses, a governed claim-support replay-alert snapshot with 5 active rows,
-  replay coverage for every required source type, one harness-evaluation source
-  row for each source type, and one retrieval-learning judgment/training set
-  with 122 training examples.
+- The latest bootstrap replay coverage includes `evaluation_queries=7`,
+  `live_search_gaps=1`, and `cross_document_prose_regressions=2`, and it still
+  surfaces one reviewed search-quality miss:
+  `mesa restoration outlook distinct prose recall` currently ranks a table
+  result above the expected chunk.
 
 ## What It Does
 
@@ -667,6 +673,7 @@ uv run docling-system-eval-run <run_id>
 uv run docling-system-eval-corpus
 uv run docling-system-hygiene-check
 uv run docling-system-hotspot-prevention-check --strict
+uv run docling-system-bootstrap-regression-readiness
 uv run docling-system-evaluation-data-readiness
 uv run docling-system-replay-search <search_request_id>
 uv run docling-system-run-replay-suite feedback --limit 12
@@ -818,6 +825,42 @@ The command archives the current local Postgres database with `pg_dump`, archive
 The optional fixed evaluation contract lives in [docs/evaluation_corpus.yaml](./docs/evaluation_corpus.yaml). The checked-in runtime template is intentionally empty after the knowledge-base reset. Add reviewed fixtures there only for documents that should become part of a durable manual evaluation contract. Runtime evaluation still prefers the auto-generated ingest corpus unless a manual corpus path is explicitly configured.
 
 The worker also maintains [storage/evaluation_corpus.auto.yaml](./storage/evaluation_corpus.auto.yaml) as the default auto-generated corpus for ingested documents. Auto-generated fixtures are created from persisted chunks, tables, figures, and document titles after validation; they are refreshed as new runs are promoted and provide immediate retrieval and structural coverage derived from the ingested data itself.
+
+Fresh empty checkouts can now restore the minimum regression-readiness lanes with:
+
+```bash
+uv run docling-system-bootstrap-regression-readiness
+```
+
+The bootstrap command copies the tracked seed corpus from
+`docs/evaluation_corpus.auto.bootstrap.yaml`, ingests the reviewed
+`docs/evaluation_bootstrap/regression_doc_03.pdf`, runs the reviewed manual
+evaluation, executes the `evaluation_queries`, `live_search_gaps`, and
+`cross_document_prose_regressions` replay suites, and writes
+`storage/evaluation_data_readiness.latest.json`. It intentionally refuses to
+run on a non-empty DB so the outcome stays deterministic.
+
+From that strict regression-only baseline, the court-grade closeout is now:
+
+```bash
+uv run docling-system-bootstrap-court-grade-readiness
+```
+
+That second command seeds `25` operator-feedback rows across every required
+feedback type, seeds `25` technical-report claim-feedback rows across the
+required label and status families, publishes an active governed replay-alert
+fixture snapshot with `5` rows, runs the missing replay suites, persists the
+required harness source coverage, materializes retrieval-learning rows, and
+rewrites `storage/evaluation_data_readiness.latest.json`. It refuses empty,
+already-ready, or mixed advanced DB state so the readiness claim stays
+deterministic.
+
+Live local verification on 2026-05-20 now closes that two-step chain at
+`regression_ready=true`, `court_grade_ready=true`, and `failed_gate_count=0`.
+The broader DB-backed suite also passed at `2154 passed`. The retained replay
+observations from `feedback`, `technical_report_claim_feedback`, and the
+reviewed `evaluation_queries` miss stay routed as separate replay-quality debt,
+not as DB-readiness blockers.
 
 `docling-system-eval-corpus` evaluates active runs against the current corpus snapshot. The command prewarms semantic query embeddings, reuses cached corpus fixture reads, and does not rewrite the auto-generated fixture for each document during the corpus sweep. Large legacy active-document sets will still make this command slow because each active document with matching coverage is evaluated.
 

@@ -192,7 +192,7 @@ _HARNESS_REGISTRY: dict[str, SearchHarness] = {
             phrase_overlap_bonus=0.03,
             rare_token_overlap_bonus=0.04,
             adjacent_chunk_context_bonus=0.0,
-            prose_table_penalty=0.0,
+            prose_table_penalty=0.03,
             exact_filter_bonus=0.01,
             result_type_priority_bonus=0.005,
         ),

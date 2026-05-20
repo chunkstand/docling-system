@@ -25,7 +25,6 @@ def _required(namespace: Mapping[str, Any], name: str) -> Any:
         raise KeyError(f"search orchestration dependency '{name}' is not available")
     return namespace[name]
 
-
 @dataclass(frozen=True)
 class SearchExecutionOrchestrationDependencies:
     namespace: Mapping[str, Any]
@@ -96,7 +95,6 @@ def _load_keyword_candidates(
         deps.dedupe_ranked_results([*table_results, *span_table_results]),
     )
 
-
 def _load_semantic_candidates(
     deps: SearchExecutionOrchestrationDependencies,
     session: Session,
@@ -124,7 +122,6 @@ def _load_semantic_candidates(
         score_getter=deps.semantic_score,
     )
 
-
 def _apply_metadata_supplement_stage(
     deps: SearchExecutionOrchestrationDependencies,
     session: Session,
@@ -137,10 +134,14 @@ def _apply_metadata_supplement_stage(
     keyword_strategy: str,
     run_id: UUID | None,
 ) -> tuple[list[Any], list[Any], str]:
+    keyword_chunk_count = sum(1 for item in keyword_results if item.result_type == "chunk")
+    keyword_table_count = len(keyword_results) - keyword_chunk_count
     metadata_enabled = hasattr(session, "execute") and deps.should_run_metadata_supplement(
         query=request.query,
         query_intent=query_intent,
         strict_keyword_count=strict_keyword_count,
+        keyword_chunk_count=keyword_chunk_count,
+        keyword_table_count=keyword_table_count,
         harness_name=harness_name,
     )
     if not metadata_enabled:
@@ -161,12 +162,11 @@ def _apply_metadata_supplement_stage(
     )
     if not keyword_results:
         next_keyword_strategy = "metadata_supplement"
-    elif keyword_strategy == "strict":
-        next_keyword_strategy = "strict_plus_metadata"
-    elif keyword_strategy == "relaxed_or":
-        next_keyword_strategy = "relaxed_or_plus_metadata"
     else:
-        next_keyword_strategy = keyword_strategy
+        next_keyword_strategy = {
+            "strict": "strict_plus_metadata",
+            "relaxed_or": "relaxed_or_plus_metadata",
+        }.get(keyword_strategy, keyword_strategy)
     return merged_results, metadata_candidates, next_keyword_strategy
 
 
