@@ -1106,6 +1106,12 @@ file_budgets:
       max_private_helpers: 3
       ratchet_max_private_helpers: 3
       owner_case_id: IC-08C078FD4F45
+    app/services/ontology_contracts.py:
+      max_lines: 381
+      max_private_helpers: 5
+    app/services/ontology_contract_evaluations.py:
+      max_lines: 425
+      max_private_helpers: 8
     app/architecture_inspection_rule_contracts.py:
       max_lines: 101
       ratchet_max_lines: 101

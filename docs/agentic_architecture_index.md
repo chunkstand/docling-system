@@ -37,12 +37,18 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
   `ontology_slices` and `competency_families` to the active snapshot, ontology
   extension draft, and ontology apply payloads so downstream task contexts
   inherit reusable slice data without reopening the larger context-owner split.
-  Focused ontology/context coverage now passes at `21 passed`, the dedicated
-  ontology integration cluster passes at `8 passed`, hygiene and architecture
-  governance gates are green, and the broad DB-backed suite stayed green at
-  `2203 passed` with `1` docling deprecation warning. The next honest boundary
-  inside the same packet is deeper ontology-readiness expansion plus richer
-  portable roundtrip coverage for the new report-semantics families.
+  The latest landed implementation commit is `7a2c2012`, and the later
+  alignment pass adds explicit hygiene-policy budgets for
+  `app/services/ontology_contracts.py` and
+  `app/services/ontology_contract_evaluations.py` so the packet's stricter
+  new-owner thresholds are satisfied in repo state. Focused ontology/context
+  coverage now passes at `21 passed`, the dedicated ontology integration
+  cluster passes at `8 passed`, live architecture quality remains queue-empty
+  with `max_hotspot_risk_score=456.06`, hygiene and architecture governance
+  gates are green, and the broad DB-backed suite stayed green at `2203 passed`
+  with `1` docling deprecation warning. The next honest boundary inside the
+  same packet is deeper ontology-readiness expansion plus richer portable
+  roundtrip coverage for the new report-semantics families.
 - `docs/production_trap_set_centrality_reduction_milestone_plan.md`:
   resolved locally in the current checkout on 2026-05-20. The packet adds
   `config/production_trap_set_centrality_budget.yaml` plus

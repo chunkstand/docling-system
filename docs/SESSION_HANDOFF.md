@@ -33,6 +33,13 @@ earlier runtime slice still exposes contract-prefixed metadata,
 `ActiveOntologySnapshotPayload`, `OntologyExtensionDraftPayload`, and
 `ApplyOntologyExtensionTaskOutput`, so the existing ontology task contexts
 inherit first-class slice data without a broader task-context owner rewrite.
+The latest implementation closeout commit for the landed ontology runtime and
+eval slices is `7a2c2012` (`Implement ontology contract runtime and eval slices`).
+The later alignment pass also adds explicit budgets for
+`app/services/ontology_contracts.py` and
+`app/services/ontology_contract_evaluations.py` in
+`config/hygiene_policy.yaml` so the packet's new-owner placement rules are
+honored in repo state rather than only in chat.
 The next honest boundary inside the same packet is deeper ontology-readiness
 expansion beyond the current generic runtime readiness and richer portable
 roundtrip coverage for the new report-semantics families.
@@ -49,6 +56,8 @@ Focused verification for the current ontology-contract slices:
 - `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
 - `uv run docling-system-capability-contracts`: `valid=true`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles`: `Python cycles: none detected`
+- `uv run docling-system-improvement-case-summary`: `status_counts={"deployed":67}`
+- `uv run docling-system-architecture-quality-report --summary`: `top_routed_hotspot_paths=[]`, `broader_rebaseline_candidate_count=0`, `max_hotspot_risk_score=456.06`
 Latest evaluation-data readiness implementation in the current 2026-05-20
 local checkout:
 `uv run docling-system-bootstrap-regression-readiness` remains the strict

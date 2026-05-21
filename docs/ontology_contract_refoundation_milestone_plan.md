@@ -15,7 +15,10 @@ validation, the ontology contract report artifact, additive ontology-slice
 metadata on active snapshot and ontology task payloads, enriched non-legacy
 application or overlay or report-semantics layers, explicit ontology-eval
 coverage in `docs/semantic_evaluation_corpus.yaml`, and the dedicated
-`docs/ontology_evaluation_report.json` gate. The deeper readiness-gate
+`docs/ontology_evaluation_report.json` gate. The later alignment pass also
+adds same-slice owner budgets for the new ontology contract owners in
+`config/hygiene_policy.yaml` so the landed modules satisfy the packet placement
+rules instead of relying only on green tests. The deeper readiness-gate
 expansion and portable roundtrip enrichment remain open in later milestones.
 
 ## Purpose
@@ -43,41 +46,56 @@ It also makes two currently under-specified requirements explicit:
 
 ## Current Evidence
 
-Live baseline from the current 2026-05-21 checkout:
+Live state from the current 2026-05-21 checkout after the landed ontology
+runtime and eval slices:
 
 ```text
-git status -sb
-  ## main...origin/main [ahead 13]
+latest local ontology slice commit
+  7a2c2012 Implement ontology contract runtime and eval slices
 
-diff -u config/upper_ontology.yaml config/semantic_registry.yaml
-  no output; the files are byte-identical in the current checkout
+uv run docling-system-ontology-contract-validate --strict
+  valid=true; layer_count=5; slice_count=5; competency_family_count=4
 
-wc -l app/services/semantic_ontology.py \
-  app/services/semantic_orchestration.py \
-  app/services/semantic_registry_contracts.py \
-  app/services/semantic_backfill.py \
-  app/services/semantic_graph_build.py
-     280 app/services/semantic_ontology.py
-     543 app/services/semantic_orchestration.py
-     400 app/services/semantic_registry_contracts.py
-     492 app/services/semantic_backfill.py
-      90 app/services/semantic_graph_build.py
+uv run docling-system-ontology-eval --output docs/ontology_evaluation_report.json
+  overall_passed=true; global_entity_type_count=19; global_relation_count=20
+
+wc -l app/services/ontology_contracts.py \
+  app/services/ontology_contract_evaluations.py \
+  app/services/ontology_contract_reporting.py \
+  app/services/ontology_contract_runtime.py \
+  app/services/semantic_ontology.py
+     381 app/services/ontology_contracts.py
+     425 app/services/ontology_contract_evaluations.py
+     174 app/services/ontology_contract_reporting.py
+     107 app/services/ontology_contract_runtime.py
+     291 app/services/semantic_ontology.py
 ```
 
 Current structural evidence:
 
-- `config/upper_ontology.yaml` and `config/semantic_registry.yaml` are
-  duplicate portable seeds. They currently define zero categories, zero
-  concepts, only three entity types (`document`, `concept`, `literal`), and
-  four generic relations.
-- `app/services/semantic_registry_contracts.py` validates and normalizes
-  categories, concepts, entity types, and relations, but it does not yet
-  model a layered contract boundary between upper ontology, application
-  ontology, and domain overlays, nor does it expose a formal export contract
-  for JSON-LD, OWL, or SHACL.
-- `app/services/semantic_ontology.py` exposes snapshot counts and relation
-  keys and still treats portable bootstrap as the main ontology readiness
-  signal instead of measuring richer contract legibility.
+- `config/upper_ontology.yaml` and `config/semantic_registry.yaml` remain
+  duplicate legacy portable-seed compatibility views, but they are now
+  compiled from the canonical JSON contract instead of being the only
+  machine-readable ontology authority.
+- `config/ontology/docling_ontology_contract.json` now carries five named
+  layers, five named ontology slices, and four competency families. The
+  non-legacy application, domain-overlay, report-semantics, and
+  evaluation-coverage layers are active and contribute nineteen aggregate
+  entity types and twenty aggregate relations to the compiled full-contract
+  registry used by the ontology-eval gate.
+- `app/services/ontology_contracts.py`,
+  `app/services/ontology_contract_reporting.py`,
+  `app/services/ontology_contract_runtime.py`, and
+  `app/services/ontology_contract_evaluations.py` now form the focused
+  ontology-contract owner family. The later alignment pass explicitly routes
+  `ontology_contracts.py` and `ontology_contract_evaluations.py` in
+  `config/hygiene_policy.yaml` because both new owners exceed the packet's
+  stricter new-owner thresholds.
+- `app/services/semantic_ontology.py` now exposes contract-prefixed runtime
+  metadata plus first-class `ontology_slices` and `competency_families` on the
+  active snapshot, ontology extension draft, and ontology apply payloads, so
+  agent-context consumers can reuse slice-first ontology context instead of
+  reconstructing it from counts or prose.
 - `app/services/semantic_orchestration.py` currently supports only additive
   registry operations (`add_concept`, `add_alias`, `add_category_binding`).
   That is enough for vocabulary growth, but not enough to prove a refounded
@@ -87,25 +105,19 @@ Current structural evidence:
   need broader class and relation guarantees than that.
 - `app/services/semantic_graph_build.py` carries ontology version and hash
   into graph payloads, but not layer, export, or shape-contract metadata.
-- `app/services/agent_task_context_semantic_analysis.py` already treats the
-  active ontology snapshot as typed reusable context, but the live snapshot
-  payload it exposes is still mostly counts, relation keys, and source-kind
-  metadata rather than addressable ontology slices.
-- `app/services/agent_task_context_semantic_governance_ontology.py` already
-  builds typed draft, verify, and apply ontology task context, but those
-  envelopes do not yet carry first-class compiled ontology slices, slice
-  digests, or ontology-eval coverage surfaces that downstream agents can reuse
-  directly.
-- `tests/unit/agent_task_context_semantic_governance_support.py` still models
-  `active_ontology_snapshot_payload()` as a thin minimal snapshot contract,
-  which is useful baseline evidence for this packet but also proves the current
-  ontology context is not yet slice-first.
-- `tests/integration/test_portable_ontology_roundtrip.py` proves the runtime
-  can bootstrap a domain-agnostic ontology, but the fixture contract remains a
-  minimal two-relation seed and does not exercise richer report semantics.
-- `tests/unit/test_semantic_orchestration.py` proves concept-addition and
-  alias or category patching, not layered contract compilation, export
-  determinism, or shape-enforced runtime adoption.
+- `app/services/agent_task_context_semantic_analysis.py` and
+  `app/services/agent_task_context_semantic_governance_ontology.py` now inherit
+  first-class ontology slices and competency-family payloads through the
+  enriched snapshot and ontology-governance schemas, but the repo still lacks a
+  broader slice-aware readiness expansion across the rest of semantic runtime.
+- `docs/semantic_evaluation_corpus.yaml` is no longer empty. It now carries
+  five slice expectations, four competency-family expectations, and eight
+  competency questions, and `docs/ontology_evaluation_report.json` records the
+  resulting dedicated ontology gate as a repo-owned artifact.
+- `tests/integration/test_portable_ontology_roundtrip.py` still proves the
+  runtime can bootstrap a domain-agnostic ontology, but the fixture contract
+  remains a minimal portable seed and does not yet exercise the richer
+  report-semantics families now present in the canonical contract.
 
 ## Goal
 
