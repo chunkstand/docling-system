@@ -78,12 +78,20 @@ root under `IC-5C9B1A4D7E2F`, keeps
 `tests/unit/test_search_api_learning_audit.py` unchanged as the adjacent
 error-path owner at `228` lines, and leaves no active broader-rebaseline
 candidate in the current checkout. Future code-owning work now requires a
-fresh live rebaseline rather than reopening a queued harness packet. A new
+fresh live rebaseline rather than reopening a queued harness packet. A newer
 standalone optional follow-on now exists in
-`docs/db_models_caller_migration_boundary_milestone_plan.md` for proactive
-`app.db.models` import-gravity reduction; it is not the live queued packet and
-should only be used when explicitly choosing fan-in paydown over queue-driven
-work. The later
+`docs/production_trap_set_centrality_reduction_milestone_plan.md` for
+proactive reduction of the remaining governed production trap set:
+`app/db/models.py`, `app/services/evidence.py`,
+`app/schemas/agent_tasks.py`, `app/services/agent_tasks.py`,
+`app/services/agent_task_actions.py`, `app/services/audit_bundles.py`,
+`app/services/search.py`, and `app/cli.py`. The packet is deliberately
+gate-first and not queue-selected: it starts with a live selected-root census,
+adds importer and fan-out ratchets, absorbs the narrower
+`docs/db_models_caller_migration_boundary_milestone_plan.md` as the DB
+caller-migration lane, and requires an accepted-legacy closeout for any root
+that intentionally remains in `routing_trap_paths`. Use it only when
+explicitly choosing trap-set centrality paydown over queue-driven work. The later
 governance gap-close then adds
 `tests/unit/test_hotspot_prevention_search_api_harness_routes.py` plus the
 matching hotspot-governance classifier support and hotspot-policy contract

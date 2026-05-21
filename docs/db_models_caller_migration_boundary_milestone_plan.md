@@ -1,9 +1,12 @@
 # DB Models Caller Migration Boundary Milestone Plan
 
 Date: 2026-05-20 local / 2026-05-20 UTC
-Status: proposed in the current checkout as a standalone technical-paydown
-packet after the DB-model compatibility facade and residual owner-family
-packets closed locally.
+Status: proposed in the current checkout as a detailed
+`app.db.models` caller-migration sublane after the DB-model compatibility
+facade and residual owner-family packets closed locally. The newer
+`docs/production_trap_set_centrality_reduction_milestone_plan.md` absorbs this
+brief whenever we choose to work the broader governed production trap set
+rather than a DB-only fan-in lane.
 Owner context: [app/db/models.py](/Users/chunkstand/Documents/docling-system/app/db/models.py:1)
 is already the governed public compatibility facade under
 `IC-F2A8110185EB`; the remaining debt is importer gravity, not remaining ORM

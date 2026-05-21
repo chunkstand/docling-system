@@ -11,14 +11,32 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
 
 ## Current Milestone Briefs
 
+- `docs/production_trap_set_centrality_reduction_milestone_plan.md`:
+  proposed locally in the current checkout on 2026-05-20 as the new
+  top-level optional follow-on for the remaining governed production trap set
+  after the live routed queue, broader-rebaseline queue, and Python-cycle
+  backlog all closed. The packet targets the still-central compatibility or
+  dispatch roots named by the live `routing_trap_paths` and quality summary:
+  `app/db/models.py` (`337` importer fan-in),
+  `app/services/evidence.py` (`42` importer fan-in),
+  `app/schemas/agent_tasks.py` (`37` importer fan-in),
+  `app/services/agent_tasks.py` (`26` importer fan-in),
+  `app/services/agent_task_actions.py` (`18` fan-out),
+  `app/services/audit_bundles.py` (`14` fan-out),
+  `app/services/search.py` (`12` fan-out), and `app/cli.py` as the remaining
+  CLI dispatch choke point. The brief is gate-first: it requires a Milestone 0
+  freshness lock, machine-checked importer and fan-out ratchets, caller
+  migration on the high-fan-in roots, dispatch contraction on the high-fan-out
+  roots, and an accepted-legacy closeout if any selected shim remains in the
+  trap set intentionally.
 - `docs/db_models_caller_migration_boundary_milestone_plan.md`: proposed
-  locally in the current checkout on 2026-05-20 as a standalone optional
-  follow-on for proactive `app.db.models` import-gravity paydown. The live
-  queue remains empty, but the brief records the next deliberate contract
-  change if we choose to reduce the `337`-import fan-in by adding bounded
-  `app/db/public/*` caller facades, ratcheting direct `app.db.models` imports
-  downward, and migrating legacy callers off the monolithic shim without
-  reopening ORM ownership splits.
+  locally in the current checkout on 2026-05-20 as the detailed
+  `app.db.models` caller-migration sublane. It remains useful as a reference
+  brief for bounded `app/db/public/*` caller facades and importer-policy
+  ratchets, but the newer
+  `docs/production_trap_set_centrality_reduction_milestone_plan.md` now
+  absorbs it whenever we choose to work the broader production trap-set debt
+  rather than a DB-only fan-in lane.
 - `docs/search_api_harness_route_surface_boundary_milestone_plan.md`:
   resolved locally in the current checkout on 2026-05-20. The packet reduces
   `tests/unit/test_search_api_harnesses.py` to a `40`-line route-registration

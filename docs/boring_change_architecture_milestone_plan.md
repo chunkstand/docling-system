@@ -54,9 +54,15 @@ Current live routing state in the current checkout:
 `architecture_probe.py --fail-on-cycles` reports `0` Python cycle components.
 The queue is therefore empty by the repo’s operational signals. A separate
 standalone optional follow-on now exists in
-`docs/db_models_caller_migration_boundary_milestone_plan.md` for proactive
-`app.db.models` caller-migration work, but it is not a queue-selected packet
-and should not override a future fresh live rebaseline.
+`docs/production_trap_set_centrality_reduction_milestone_plan.md` for
+proactive reduction of the remaining governed production trap set after the
+queue and broader-rebaseline backlog both closed. That newer packet targets
+the selected caller-gravity and orchestration-gravity roots named by the live
+`routing_trap_paths`, starts with a fresh selected-root census, and absorbs
+`docs/db_models_caller_migration_boundary_milestone_plan.md` as its narrower
+`app.db.models` caller-migration lane. It is not a queue-selected packet and
+should not override a future fresh live rebaseline unless we explicitly choose
+centrality paydown over queue-driven work.
 The later
 2026-05-19 registry-alignment sweep also deploys the stale reduced-root
 agent-task, claim-support, action-test, and UI bootstrap cases left behind by
