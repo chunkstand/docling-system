@@ -939,19 +939,50 @@ known_hotspots:
         root file.
       route_to_case_ids:
         - IC-03D7EFA03213
+        - IC-5C9B1A4D7E2F
       route_to_paths:
         - tests/unit/test_search_api_request_history.py
         - tests/unit/test_search_api_evidence.py
         - tests/unit/test_search_api_replays.py
-        - tests/unit/test_search_api_harnesses.py
+        - tests/unit/test_search_api_harness_definitions.py
+        - tests/unit/test_search_api_harness_evaluations.py
+        - tests/unit/test_search_api_harness_learning.py
+        - tests/unit/test_search_api_harness_audits.py
         - tests/unit/test_search_api_learning_audit.py
       route_to_plan_paths:
+        - docs/search_api_harness_route_surface_boundary_milestone_plan.md
         - docs/boring_change_architecture_milestone_plan.md
     block_new:
       - broad_new_test_group
       - broad_helper
     allow:
       - import_forwarder
+      - compatibility_assertion
+      - deletion
+  tests/unit/test_search_api_harnesses.py:
+    target_role: search harness API route compatibility and registration smoke tests
+    preferred_owner_modules:
+      - tests/unit/test_search_api_harness_*.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The search harness API root test is now a narrow route-registration
+        smoke surface, so future harness definition, evaluation, learning, and
+        audit coverage belongs in the focused sibling tests instead of regrowing
+        the root file.
+      route_to_case_ids:
+        - IC-5C9B1A4D7E2F
+      route_to_paths:
+        - tests/unit/test_search_api_harness_definitions.py
+        - tests/unit/test_search_api_harness_evaluations.py
+        - tests/unit/test_search_api_harness_learning.py
+        - tests/unit/test_search_api_harness_audits.py
+      route_to_plan_paths:
+        - docs/search_api_harness_route_surface_boundary_milestone_plan.md
+        - docs/boring_change_architecture_milestone_plan.md
+    block_new:
+      - broad_new_test_group
+      - broad_helper
+    allow:
       - compatibility_assertion
       - deletion
   tests/unit/test_hotspot_prevention.py:

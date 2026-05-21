@@ -1919,6 +1919,76 @@ cases:
       aligned the moved coverage to focused action-family files.
   created_at: '2026-05-10T01:15:27.810985+00:00'
   updated_at: '2026-05-19T00:00:00Z'
+- case_id: IC-5C9B1A4D7E2F
+  title: 'Architecture hotspot: tests/unit/test_search_api_harnesses.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: tests/unit/test_search_api_harnesses.py remained an
+    architecture hotspot at 764 lines after earlier search API, search harness
+    service, and search harness CLI reductions because harness definition,
+    evaluation, release, retrieval-learning, reranker, and audit route
+    contracts still shared one mixed root.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:tests/unit/test_search_api_harnesses.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=tests/unit/test_search_api_harnesses.py; verification_command=uv
+      run docling-system-architecture-quality-report; stop_condition=Hotspot risk
+      decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: test
+    target_path: tests/unit/test_search_api_harnesses.py
+    description: Architecture quality owner surface for tests/unit/test_search_api_harnesses.py.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check tests/unit/test_search_api.py
+      tests/unit/test_search_api_harnesses.py
+      tests/unit/test_search_api_harness_definitions.py
+      tests/unit/test_search_api_harness_evaluations.py
+      tests/unit/test_search_api_harness_learning.py
+      tests/unit/test_search_api_harness_audits.py
+      tests/unit/test_search_api_learning_audit.py
+    - uv run pytest -q tests/unit/test_search_api.py
+      tests/unit/test_search_api_harnesses.py
+      tests/unit/test_search_api_harness_definitions.py
+      tests/unit/test_search_api_harness_evaluations.py
+      tests/unit/test_search_api_harness_learning.py
+      tests/unit/test_search_api_harness_audits.py
+      tests/unit/test_search_api_learning_audit.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-architecture-quality-report --summary
+    - uv run docling-system-architecture-inspect
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 25
+    acceptance_conditions:
+    - tests/unit/test_search_api_harnesses.py is reduced to a narrow search
+      harness route-registration smoke surface while definitions, evaluations,
+      learning, and audit coverage live in focused sibling tests.
+    - The reduced root and all new focused harness siblings are exact-ratcheted
+      and routed so the packet does not shift debt into a fresh ungoverned test
+      sink.
+    - No moved harness coverage regrows tests/unit/test_search_api.py or pushes
+      unrelated learning or audit error-path coverage out of
+      tests/unit/test_search_api_learning_audit.py.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  measurement:
+    metric_name: test_search_api_harness_hotspot_line_count
+    current_value: 40.0
+    measurement_window: 2026-05-20 local harness route-surface split
+    notes: tests/unit/test_search_api_harnesses.py now measures 40 lines, and
+      the focused siblings measure 81, 287, 335, and 248 lines in
+      tests/unit/test_search_api_harness_definitions.py,
+      tests/unit/test_search_api_harness_evaluations.py,
+      tests/unit/test_search_api_harness_learning.py, and
+      tests/unit/test_search_api_harness_audits.py respectively.
+  created_at: '2026-05-20T00:00:00Z'
+  updated_at: '2026-05-20T00:00:00Z'
 - case_id: IC-7A628A4CBCAC
   title: 'Architecture hotspot: tests/unit/test_evaluation_service.py'
   status: deployed
