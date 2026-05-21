@@ -40,6 +40,7 @@ from app.services.semantic_ontology import (
     apply_ontology_extension,
     draft_ontology_extension,
     draft_ontology_extension_from_bootstrap_report,
+    draft_ontology_extension_from_operations,
     verify_draft_ontology_extension,
 )
 from app.services.semantic_orchestration import (
@@ -177,6 +178,7 @@ def _draft_ontology_extension_executor(
         resolve_required_dependency_task_output_context_func=resolve_required_dependency_task_output_context,
         draft_ontology_extension_func=draft_ontology_extension,
         draft_ontology_extension_from_bootstrap_report_func=draft_ontology_extension_from_bootstrap_report,
+        draft_ontology_extension_from_operations_func=draft_ontology_extension_from_operations,
         create_agent_task_artifact_func=create_agent_task_artifact,
         storage_service_factory=StorageService,
     )
@@ -406,7 +408,8 @@ def build_semantic_governance_action_definitions() -> dict[str, AgentTaskActionD
             capability="semantic_memory",
             definition_kind="draft",
             description=(
-                "Draft an additive ontology extension from semantic triage or bootstrap discovery."
+                "Draft an ontology extension from semantic triage, bootstrap discovery, "
+                "or explicit lifecycle operations."
             ),
             payload_model=DraftOntologyExtensionTaskInput,
             executor=_draft_ontology_extension_executor,

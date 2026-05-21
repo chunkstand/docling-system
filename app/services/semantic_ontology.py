@@ -19,6 +19,12 @@ from app.services.semantic_registry import (
     get_active_semantic_ontology_snapshot,
     persist_semantic_ontology_snapshot,
 )
+from app.services.semantic_registry_operation_contracts import (
+    LIFECYCLE_SEMANTIC_REGISTRY_OPERATION_TYPES,
+    SEMANTIC_REGISTRY_OPERATION_CONTRACT_VERSION,
+)
+from app.services.semantic_registry_operation_mutations import apply_semantic_registry_operations
+from app.services.semantic_registry_versioning import next_semantic_registry_version
 from app.services.semantics import preview_semantic_registry_update_for_document
 
 
@@ -131,6 +137,73 @@ def get_active_ontology_snapshot_payload(session: Session) -> dict[str, Any]:
     }
 
 
+def _ontology_lifecycle_draft_success_metrics(
+    *,
+    base_ontology_version: str,
+    proposed_ontology_version: str,
+    operations: list[dict[str, Any]],
+    has_source_task: bool,
+) -> list[dict[str, Any]]:
+    lifecycle_operation_count = sum(
+        1
+        for operation in operations
+        if operation["operation_type"] in LIFECYCLE_SEMANTIC_REGISTRY_OPERATION_TYPES
+    )
+    return [
+        {
+            "metric_key": "semantic_integrity_upgrade",
+            "stakeholder": "Figay",
+            "passed": proposed_ontology_version != base_ontology_version and bool(operations),
+            "summary": "The lifecycle draft stamps a new ontology version before publication.",
+            "details": {
+                "base_ontology_version": base_ontology_version,
+                "proposed_ontology_version": proposed_ontology_version,
+                "operation_count": len(operations),
+            },
+        },
+        {
+            "metric_key": "versioned_lifecycle_contract",
+            "stakeholder": "Milestone",
+            "passed": lifecycle_operation_count > 0,
+            "summary": (
+                "Lifecycle intent is encoded as versioned machine-readable ontology "
+                "operations."
+            ),
+            "details": {
+                "operation_contract_version": SEMANTIC_REGISTRY_OPERATION_CONTRACT_VERSION,
+                "lifecycle_operation_count": lifecycle_operation_count,
+            },
+        },
+        {
+            "metric_key": "agent_legible_patch",
+            "stakeholder": "Lopopolo",
+            "passed": bool(operations),
+            "summary": (
+                "The ontology draft stays reviewable as typed operations plus an "
+                "effective snapshot."
+            ),
+            "details": {"operation_ids": [operation["operation_id"] for operation in operations]},
+        },
+        {
+            "metric_key": "explicit_mutation_boundary",
+            "stakeholder": "Ronacher",
+            "passed": True,
+            "summary": "The lifecycle draft does not mutate the live ontology snapshot.",
+            "details": {"live_mutation_performed": False},
+        },
+        {
+            "metric_key": "owned_registry_context",
+            "stakeholder": "Jones",
+            "passed": bool(operations),
+            "summary": (
+                "Lifecycle changes remain explicit even when they are drafted directly without a "
+                "source-task-derived additive report."
+            ),
+            "details": {"has_source_task": has_source_task},
+        },
+    ]
+
+
 def draft_ontology_extension(
     session: Session,
     gap_report: dict[str, Any],
@@ -161,6 +234,7 @@ def draft_ontology_extension(
         "source_task_type": source_task_type,
         "rationale": draft.get("rationale"),
         "document_ids": draft.get("document_ids") or [],
+        "operation_contract_version": draft.get("operation_contract_version"),
         "operations": draft.get("operations") or [],
         "effective_ontology": draft.get("effective_registry") or {},
         "success_metrics": draft.get("success_metrics") or [],
@@ -198,9 +272,51 @@ def draft_ontology_extension_from_bootstrap_report(
         "source_task_type": source_task_type,
         "rationale": draft.get("rationale"),
         "document_ids": draft.get("document_ids") or [],
+        "operation_contract_version": draft.get("operation_contract_version"),
         "operations": draft.get("operations") or [],
         "effective_ontology": draft.get("effective_registry") or {},
         "success_metrics": draft.get("success_metrics") or [],
+        **contract_runtime,
+    }
+
+
+def draft_ontology_extension_from_operations(
+    session: Session,
+    operations: list[dict[str, Any]],
+    *,
+    source_task_id: UUID | None,
+    source_task_type: str | None,
+    proposed_ontology_version: str | None,
+    rationale: str | None,
+) -> dict[str, Any]:
+    base_snapshot = get_active_semantic_ontology_snapshot(session)
+    contract_runtime = load_ontology_contract_runtime_metadata()
+    next_version = proposed_ontology_version or next_semantic_registry_version(
+        base_snapshot.ontology_version
+    )
+    effective_ontology = apply_semantic_registry_operations(
+        dict(base_snapshot.payload_json or {}),
+        operations,
+        proposed_registry_version=next_version,
+    )
+    return {
+        "base_snapshot_id": base_snapshot.id,
+        "base_ontology_version": base_snapshot.ontology_version,
+        "proposed_ontology_version": next_version,
+        "upper_ontology_version": base_snapshot.upper_ontology_version,
+        "source_task_id": source_task_id,
+        "source_task_type": source_task_type,
+        "rationale": rationale,
+        "document_ids": [],
+        "operation_contract_version": SEMANTIC_REGISTRY_OPERATION_CONTRACT_VERSION,
+        "operations": operations,
+        "effective_ontology": effective_ontology,
+        "success_metrics": _ontology_lifecycle_draft_success_metrics(
+            base_ontology_version=base_snapshot.ontology_version,
+            proposed_ontology_version=next_version,
+            operations=operations,
+            has_source_task=source_task_id is not None,
+        ),
         **contract_runtime,
     }
 

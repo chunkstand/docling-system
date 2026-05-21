@@ -1,14 +1,17 @@
 # Ontology Evolution Lifecycle Milestone Plan
 
 Date: 2026-05-21 local / 2026-05-21 UTC
-Status: in_progress in the current 2026-05-21 checkout. Milestone 0 is now
-resolved locally through the additive-only lifecycle gate in
-`app/services/semantic_registry_operation_contracts.py` as consumed by
-`app/services/semantic_orchestration.py`, the additive operation-type contract
-in `app/schemas/agent_task_semantics.py`, and the baseline compatibility tests
-in `tests/unit/test_ontology_evolution_lifecycle_baseline.py`. Milestone 1,
-which adds the actual structured split/merge/deprecate/replace/migrate
-operations, remains open.
+Status: in_progress in the current 2026-05-21 checkout. Milestone 0 and
+Milestone 1 are now resolved locally. The repo no longer treats
+split/merge/deprecate/replace/migrate as blocked prose-only intent: the
+versioned lifecycle contract now lives in
+`app/services/semantic_registry_operation_contracts.py`, the concrete draft
+mutation owner now lives in
+`app/services/semantic_registry_operation_mutations.py`, and
+`DraftOntologyExtensionTaskInput` in `app/schemas/agent_task_semantics.py`
+now accepts explicit machine-readable lifecycle operations without requiring a
+source task. Milestone 2, which extends verification previews and apply
+adoption around the new lifecycle drafts, remains open.
 Owner context: standalone follow-on after
 `docs/ontology_contract_refoundation_milestone_plan.md` closes. This packet
 does not reopen the canonical contract scaffold or the runtime-readiness
@@ -29,29 +32,35 @@ can evolve without hidden manual rewrites or silent semantic drift.
 ## Current Evidence
 
 - `app/services/semantic_registry_operation_contracts.py` now exposes the
-  explicit additive baseline through
-  `SUPPORTED_SEMANTIC_REGISTRY_OPERATION_TYPES` and
-  `validate_semantic_registry_operations(...)`, and
-  `app/services/semantic_orchestration.py` now consumes that gate before draft
-  application. Draft application still supports only `add_concept`,
-  `add_alias`, and `add_category_binding`, and the gate now rejects
-  non-additive `split_concept`, `merge_concept`, `deprecate_concept`,
-  `replace_concept`, and `migrate_concept` requests with a targeted error that
-  routes them back to this packet.
-- `app/schemas/agent_task_semantics.py` now records the current additive-only
-  task contract directly in `SemanticRegistryUpdateOperation.operation_type`,
-  so the draft/verify/apply ontology payloads fail validation if a future
-  session tries to smuggle non-additive lifecycle operations into the current
-  contract.
+  versioned lifecycle contract through
+  `SEMANTIC_REGISTRY_OPERATION_CONTRACT_VERSION`,
+  `SUPPORTED_SEMANTIC_REGISTRY_OPERATION_TYPES`, and
+  `validate_semantic_registry_operations(...)`, so split/merge/deprecate/
+  replace/migrate operations are first-class supported types rather than
+  blocked placeholders.
+- `app/services/semantic_registry_operation_mutations.py` now owns the
+  effective-ontology mutation rules for additive and lifecycle operations,
+  including predecessor/successor lineage fields and successor concept
+  materialization, while `app/services/semantic_orchestration.py` stays below
+  the hygiene ratchet as a thinner draft/verification owner.
+- `app/schemas/agent_task_semantics.py` now records the lifecycle surface
+  directly in `SemanticRegistryUpdateOperation`, adds structured
+  `successor_concepts`, versions ontology draft payloads through
+  `operation_contract_version`, and allows `DraftOntologyExtensionTaskInput`
+  to draft explicit lifecycle operations without a source task when the draft
+  is operator-authored rather than triage- or bootstrap-derived.
 - `app/services/semantic_ontology.py` and the ontology task-context owners now
-  expose contract metadata, ontology slices, and competency families, so the
-  runtime has enough first-class context to support lifecycle operations
-  without another refoundation pass first.
+  expose contract metadata, ontology slices, and competency families, and the
+  ontology draft action owner now accepts explicit lifecycle operations through
+  the same `draft_ontology_extension` task family instead of introducing a
+  parallel task or side channel.
 - `tests/unit/test_ontology_evolution_lifecycle_baseline.py` now pins the
-  current additive-only operation surface and validates the current
-  draft/verify/apply ontology payload contract fields, while the existing
-  ontology context tests continue to pin the current source-ref, dependency,
-  slice-count, and competency-family context behavior.
+  lifecycle contract surface, the direct mutation lineage semantics, and the
+  current draft/verify/apply ontology payload fields, while
+  `tests/unit/test_agent_task_actions_ontology.py`,
+  `tests/unit/test_agent_task_context_semantic_governance_ontology.py`, and
+  `tests/integration/test_portable_ontology_roundtrip.py` now prove the new
+  manual lifecycle draft path through the real task worker stack.
 - `docs/ontology_contract_refoundation_milestone_plan.md` is resolved locally
   in the current checkout after the final readiness and portable-roundtrip
   slice, and `docs/SESSION_HANDOFF.md` routes this packet as the remaining

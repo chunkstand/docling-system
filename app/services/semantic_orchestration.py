@@ -12,7 +12,11 @@ from app.services.semantic_orchestration_triage import (
     semantic_triage_metrics,
     triage_semantic_pass,
 )
-from app.services.semantic_registry_operation_contracts import validate_semantic_registry_operations
+from app.services.semantic_registry_operation_contracts import (
+    SEMANTIC_REGISTRY_OPERATION_CONTRACT_VERSION,
+)
+from app.services.semantic_registry_operation_mutations import apply_semantic_registry_operations
+from app.services.semantic_registry_versioning import next_semantic_registry_version
 
 __all__ = [
     "SemanticTriageOutcome",
@@ -26,21 +30,9 @@ __all__ = [
     "triage_semantic_pass",
 ]
 
-
-def _next_registry_version(base_version: str) -> str:
-    prefix, separator, suffix = base_version.rpartition(".")
-    if separator and suffix.isdigit():
-        return f"{prefix}.{int(suffix) + 1}"
-    return f"{base_version}.1"
-
-
 def _registry_operation_id(operation_type: str, concept_key: str, value: str) -> str:
     normalized_value = value.strip().lower().replace(" ", "_")
     return f"{operation_type}:{concept_key}:{normalized_value}"
-
-
-def _preferred_label_from_concept_key(concept_key: str) -> str:
-    return " ".join(part.capitalize() for part in concept_key.replace("-", "_").split("_") if part)
 
 
 def _collect_registry_operations_from_gap_report(gap_report: dict[str, Any]) -> list[dict]:
@@ -110,66 +102,6 @@ def _collect_registry_operations_from_bootstrap_report(
     return operations
 
 
-def _apply_registry_operations(
-    base_registry_payload: dict[str, Any],
-    operations: list[dict[str, Any]],
-    *,
-    proposed_registry_version: str,
-) -> dict[str, Any]:
-    validate_semantic_registry_operations(operations)
-    updated_payload = {
-        **base_registry_payload,
-        "registry_version": proposed_registry_version,
-        "categories": [dict(item) for item in (base_registry_payload.get("categories") or [])],
-        "concepts": [dict(item) for item in (base_registry_payload.get("concepts") or [])],
-    }
-    concepts_by_key = {
-        str(concept.get("concept_key") or ""): concept
-        for concept in updated_payload["concepts"]
-        if str(concept.get("concept_key") or "")
-    }
-    for operation in operations:
-        concept_key = operation["concept_key"]
-        concept = concepts_by_key.get(concept_key)
-        if operation["operation_type"] == "add_concept":
-            if concept is not None:
-                raise ValueError(f"Semantic concept key already exists in draft: {concept_key}")
-            preferred_label = str(operation.get("preferred_label") or "").strip()
-            concept = {
-                "concept_key": concept_key,
-                "preferred_label": preferred_label
-                or _preferred_label_from_concept_key(concept_key),
-            }
-            updated_payload["concepts"].append(concept)
-            concepts_by_key[concept_key] = concept
-        elif concept is None:
-            raise ValueError(f"Unknown semantic concept key in draft: {concept_key}")
-
-        if operation["operation_type"] == "add_alias":
-            alias_text = str(operation.get("alias_text") or "").strip()
-            aliases = [
-                str(item).strip() for item in (concept.get("aliases") or []) if str(item).strip()
-            ]
-            if alias_text and alias_text not in aliases:
-                concept["aliases"] = [*aliases, alias_text]
-        elif operation["operation_type"] == "add_category_binding":
-            category_key = str(operation.get("category_key") or "").strip()
-            category_keys = [
-                str(item).strip()
-                for item in (concept.get("category_keys") or [])
-                if str(item).strip()
-            ]
-            if category_key and category_key not in category_keys:
-                concept["category_keys"] = sorted([*category_keys, category_key])
-        elif operation["operation_type"] == "add_concept":
-            continue
-        else:
-            raise ValueError(
-                f"Unsupported semantic registry operation: {operation['operation_type']}"
-            )
-    return updated_payload
-
-
 def draft_semantic_registry_update(
     session: Session,
     gap_report: dict[str, Any],
@@ -187,10 +119,10 @@ def draft_semantic_registry_update(
     base_registry = semantic_registry_owner.get_semantic_registry(session)
     base_snapshot = semantic_registry_owner.get_active_semantic_ontology_snapshot(session)
     base_registry_payload = dict(base_snapshot.payload_json or {})
-    next_version = proposed_registry_version or _next_registry_version(
+    next_version = proposed_registry_version or next_semantic_registry_version(
         base_registry.registry_version
     )
-    effective_registry = _apply_registry_operations(
+    effective_registry = apply_semantic_registry_operations(
         base_registry_payload,
         operations,
         proposed_registry_version=next_version,
@@ -258,6 +190,7 @@ def draft_semantic_registry_update(
         "source_task_type": source_task_type,
         "rationale": rationale,
         "document_ids": [gap_report["document_id"]],
+        "operation_contract_version": SEMANTIC_REGISTRY_OPERATION_CONTRACT_VERSION,
         "operations": operations,
         "effective_registry": effective_registry,
         "success_metrics": success_metrics,
@@ -284,10 +217,10 @@ def draft_semantic_registry_update_from_bootstrap_report(
     base_registry = semantic_registry_owner.get_semantic_registry(session)
     base_snapshot = semantic_registry_owner.get_active_semantic_ontology_snapshot(session)
     base_registry_payload = dict(base_snapshot.payload_json or {})
-    next_version = proposed_registry_version or _next_registry_version(
+    next_version = proposed_registry_version or next_semantic_registry_version(
         base_registry.registry_version
     )
-    effective_registry = _apply_registry_operations(
+    effective_registry = apply_semantic_registry_operations(
         base_registry_payload,
         operations,
         proposed_registry_version=next_version,
@@ -374,6 +307,7 @@ def draft_semantic_registry_update_from_bootstrap_report(
         "source_task_type": source_task_type,
         "rationale": rationale,
         "document_ids": document_ids,
+        "operation_contract_version": SEMANTIC_REGISTRY_OPERATION_CONTRACT_VERSION,
         "operations": operations,
         "effective_registry": effective_registry,
         "success_metrics": success_metrics,

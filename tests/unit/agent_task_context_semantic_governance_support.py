@@ -4,6 +4,9 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from app.db.public.agent_tasks import AgentTaskArtifact
+from app.services.semantic_registry_operation_contracts import (
+    SEMANTIC_REGISTRY_OPERATION_CONTRACT_VERSION,
+)
 
 
 class FakeScalarResult:
@@ -213,6 +216,7 @@ def draft_ontology_output_payload(
             "source_task_type": source_task_type,
             "rationale": "Extend the portable ontology from corpus evidence.",
             "document_ids": [str(uuid4())],
+            "operation_contract_version": SEMANTIC_REGISTRY_OPERATION_CONTRACT_VERSION,
             "operations": [
                 {
                     "operation_id": "op-1",
@@ -229,6 +233,74 @@ def draft_ontology_output_payload(
                 "upper_ontology_version": "portable-upper-ontology-v1",
                 "categories": [],
                 "concepts": [],
+                "relations": [
+                    {
+                        "relation_key": "document_mentions_concept",
+                        "preferred_label": "Document Mentions Concept",
+                    }
+                ],
+            },
+            **ontology_contract_runtime_payload(),
+            "success_metrics": [],
+        },
+        "artifact_id": str(artifact_id or uuid4()),
+        "artifact_kind": "ontology_extension_draft",
+        "artifact_path": "/tmp/ontology_extension_draft.json",
+    }
+
+
+def manual_lifecycle_draft_ontology_output_payload(*, artifact_id=None) -> dict:
+    return {
+        "draft": {
+            "base_snapshot_id": str(uuid4()),
+            "base_ontology_version": "portable-upper-ontology-v1",
+            "proposed_ontology_version": "portable-upper-ontology-v1.1",
+            "upper_ontology_version": "portable-upper-ontology-v1",
+            "source_task_id": None,
+            "source_task_type": None,
+            "rationale": "Replace the legacy control concept with a governed successor.",
+            "document_ids": [],
+            "operation_contract_version": SEMANTIC_REGISTRY_OPERATION_CONTRACT_VERSION,
+            "operations": [
+                {
+                    "operation_id": "replace:legacy_control:governance_control",
+                    "operation_type": "replace_concept",
+                    "concept_key": "legacy_control",
+                    "source_issue_ids": [],
+                    "rationale": "Move the legacy concept to the governed successor.",
+                    "source_concept_keys": [],
+                    "successor_concepts": [
+                        {
+                            "concept_key": "governance_control",
+                            "preferred_label": "Governance Control",
+                            "aliases": ["control governance"],
+                            "category_keys": [],
+                            "scope_note": None,
+                        }
+                    ],
+                }
+            ],
+            "effective_ontology": {
+                "registry_name": "portable_upper_ontology",
+                "registry_version": "portable-upper-ontology-v1.1",
+                "operation_contract_version": SEMANTIC_REGISTRY_OPERATION_CONTRACT_VERSION,
+                "upper_ontology_version": "portable-upper-ontology-v1",
+                "categories": [],
+                "concepts": [
+                    {
+                        "concept_key": "legacy_control",
+                        "preferred_label": "Legacy Control",
+                        "lifecycle_status": "replaced",
+                        "successor_concept_keys": ["governance_control"],
+                    },
+                    {
+                        "concept_key": "governance_control",
+                        "preferred_label": "Governance Control",
+                        "aliases": ["control governance", "Legacy Control"],
+                        "predecessor_concept_keys": ["legacy_control"],
+                        "lifecycle_status": "active",
+                    },
+                ],
                 "relations": [
                     {
                         "relation_key": "document_mentions_concept",

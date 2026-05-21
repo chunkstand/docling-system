@@ -111,7 +111,7 @@ def _build_draft_ontology_extension_context(
             task_core.ContextRef(
                 ref_key="ontology_extension_draft_artifact",
                 ref_kind="artifact",
-                summary="Persisted additive ontology extension draft artifact.",
+                summary="Persisted ontology extension draft artifact.",
                 task_id=task.id,
                 artifact_id=artifact_row.id,
                 artifact_kind=artifact_row.artifact_kind,
@@ -129,7 +129,7 @@ def _build_draft_ontology_extension_context(
             f"Drafted ontology extension {output.draft.proposed_ontology_version} with "
             f"{len(output.draft.operations)} operation(s)."
         ),
-        goal="Capture a reviewable additive ontology extension without changing live state.",
+        goal="Capture a reviewable ontology extension draft without changing live state.",
         decision="The ontology draft is ready for verification against active documents.",
         next_action=(
             "Create verify_draft_ontology_extension before any ontology publication step."

@@ -17,6 +17,7 @@ from tests.unit.agent_task_context_semantic_governance_support import (
     build_context_artifact,
     build_task_context_payload,
     draft_ontology_output_payload,
+    manual_lifecycle_draft_ontology_output_payload,
     verify_draft_ontology_output_payload,
 )
 
@@ -108,6 +109,49 @@ def test_build_agent_task_context_for_draft_ontology_extension_includes_source_r
     assert context.refs[1].artifact_kind == "ontology_extension_draft"
     assert context.output["draft"]["ontology_slice_count"] == 5
     assert context.output["draft"]["ontology_slices"][0]["slice_key"] == "core"
+
+
+def test_build_agent_task_context_for_manual_lifecycle_draft_has_no_source_ref() -> None:
+    now = datetime.now(UTC)
+    task_id = uuid4()
+    artifact_id = uuid4()
+    task = AgentTask(
+        id=task_id,
+        task_type="draft_ontology_extension",
+        status="completed",
+        priority=100,
+        side_effect_level="draft_change",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+        completed_at=now,
+    )
+    output = manual_lifecycle_draft_ontology_output_payload(artifact_id=artifact_id)
+    artifact = AgentTaskArtifact(
+        id=artifact_id,
+        task_id=task_id,
+        attempt_id=None,
+        artifact_kind="ontology_extension_draft",
+        storage_path=output["artifact_path"],
+        payload_json=output["draft"],
+        created_at=now,
+    )
+
+    context = build_agent_task_context(
+        FakeSession(tasks={task_id: task}, artifacts={artifact_id: artifact}),
+        task,
+        {"payload": output},
+    )
+
+    assert len(context.refs) == 1
+    assert context.refs[0].artifact_kind == "ontology_extension_draft"
+    assert context.summary.metrics["operation_count"] == 1
+    assert context.output["draft"]["source_task_id"] is None
+    assert context.output["draft"]["operations"][0]["operation_type"] == "replace_concept"
 
 
 def test_build_agent_task_context_for_apply_ontology_extension_includes_dependencies() -> None:

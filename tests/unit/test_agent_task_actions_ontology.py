@@ -216,6 +216,70 @@ def test_draft_ontology_extension_executor_writes_artifact(monkeypatch) -> None:
     assert result["draft"]["proposed_ontology_version"] == "portable-upper-ontology-v1.1"
     assert result["artifact_kind"] == "ontology_extension_draft"
 
+
+def test_draft_ontology_extension_executor_supports_explicit_lifecycle_operations(
+    monkeypatch,
+) -> None:
+    task = AgentTask(
+        id=uuid4(),
+        task_type="draft_ontology_extension",
+        status="processing",
+        priority=100,
+        side_effect_level="draft_change",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    monkeypatch.setattr(
+        "app.services.agent_actions.semantic_governance_actions.draft_ontology_extension_from_operations",
+        lambda session, operations, **kwargs: {
+            "base_snapshot_id": uuid4(),
+            "base_ontology_version": "portable-upper-ontology-v1",
+            "proposed_ontology_version": "portable-upper-ontology-v1.1",
+            "upper_ontology_version": "portable-upper-ontology-v1",
+            "source_task_id": None,
+            "source_task_type": None,
+            "rationale": kwargs["rationale"],
+            "document_ids": [],
+            "operation_contract_version": "semantic-registry-operations-v2",
+            "operations": operations,
+            "effective_ontology": {"registry_version": "portable-upper-ontology-v1.1"},
+            "success_metrics": [],
+        },
+    )
+    monkeypatch.setattr(
+        "app.services.agent_actions.semantic_governance_actions.create_agent_task_artifact",
+        lambda session, **kwargs: SimpleNamespace(
+            id=uuid4(),
+            artifact_kind=kwargs["artifact_kind"],
+            storage_path="/tmp/ontology_extension_draft.json",
+        ),
+    )
+
+    result = _draft_ontology_extension_executor(
+        session=SimpleNamespace(get=lambda model, key: None),
+        task=task,
+        payload=DraftOntologyExtensionTaskInput(
+            rationale="replace the legacy concept with a governed successor",
+            operations=[
+                {
+                    "operation_id": "replace:legacy_control:governance_control",
+                    "operation_type": "replace_concept",
+                    "concept_key": "legacy_control",
+                    "successor_concepts": [{"concept_key": "governance_control"}],
+                }
+            ],
+        ),
+    )
+
+    assert result["draft"]["source_task_id"] is None
+    assert result["draft"]["operations"][0]["operation_type"] == "replace_concept"
+    assert result["artifact_kind"] == "ontology_extension_draft"
+
 def test_verify_draft_ontology_extension_executor_writes_verification_artifact(
     monkeypatch,
 ) -> None:

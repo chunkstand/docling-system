@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.agent_task_core import AgentTaskVerificationResponse, TriageRecommendationPayload
 from app.schemas.evaluations import EvaluationDetailResponse
@@ -196,7 +196,20 @@ SemanticRegistryOperationType = Literal[
     "add_concept",
     "add_alias",
     "add_category_binding",
+    "split_concept",
+    "merge_concept",
+    "deprecate_concept",
+    "replace_concept",
+    "migrate_concept",
 ]
+
+
+class SemanticRegistryLifecycleSuccessorConcept(BaseModel):
+    concept_key: str
+    preferred_label: str | None = None
+    aliases: list[str] = Field(default_factory=list)
+    category_keys: list[str] = Field(default_factory=list)
+    scope_note: str | None = None
 
 
 class SemanticRegistryUpdateOperation(BaseModel):
@@ -208,6 +221,96 @@ class SemanticRegistryUpdateOperation(BaseModel):
     category_key: str | None = None
     source_issue_ids: list[str] = Field(default_factory=list)
     rationale: str | None = None
+    source_concept_keys: list[str] = Field(default_factory=list)
+    successor_concepts: list[SemanticRegistryLifecycleSuccessorConcept] = Field(
+        default_factory=list
+    )
+
+    @model_validator(mode="after")
+    def validate_operation_shape(self) -> SemanticRegistryUpdateOperation:
+        if self.operation_type == "add_alias":
+            if not self.alias_text:
+                raise ValueError("add_alias operations require alias_text.")
+            if self.source_concept_keys or self.successor_concepts:
+                raise ValueError(
+                    "add_alias operations do not accept lifecycle source or successor fields."
+                )
+        elif self.operation_type == "add_category_binding":
+            if not self.category_key:
+                raise ValueError("add_category_binding operations require category_key.")
+            if self.source_concept_keys or self.successor_concepts:
+                raise ValueError(
+                    "add_category_binding operations do not accept lifecycle source or "
+                    "successor fields."
+                )
+        elif self.operation_type == "split_concept":
+            if len(self.successor_concepts) < 2:
+                raise ValueError(
+                    "split_concept operations require at least two successor_concepts."
+                )
+            if self.source_concept_keys:
+                raise ValueError(
+                    "split_concept operations use concept_key as the source and do not accept "
+                    "source_concept_keys."
+                )
+        elif self.operation_type == "merge_concept":
+            source_concept_keys = {
+                concept_key.strip()
+                for concept_key in self.source_concept_keys
+                if concept_key.strip()
+            }
+            if len(source_concept_keys) < 2:
+                raise ValueError(
+                    "merge_concept operations require at least two source_concept_keys."
+                )
+            if self.concept_key in source_concept_keys:
+                raise ValueError(
+                    "merge_concept operations cannot list concept_key as one of the merged "
+                    "source_concept_keys."
+                )
+            if self.successor_concepts:
+                raise ValueError(
+                    "merge_concept operations use concept_key as the surviving target and do "
+                    "not accept successor_concepts."
+                )
+        elif self.operation_type == "deprecate_concept":
+            if not self.successor_concepts:
+                raise ValueError(
+                    "deprecate_concept operations require successor_concepts so replacement "
+                    "lineage stays machine-readable."
+                )
+            if self.source_concept_keys:
+                raise ValueError(
+                    "deprecate_concept operations use concept_key as the deprecated source and "
+                    "do not accept source_concept_keys."
+                )
+        elif self.operation_type == "replace_concept":
+            if len(self.successor_concepts) != 1:
+                raise ValueError(
+                    "replace_concept operations require exactly one successor_concept."
+                )
+            if self.successor_concepts[0].concept_key == self.concept_key:
+                raise ValueError(
+                    "replace_concept operations require a successor concept distinct from the "
+                    "replaced concept_key."
+                )
+            if self.source_concept_keys:
+                raise ValueError(
+                    "replace_concept operations use concept_key as the replaced source and do "
+                    "not accept source_concept_keys."
+                )
+        elif self.operation_type == "migrate_concept":
+            if not self.successor_concepts:
+                raise ValueError(
+                    "migrate_concept operations require successor_concepts so migration intent "
+                    "stays machine-readable."
+                )
+            if self.source_concept_keys:
+                raise ValueError(
+                    "migrate_concept operations use concept_key as the migrated source and do "
+                    "not accept source_concept_keys."
+                )
+        return self
 
 
 class SemanticRegistryDraftPayload(BaseModel):
@@ -217,6 +320,7 @@ class SemanticRegistryDraftPayload(BaseModel):
     source_task_type: str | None = None
     rationale: str | None = None
     document_ids: list[UUID] = Field(default_factory=list)
+    operation_contract_version: str | None = None
     operations: list[SemanticRegistryUpdateOperation] = Field(default_factory=list)
     effective_registry: dict = Field(default_factory=dict)
     success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
@@ -230,10 +334,28 @@ class DraftSemanticRegistryUpdateTaskOutput(BaseModel):
 
 
 class DraftOntologyExtensionTaskInput(BaseModel):
-    source_task_id: UUID
+    source_task_id: UUID | None = None
     proposed_ontology_version: str | None = Field(default=None, min_length=1)
     rationale: str | None = None
     candidate_ids: list[str] = Field(default_factory=list, max_length=50)
+    operations: list[SemanticRegistryUpdateOperation] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_ontology_draft_input(self) -> DraftOntologyExtensionTaskInput:
+        if self.source_task_id is None and not self.operations:
+            raise ValueError(
+                "Ontology extension drafts require source_task_id or explicit operations."
+            )
+        if self.operations and self.source_task_id is not None:
+            raise ValueError(
+                "Explicit ontology lifecycle operations cannot be combined with source_task_id "
+                "in the current lifecycle draft contract."
+            )
+        if self.operations and self.candidate_ids:
+            raise ValueError(
+                "Explicit ontology lifecycle operations cannot be combined with candidate_ids."
+            )
+        return self
 
 
 class OntologyExtensionDraftPayload(OntologyContractRuntimePayload):
@@ -241,10 +363,11 @@ class OntologyExtensionDraftPayload(OntologyContractRuntimePayload):
     base_ontology_version: str
     proposed_ontology_version: str
     upper_ontology_version: str
-    source_task_id: UUID
+    source_task_id: UUID | None = None
     source_task_type: str | None = None
     rationale: str | None = None
     document_ids: list[UUID] = Field(default_factory=list)
+    operation_contract_version: str | None = None
     operations: list[SemanticRegistryUpdateOperation] = Field(default_factory=list)
     effective_ontology: dict = Field(default_factory=dict)
     success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
@@ -374,6 +497,7 @@ __all__ = [
     "TriageSemanticPassTaskInput",
     "TriageSemanticPassTaskOutput",
     "DraftSemanticRegistryUpdateTaskInput",
+    "SemanticRegistryLifecycleSuccessorConcept",
     "SemanticRegistryUpdateOperation",
     "SemanticRegistryDraftPayload",
     "DraftSemanticRegistryUpdateTaskOutput",

@@ -10,6 +10,7 @@ import yaml
 
 from app.core.config import get_settings
 from app.db.public.agent_tasks import AgentTask, AgentTaskStatus
+from app.db.public.semantic_memory import SemanticOntologySourceKind
 from app.schemas.agent_task_core import AgentTaskApprovalRequest, AgentTaskCreateRequest
 from app.services.agent_task_worker import claim_next_agent_task, process_agent_task
 from app.services.agent_tasks import approve_agent_task, create_agent_task
@@ -19,7 +20,15 @@ from app.services.docling_parser import (
     ParsedTable,
     ParsedTableSegment,
 )
-from app.services.semantic_registry import clear_semantic_registry_cache
+from app.services.semantic_registry import (
+    clear_semantic_registry_cache,
+    ensure_workspace_semantic_registry,
+    get_active_semantic_ontology_snapshot,
+    persist_semantic_ontology_snapshot,
+)
+from app.services.semantic_registry_operation_contracts import (
+    SEMANTIC_REGISTRY_OPERATION_CONTRACT_VERSION,
+)
 from tests.integration.pdf_fixtures import valid_test_pdf_bytes
 
 pytestmark = pytest.mark.skipif(
@@ -658,3 +667,95 @@ def test_portable_ontology_roundtrip_is_domain_agnostic(
             metric["metric_key"] == "semantic_integrity" and metric["passed"]
             for metric in grounded_verify_payload["success_metrics"]
         )
+
+
+def test_manual_ontology_lifecycle_draft_roundtrip(
+    postgres_integration_harness,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    upper_ontology_path = tmp_path / "config" / "upper_ontology.yaml"
+    eval_corpus_path = tmp_path / "docs" / "semantic_evaluation_corpus.yaml"
+    _write_upper_ontology(upper_ontology_path)
+    _write_empty_semantic_eval_corpus(eval_corpus_path)
+    monkeypatch.setenv("DOCLING_SYSTEM_SEMANTIC_REGISTRY_PATH", str(upper_ontology_path))
+    monkeypatch.setenv("DOCLING_SYSTEM_UPPER_ONTOLOGY_PATH", str(upper_ontology_path))
+    monkeypatch.setenv("DOCLING_SYSTEM_SEMANTIC_EVALUATION_CORPUS_PATH", str(eval_corpus_path))
+    get_settings.cache_clear()
+    clear_semantic_registry_cache()
+
+    with postgres_integration_harness.session_factory() as session:
+        ensure_workspace_semantic_registry(session)
+        base_snapshot = get_active_semantic_ontology_snapshot(session)
+        seeded_payload = dict(base_snapshot.payload_json or {})
+        seeded_payload["registry_version"] = "portable-upper-ontology-v1.seeded"
+        seeded_payload["concepts"] = [
+            {
+                "concept_key": "legacy_control",
+                "preferred_label": "Legacy Control",
+                "aliases": ["legacy governance control"],
+            },
+            {
+                "concept_key": "governance_control",
+                "preferred_label": "Governance Control",
+            },
+        ]
+        persist_semantic_ontology_snapshot(
+            session,
+            seeded_payload,
+            source_kind=SemanticOntologySourceKind.ONTOLOGY_EXTENSION_APPLY.value,
+            parent_snapshot_id=base_snapshot.id,
+            activate=True,
+        )
+        session.commit()
+
+    workflow_version = "portable_ontology_lifecycle_contract"
+    with postgres_integration_harness.session_factory() as session:
+        draft_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="draft_ontology_extension",
+                input={
+                    "rationale": "replace the legacy concept with the governed successor",
+                    "operations": [
+                        {
+                            "operation_id": "replace:legacy_control:governance_control",
+                            "operation_type": "replace_concept",
+                            "concept_key": "legacy_control",
+                            "successor_concepts": [{"concept_key": "governance_control"}],
+                        }
+                    ],
+                },
+                workflow_version=workflow_version,
+            ),
+        )
+        draft_task_id = draft_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        draft_task_row = session.get(AgentTask, draft_task_id)
+        assert draft_task_row is not None
+        draft_payload = draft_task_row.result_json["payload"]["draft"]
+        assert draft_payload.get("source_task_id") is None
+        assert draft_payload.get("source_task_type") is None
+        assert (
+            draft_payload["operation_contract_version"]
+            == SEMANTIC_REGISTRY_OPERATION_CONTRACT_VERSION
+        )
+        assert draft_payload["operations"][0]["operation_type"] == "replace_concept"
+        assert draft_payload["operations"][0]["successor_concepts"][0]["concept_key"] == (
+            "governance_control"
+        )
+        concepts_by_key = {
+            concept["concept_key"]: concept
+            for concept in draft_payload["effective_ontology"]["concepts"]
+        }
+        assert concepts_by_key["legacy_control"]["lifecycle_status"] == "replaced"
+        assert concepts_by_key["legacy_control"]["successor_concept_keys"] == [
+            "governance_control"
+        ]
+        assert concepts_by_key["governance_control"]["predecessor_concept_keys"] == [
+            "legacy_control"
+        ]
+        assert "Legacy Control" in concepts_by_key["governance_control"]["aliases"]

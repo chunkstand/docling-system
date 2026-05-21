@@ -6,31 +6,29 @@ Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Active ontology-evolution lifecycle packet in the current 2026-05-21 checkout:
 `docs/ontology_evolution_lifecycle_milestone_plan.md` is now in progress in
-this repo, and Milestone 0 is resolved locally. The current slice makes the
-additive-only ontology lifecycle explicit in
-`app/services/semantic_registry_operation_contracts.py` and
-`app/services/semantic_orchestration.py` through
-`SUPPORTED_SEMANTIC_REGISTRY_OPERATION_TYPES` and
-`validate_semantic_registry_operations(...)`, so draft application now rejects
-non-additive `split_concept`, `merge_concept`, `deprecate_concept`,
-`replace_concept`, and `migrate_concept` requests with a targeted error that
-routes them back to the lifecycle packet instead of letting them fail later as
-generic unsupported mutations. The same baseline is now encoded directly in
-`app/schemas/agent_task_semantics.py`, where
-`SemanticRegistryUpdateOperation.operation_type` records the current
-additive-only task contract, and the new
-`tests/unit/test_ontology_evolution_lifecycle_baseline.py` suite pins both the
-current additive-only operation surface and the current draft/verify/apply
-ontology payload fields.
+this repo, and Milestones 0 and 1 are resolved locally. The current slice
+turns non-additive ontology evolution into a first-class contract: the
+versioned operation surface now lives in
+`app/services/semantic_registry_operation_contracts.py`, the concrete mutation
+rules now live in `app/services/semantic_registry_operation_mutations.py`,
+`SemanticRegistryUpdateOperation` in `app/schemas/agent_task_semantics.py`
+now carries structured `successor_concepts`, and
+`DraftOntologyExtensionTaskInput` now accepts explicit operator-authored
+lifecycle operations without forcing a source task. The ontology action owner
+uses the same `draft_ontology_extension` task family for both source-driven
+additive drafts and manual lifecycle drafts, and the updated
+`tests/unit/test_ontology_evolution_lifecycle_baseline.py` plus
+`tests/integration/test_portable_ontology_roundtrip.py` prove the new
+machine-readable split/merge/deprecate/replace/migrate surface through the
+real task worker path.
 
-The next honest boundary in the active packet is Milestone 1: add the actual
-structured split/merge/deprecate/replace/migrate draft operations and keep the
-payload adoption compatible. Focused verification for the current lifecycle
-baseline slice:
-- `uv run ruff check app/services/semantic_registry_operation_contracts.py app/services/semantic_orchestration.py app/schemas/agent_task_semantics.py tests/unit/test_semantic_orchestration.py tests/unit/test_ontology_evolution_lifecycle_baseline.py`: pass
-- `uv run pytest -q tests/unit/test_semantic_orchestration.py tests/unit/test_ontology_evolution_lifecycle_baseline.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_context_semantic_governance_ontology.py`: `15 passed`
-- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_agent_task_semantic_orchestration_roundtrip.py tests/integration/test_semantic_bootstrap_roundtrip.py tests/integration/test_portable_ontology_roundtrip.py`: `4 passed`
-- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `2206 passed`, `1` docling deprecation warning
+The next honest boundary in the active packet is Milestone 2: extend document-
+level verification previews and apply adoption around the new lifecycle draft
+surface. Focused verification for the current lifecycle contract slice:
+- `uv run ruff check app/schemas/agent_task_semantics.py app/services/semantic_registry_operation_contracts.py app/services/semantic_registry_operation_mutations.py app/services/semantic_orchestration.py app/services/semantic_ontology.py app/services/agent_actions/semantic_governance_actions.py app/services/agent_actions/semantic_governance_ontology_actions.py app/services/agent_task_context_semantic_governance_ontology.py tests/unit/agent_task_context_semantic_governance_support.py tests/unit/test_ontology_evolution_lifecycle_baseline.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_context_semantic_governance_ontology.py tests/integration/test_portable_ontology_roundtrip.py`: pass
+- `uv run pytest -q tests/unit/test_ontology_evolution_lifecycle_baseline.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_context_semantic_governance_ontology.py tests/unit/test_semantic_orchestration.py`: `19 passed`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_portable_ontology_roundtrip.py tests/integration/test_semantic_bootstrap_roundtrip.py tests/integration/test_agent_task_semantic_orchestration_roundtrip.py`: `5 passed`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `2211 passed`, `1` docling deprecation warning
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
 - `uv run docling-system-hotspot-prevention-check --strict`: `blocked=0`, `allowed=0`, `exceptions=0`
 - `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
