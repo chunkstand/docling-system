@@ -121,11 +121,11 @@ def test_draft_semantic_registry_update_from_bootstrap_report_adds_concept(monke
         ],
     }
     monkeypatch.setattr(
-        "app.services.semantic_orchestration.get_semantic_registry",
+        "app.services.semantic_orchestration.semantic_registry_owner.get_semantic_registry",
         lambda session: semantic_registry_from_payload(base_registry_payload),
     )
     monkeypatch.setattr(
-        "app.services.semantic_orchestration.get_active_semantic_ontology_snapshot",
+        "app.services.semantic_orchestration.semantic_registry_owner.get_active_semantic_ontology_snapshot",
         lambda session: type("Snapshot", (), {"payload_json": base_registry_payload})(),
     )
 
@@ -171,11 +171,11 @@ def test_draft_semantic_registry_update_from_bootstrap_report_preserves_discover
         ],
     }
     monkeypatch.setattr(
-        "app.services.semantic_orchestration.get_semantic_registry",
+        "app.services.semantic_orchestration.semantic_registry_owner.get_semantic_registry",
         lambda session: semantic_registry_from_payload(base_registry_payload),
     )
     monkeypatch.setattr(
-        "app.services.semantic_orchestration.get_active_semantic_ontology_snapshot",
+        "app.services.semantic_orchestration.semantic_registry_owner.get_active_semantic_ontology_snapshot",
         lambda session: type("Snapshot", (), {"payload_json": base_registry_payload})(),
     )
 

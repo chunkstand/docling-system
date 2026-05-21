@@ -34,13 +34,20 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
   deprecation warning, hygiene and architecture governance gates are green, and
   `uv run docling-system-architecture-quality-report --summary` now reports
   `max_hotspot_risk_score=451.06` with `top_routed_hotspot_paths=[]`.
-- `docs/ontology_evolution_lifecycle_milestone_plan.md`: drafted locally on
-  2026-05-21 as the queued ontology follow-on after refoundation closeout. It
-  keeps the canonical contract scaffold intact and targets the remaining
-  additive-only gap in `app/services/semantic_orchestration.py` by introducing
-  structured split/merge/deprecate/replace/migrate operations, draft
-  verification, compatibility-preserving runtime payload adoption, and durable
-  routing for any later overlay-specific work.
+- `docs/ontology_evolution_lifecycle_milestone_plan.md`: in progress locally
+  on 2026-05-21 as the active ontology follow-on after refoundation closeout.
+  Milestone 0 is now resolved through the explicit additive-only lifecycle
+  gate in `app/services/semantic_registry_operation_contracts.py` as consumed
+  by `app/services/semantic_orchestration.py`, the additive operation-type
+  contract in `app/schemas/agent_task_semantics.py`, and the baseline payload
+  compatibility suite in
+  `tests/unit/test_ontology_evolution_lifecycle_baseline.py`. The current
+  gate now rejects non-additive `split_concept`, `merge_concept`,
+  `deprecate_concept`, `replace_concept`, and `migrate_concept` requests with
+  a targeted routing error instead of leaving them as implicit unsupported
+  behavior. Focused Milestone 0 verification passes at `15 passed`, and the
+  next honest boundary is Milestone 1: add the actual structured non-additive
+  draft operations plus compatibility-preserving runtime adoption.
 - `docs/production_trap_set_centrality_reduction_milestone_plan.md`:
   resolved locally in the current checkout on 2026-05-20. The packet adds
   `config/production_trap_set_centrality_budget.yaml` plus

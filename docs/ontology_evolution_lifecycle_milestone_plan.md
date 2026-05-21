@@ -1,8 +1,14 @@
 # Ontology Evolution Lifecycle Milestone Plan
 
 Date: 2026-05-21 local / 2026-05-21 UTC
-Status: drafted locally as the queued follow-on after the ontology contract
-refoundation packet resolved in the current checkout.
+Status: in_progress in the current 2026-05-21 checkout. Milestone 0 is now
+resolved locally through the additive-only lifecycle gate in
+`app/services/semantic_registry_operation_contracts.py` as consumed by
+`app/services/semantic_orchestration.py`, the additive operation-type contract
+in `app/schemas/agent_task_semantics.py`, and the baseline compatibility tests
+in `tests/unit/test_ontology_evolution_lifecycle_baseline.py`. Milestone 1,
+which adds the actual structured split/merge/deprecate/replace/migrate
+operations, remains open.
 Owner context: standalone follow-on after
 `docs/ontology_contract_refoundation_milestone_plan.md` closes. This packet
 does not reopen the canonical contract scaffold or the runtime-readiness
@@ -22,12 +28,30 @@ can evolve without hidden manual rewrites or silent semantic drift.
 
 ## Current Evidence
 
-- `app/services/semantic_orchestration.py` currently supports only
-  `add_concept`, `add_alias`, and `add_category_binding`.
+- `app/services/semantic_registry_operation_contracts.py` now exposes the
+  explicit additive baseline through
+  `SUPPORTED_SEMANTIC_REGISTRY_OPERATION_TYPES` and
+  `validate_semantic_registry_operations(...)`, and
+  `app/services/semantic_orchestration.py` now consumes that gate before draft
+  application. Draft application still supports only `add_concept`,
+  `add_alias`, and `add_category_binding`, and the gate now rejects
+  non-additive `split_concept`, `merge_concept`, `deprecate_concept`,
+  `replace_concept`, and `migrate_concept` requests with a targeted error that
+  routes them back to this packet.
+- `app/schemas/agent_task_semantics.py` now records the current additive-only
+  task contract directly in `SemanticRegistryUpdateOperation.operation_type`,
+  so the draft/verify/apply ontology payloads fail validation if a future
+  session tries to smuggle non-additive lifecycle operations into the current
+  contract.
 - `app/services/semantic_ontology.py` and the ontology task-context owners now
   expose contract metadata, ontology slices, and competency families, so the
   runtime has enough first-class context to support lifecycle operations
   without another refoundation pass first.
+- `tests/unit/test_ontology_evolution_lifecycle_baseline.py` now pins the
+  current additive-only operation surface and validates the current
+  draft/verify/apply ontology payload contract fields, while the existing
+  ontology context tests continue to pin the current source-ref, dependency,
+  slice-count, and competency-family context behavior.
 - `docs/ontology_contract_refoundation_milestone_plan.md` is resolved locally
   in the current checkout after the final readiness and portable-roundtrip
   slice, and `docs/SESSION_HANDOFF.md` routes this packet as the remaining

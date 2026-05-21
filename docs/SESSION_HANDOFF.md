@@ -4,6 +4,38 @@ Date: 2026-05-21 local / 2026-05-21 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
+Active ontology-evolution lifecycle packet in the current 2026-05-21 checkout:
+`docs/ontology_evolution_lifecycle_milestone_plan.md` is now in progress in
+this repo, and Milestone 0 is resolved locally. The current slice makes the
+additive-only ontology lifecycle explicit in
+`app/services/semantic_registry_operation_contracts.py` and
+`app/services/semantic_orchestration.py` through
+`SUPPORTED_SEMANTIC_REGISTRY_OPERATION_TYPES` and
+`validate_semantic_registry_operations(...)`, so draft application now rejects
+non-additive `split_concept`, `merge_concept`, `deprecate_concept`,
+`replace_concept`, and `migrate_concept` requests with a targeted error that
+routes them back to the lifecycle packet instead of letting them fail later as
+generic unsupported mutations. The same baseline is now encoded directly in
+`app/schemas/agent_task_semantics.py`, where
+`SemanticRegistryUpdateOperation.operation_type` records the current
+additive-only task contract, and the new
+`tests/unit/test_ontology_evolution_lifecycle_baseline.py` suite pins both the
+current additive-only operation surface and the current draft/verify/apply
+ontology payload fields.
+
+The next honest boundary in the active packet is Milestone 1: add the actual
+structured split/merge/deprecate/replace/migrate draft operations and keep the
+payload adoption compatible. Focused verification for the current lifecycle
+baseline slice:
+- `uv run ruff check app/services/semantic_registry_operation_contracts.py app/services/semantic_orchestration.py app/schemas/agent_task_semantics.py tests/unit/test_semantic_orchestration.py tests/unit/test_ontology_evolution_lifecycle_baseline.py`: pass
+- `uv run pytest -q tests/unit/test_semantic_orchestration.py tests/unit/test_ontology_evolution_lifecycle_baseline.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_context_semantic_governance_ontology.py`: `15 passed`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_agent_task_semantic_orchestration_roundtrip.py tests/integration/test_semantic_bootstrap_roundtrip.py tests/integration/test_portable_ontology_roundtrip.py`: `4 passed`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `2206 passed`, `1` docling deprecation warning
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-hotspot-prevention-check --strict`: `blocked=0`, `allowed=0`, `exceptions=0`
+- `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles`: `Python cycles: none detected`
+
 Ontology-contract refoundation packet in the current 2026-05-21 checkout:
 `docs/ontology_contract_refoundation_milestone_plan.md` is now resolved
 locally in this repo.

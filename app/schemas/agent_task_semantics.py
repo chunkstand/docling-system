@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -191,9 +192,16 @@ class DraftSemanticRegistryUpdateTaskInput(BaseModel):
     candidate_ids: list[str] = Field(default_factory=list, max_length=50)
 
 
+SemanticRegistryOperationType = Literal[
+    "add_concept",
+    "add_alias",
+    "add_category_binding",
+]
+
+
 class SemanticRegistryUpdateOperation(BaseModel):
     operation_id: str
-    operation_type: str
+    operation_type: SemanticRegistryOperationType
     concept_key: str
     preferred_label: str | None = None
     alias_text: str | None = None

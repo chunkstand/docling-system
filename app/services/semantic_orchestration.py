@@ -5,16 +5,14 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.services import semantic_registry as semantic_registry_owner
 from app.services.semantic_orchestration_triage import (
     SemanticTriageOutcome,
     build_semantic_success_metrics,
     semantic_triage_metrics,
     triage_semantic_pass,
 )
-from app.services.semantic_registry import (
-    get_active_semantic_ontology_snapshot,
-    get_semantic_registry,
-)
+from app.services.semantic_registry_operation_contracts import validate_semantic_registry_operations
 
 __all__ = [
     "SemanticTriageOutcome",
@@ -118,6 +116,7 @@ def _apply_registry_operations(
     *,
     proposed_registry_version: str,
 ) -> dict[str, Any]:
+    validate_semantic_registry_operations(operations)
     updated_payload = {
         **base_registry_payload,
         "registry_version": proposed_registry_version,
@@ -185,8 +184,8 @@ def draft_semantic_registry_update(
     if not operations:
         raise ValueError("Semantic gap report does not contain any additive registry updates.")
 
-    base_registry = get_semantic_registry(session)
-    base_snapshot = get_active_semantic_ontology_snapshot(session)
+    base_registry = semantic_registry_owner.get_semantic_registry(session)
+    base_snapshot = semantic_registry_owner.get_active_semantic_ontology_snapshot(session)
     base_registry_payload = dict(base_snapshot.payload_json or {})
     next_version = proposed_registry_version or _next_registry_version(
         base_registry.registry_version
@@ -282,8 +281,8 @@ def draft_semantic_registry_update_from_bootstrap_report(
     if not operations:
         raise ValueError("Bootstrap candidate report does not contain any draftable concepts.")
 
-    base_registry = get_semantic_registry(session)
-    base_snapshot = get_active_semantic_ontology_snapshot(session)
+    base_registry = semantic_registry_owner.get_semantic_registry(session)
+    base_snapshot = semantic_registry_owner.get_active_semantic_ontology_snapshot(session)
     base_registry_payload = dict(base_snapshot.payload_json or {})
     next_version = proposed_registry_version or _next_registry_version(
         base_registry.registry_version
