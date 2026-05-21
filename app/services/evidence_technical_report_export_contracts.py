@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.db.models import ClaimEvidenceDerivation
+from app.db.public.audit_and_evidence import ClaimEvidenceDerivation
 from app.services.evidence_common import string_values as _string_values
 
 _CLAIM_PROVENANCE_LOCK_LIST_FIELDS = (

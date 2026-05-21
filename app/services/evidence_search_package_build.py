@@ -5,13 +5,12 @@ from uuid import UUID
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.db.models import (
+from app.db.public.agent_tasks import (
     KnowledgeOperatorInput,
     KnowledgeOperatorOutput,
     KnowledgeOperatorRun,
-    SearchRequestRecord,
-    SearchRequestResult,
 )
+from app.db.public.retrieval import SearchRequestRecord, SearchRequestResult
 from app.services.evidence_common import payload_sha256
 from app.services.evidence_common import uuid_values as _uuid_values
 from app.services.evidence_records import (

@@ -9,13 +9,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.coercion import maybe_uuid as _maybe_uuid
-from app.db.models import (
-    ChatAnswerFeedback,
-    ChatAnswerRecord,
-    Document,
-    DocumentRunEvaluationQuery,
-    SearchRequestRecord,
-)
+from app.db.public.document_artifacts import DocumentRunEvaluationQuery
+from app.db.public.ingest import Document
+from app.db.public.retrieval import ChatAnswerFeedback, ChatAnswerRecord, SearchRequestRecord
 from app.schemas.quality import QualityEvaluationCandidateResponse
 
 QUALITY_CANDIDATE_SCAN_FACTOR = 25

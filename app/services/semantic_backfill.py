@@ -8,11 +8,9 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings, semantics_feature_enabled
 from app.core.time import utcnow
-from app.db.models import (
-    Document,
-    DocumentRun,
+from app.db.public.ingest import Document, DocumentRun, RunStatus
+from app.db.public.semantic_memory import (
     DocumentRunSemanticPass,
-    RunStatus,
     SemanticEntity,
     SemanticFact,
     SemanticPassStatus,

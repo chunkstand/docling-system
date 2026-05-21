@@ -6,7 +6,8 @@ from uuid import UUID
 
 import pytest
 
-from app.db.models import AgentTask, AgentTaskStatus, Document
+from app.db.public.agent_tasks import AgentTask, AgentTaskStatus
+from app.db.public.ingest import Document
 from app.schemas.agent_tasks import (
     AgentTaskApprovalRequest,
     AgentTaskCreateRequest,

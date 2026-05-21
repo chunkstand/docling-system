@@ -12,7 +12,7 @@ import app.services.retrieval_learning_artifact_impacts as _impacts
 import app.services.retrieval_learning_artifact_lifecycle as _lifecycle
 import app.services.retrieval_learning_artifact_views as _views
 import app.services.retrieval_learning_artifact_weights as _weights
-from app.db.models import RetrievalRerankerArtifact, RetrievalTrainingRun
+from app.db.public.retrieval import RetrievalRerankerArtifact, RetrievalTrainingRun
 from app.schemas.search import (
     RetrievalLearningCandidateEvaluationRequest,
     RetrievalRerankerArtifactRequest,

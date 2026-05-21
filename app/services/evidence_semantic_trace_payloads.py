@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import (
+from app.db.public.semantic_memory import (
     SemanticAssertion,
     SemanticAssertionEvidence,
     SemanticFact,

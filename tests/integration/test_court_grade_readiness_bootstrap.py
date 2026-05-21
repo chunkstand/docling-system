@@ -9,13 +9,13 @@ import pytest
 from sqlalchemy import func, select
 
 from app.core.time import utcnow
-from app.db.models import (
-    ClaimSupportReplayAlertFixtureCorpusSnapshot,
+from app.db.public.audit_and_evidence import TechnicalReportClaimRetrievalFeedback
+from app.db.public.claim_support import ClaimSupportReplayAlertFixtureCorpusSnapshot
+from app.db.public.retrieval import (
     RetrievalTrainingRun,
     SearchFeedback,
     SearchHarnessEvaluationSource,
     SearchRequestRecord,
-    TechnicalReportClaimRetrievalFeedback,
 )
 from app.services.court_grade_readiness_bootstrap import (
     CourtGradeReadinessBootstrapError,

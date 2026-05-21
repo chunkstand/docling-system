@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.coercion import unique_uuids as _unique_uuids
 from app.core.text import collapse_whitespace
-from app.db.models import Document
+from app.db.public.ingest import Document
 from app.services import semantic_generation_brief_metrics as _semantic_generation_brief_metrics
 from app.services import semantic_generation_shared as _semantic_generation_shared
 

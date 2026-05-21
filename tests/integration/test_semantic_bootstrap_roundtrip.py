@@ -8,7 +8,9 @@ from uuid import UUID
 import pytest
 
 from app.core.config import get_settings
-from app.db.models import AgentTask, AgentTaskStatus, Document, SemanticOntologySnapshot
+from app.db.public.agent_tasks import AgentTask, AgentTaskStatus
+from app.db.public.ingest import Document
+from app.db.public.semantic_memory import SemanticOntologySnapshot
 from app.schemas.agent_tasks import AgentTaskApprovalRequest, AgentTaskCreateRequest
 from app.services.agent_task_worker import claim_next_agent_task, process_agent_task
 from app.services.agent_tasks import approve_agent_task, create_agent_task

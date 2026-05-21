@@ -7,7 +7,12 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import AgentTask, AgentTaskAttempt, AgentTaskOutcome, AgentTaskVerification
+from app.db.public.agent_tasks import (
+    AgentTask,
+    AgentTaskAttempt,
+    AgentTaskOutcome,
+    AgentTaskVerification,
+)
 
 
 def percentile(values: list[float], percentile_value: float) -> float | None:

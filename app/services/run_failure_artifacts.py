@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from app.core.time import utcnow
-from app.db.models import Document, DocumentRun
+from app.db.public.ingest import Document, DocumentRun
 from app.services.storage import StorageService
 from app.services.validation import ValidationReport
 

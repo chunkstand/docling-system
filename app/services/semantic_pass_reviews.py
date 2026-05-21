@@ -9,9 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
 from app.core.time import utcnow
-from app.db.models import (
-    Document,
-    DocumentRun,
+from app.db.public.ingest import Document, DocumentRun
+from app.db.public.semantic_memory import (
     DocumentRunSemanticPass,
     DocumentSemanticCategoryReview,
     DocumentSemanticConceptReview,

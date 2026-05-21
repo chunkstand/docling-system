@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.text import collapse_whitespace
 from app.core.time import utcnow
-from app.db.models import (
+from app.db.public.semantic_memory import (
     SemanticOntologySnapshot,
     SemanticOntologySourceKind,
     WorkspaceSemanticState,

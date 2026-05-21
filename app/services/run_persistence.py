@@ -13,14 +13,13 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.time import utcnow
-from app.db.models import (
-    Document,
+from app.db.public.document_artifacts import (
     DocumentChunk,
     DocumentFigure,
-    DocumentRun,
     DocumentTable,
     DocumentTableSegment,
 )
+from app.db.public.ingest import Document, DocumentRun
 from app.services.docling_parser import ParsedDocument, ParsedFigure, ParsedTable
 from app.services.embeddings import EmbeddingProvider
 from app.services.storage import StorageService

@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.db.models import AgentTask
+from app.db.public.agent_tasks import AgentTask
 from app.schemas.agent_tasks import (
     DraftSemanticGroundedDocumentTaskInput,
     EvaluateSemanticCandidateExtractorTaskInput,

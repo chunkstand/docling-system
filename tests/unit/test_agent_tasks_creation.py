@@ -4,7 +4,12 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 
-from app.db.models import AgentTask, AgentTaskDependency, AgentTaskDependencyKind, AgentTaskStatus
+from app.db.public.agent_tasks import (
+    AgentTask,
+    AgentTaskDependency,
+    AgentTaskDependencyKind,
+    AgentTaskStatus,
+)
 from app.schemas.agent_tasks import AgentTaskCreateRequest
 from app.services.agent_tasks import _initial_task_status, create_agent_task
 from tests.unit.agent_task_service_support import FakeSession

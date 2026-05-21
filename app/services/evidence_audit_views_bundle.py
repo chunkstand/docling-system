@@ -7,9 +7,8 @@ from sqlalchemy.orm import Session
 
 import app.services.evidence_claim_feedback as _claim_feedback
 import app.services.evidence_release_readiness as _release_readiness
-from app.db.models import (
-    AgentTask,
-    AgentTaskArtifactImmutabilityEvent,
+from app.db.public.agent_tasks import AgentTask, AgentTaskArtifactImmutabilityEvent
+from app.db.public.audit_and_evidence import (
     ClaimEvidenceDerivation,
     EvidenceManifest,
     EvidencePackageExport,

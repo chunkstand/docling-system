@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
-from app.db.models import DocumentFigure
+from app.db.public.document_artifacts import DocumentFigure
 from app.schemas.figures import DocumentFigureDetailResponse, DocumentFigureSummaryResponse
 from app.services.documents import get_document_or_404
 

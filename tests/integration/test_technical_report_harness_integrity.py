@@ -8,9 +8,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy import delete, select, text, update
 
-from app.db.models import (
-    AgentTaskArtifact,
-    AgentTaskArtifactImmutabilityEvent,
+from app.db.public.agent_tasks import AgentTaskArtifact, AgentTaskArtifactImmutabilityEvent
+from app.db.public.audit_and_evidence import (
     EvidenceManifest,
     EvidenceTraceEdge,
     EvidenceTraceNode,

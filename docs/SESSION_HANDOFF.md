@@ -90,8 +90,22 @@ gate-first and not queue-selected: it starts with a live selected-root census,
 adds importer and fan-out ratchets, absorbs the narrower
 `docs/db_models_caller_migration_boundary_milestone_plan.md` as the DB
 caller-migration lane, and requires an accepted-legacy closeout for any root
-that intentionally remains in `routing_trap_paths`. Use it only when
-explicitly choosing trap-set centrality paydown over queue-driven work. The later
+that intentionally remains in `routing_trap_paths`. That narrower DB-only
+lane is now also resolved locally: bounded `app/db/public/*` facades exist for
+the nine model families, the repo-owned
+`config/db_model_import_policy.yaml` plus
+`tests/unit/test_db_model_public_import_routes.py` gate now owns the exact
+allowlist and import-count ratchet, and the direct `app.db.models` census is
+down from the Milestone 0 `337`-import gravity to the explicit `9`-file
+compatibility and metadata allowlist (`0` under `app/`). The latest
+architecture probe shows the caller gravity now absorbed by the bounded public
+roots instead of the monolithic shim:
+`app.db.public.agent_tasks=173`, `app.db.public.retrieval=80`,
+`app.db.public.ingest=69`, `app.db.public.semantic_memory=68`,
+`app.db.public.audit_and_evidence=55`, `app.db.public.claim_support=40`, and
+`app.db.public.document_artifacts=38`. Use the broader trap-set packet only
+when explicitly choosing centrality paydown for the remaining roots over
+queue-driven work. The later
 governance gap-close then adds
 `tests/unit/test_hotspot_prevention_search_api_harness_routes.py` plus the
 matching hotspot-governance classifier support and hotspot-policy contract
@@ -118,6 +132,23 @@ registry, and reranking owners into
 `app/services/search_harness_registry.py` (`291`), and
 `app/services/search_harness_reranking.py` (`203`) and drops the broader
 rebaseline residual count from `4` to `3`. The later
+
+Latest DB caller-migration packet verification:
+- `git diff --check`: pass
+- `uv run ruff check app/db app/services tests`: pass
+- `uv run pytest -q tests/unit/test_db_models_facade_contract.py tests/unit/test_db_model_import_compatibility.py tests/unit/test_db_model_import_compatibility_audit_and_evidence.py tests/unit/test_db_model_import_compatibility_claim_support.py tests/unit/test_db_model_import_compatibility_semantic_memory.py tests/unit/test_db_model_public_import_routes.py`: `617 passed`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_db_model_metadata.py tests/integration/test_db_model_metadata_audit_and_evidence.py tests/integration/test_db_model_metadata_claim_support.py tests/integration/test_db_model_metadata_semantic_memory.py`: `335 passed`
+- `uv run --extra dev alembic heads`: `0076_claim_feedback_replay_src (head)`
+- `uv run --extra dev alembic current`: `0076_claim_feedback_replay_src (head)`
+- `uv run --extra dev alembic upgrade head`: pass
+- `uv run --extra dev alembic check`: `No new upgrade operations detected.`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `2192 passed`, `1` docling deprecation warning
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-improvement-case-validate`: `valid=true`
+- `uv run docling-system-improvement-case-summary`: `status_counts={"deployed":67}`
+- `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
+- `uv run docling-system-architecture-quality-report --summary`: `top_routed_hotspot_paths=[]`, `broader_rebaseline_candidate_count=0`, `max_hotspot_risk_score=466.06`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles`: pass, `Python cycles: none detected`
 `docs/search_harness_cli_facade_boundary_milestone_plan.md` follow-on then
 reduces `app/cli_commands/search_harness.py` to `23` lines, moves shared parser support into
 `app/cli_commands/search_harness_support.py` (`84`), moves retrieval-learning

@@ -7,11 +7,8 @@ from sqlalchemy.orm import Session
 
 import app.services.search_hydration as _search_hydration
 import app.services.search_span_retrieval as _search_span_retrieval
-from app.db.models import (
-    Document,
-    DocumentChunk,
-    DocumentTable,
-)
+from app.db.public.document_artifacts import DocumentChunk, DocumentTable
+from app.db.public.ingest import Document
 from app.schemas.search import SearchFilters, SearchRequest
 from app.services.search_ranking import RankedResult
 

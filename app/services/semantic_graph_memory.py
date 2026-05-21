@@ -5,7 +5,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.db.models import SemanticReviewStatus
+from app.db.public.semantic_memory import SemanticReviewStatus
 
 
 def graph_memory_for_brief(

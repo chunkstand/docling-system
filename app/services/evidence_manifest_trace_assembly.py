@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.db.models import EvidenceManifest
+from app.db.public.audit_and_evidence import EvidenceManifest
 from app.services.evidence_common import trace_node_key as _trace_node_key
 from app.services.evidence_constants import (
     TECHNICAL_REPORT_CLAIM_RETRIEVAL_FEEDBACK_TABLE,

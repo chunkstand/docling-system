@@ -6,18 +6,22 @@ from uuid import UUID, uuid4  # noqa: F401
 
 from sqlalchemy import select  # noqa: F401
 
-from app.db.models import (  # noqa: F401
-    AgentTask,
-    AgentTaskArtifact,
+from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact  # noqa: F401
+from app.db.public.audit_and_evidence import (  # noqa: F401
     AuditBundleExport,
     AuditBundleValidationReceipt,
     ClaimEvidenceDerivation,
-    ClaimSupportFixtureSet,
-    ClaimSupportReplayAlertFixtureCorpusRow,
-    ClaimSupportReplayAlertFixtureCorpusSnapshot,
     EvidencePackageExport,
     EvidenceTraceEdge,
     EvidenceTraceNode,
+    TechnicalReportClaimRetrievalFeedback,
+)
+from app.db.public.claim_support import (  # noqa: F401
+    ClaimSupportFixtureSet,
+    ClaimSupportReplayAlertFixtureCorpusRow,
+    ClaimSupportReplayAlertFixtureCorpusSnapshot,
+)
+from app.db.public.retrieval import (  # noqa: F401
     RetrievalHardNegative,
     RetrievalJudgment,
     RetrievalJudgmentSet,
@@ -34,9 +38,8 @@ from app.db.models import (  # noqa: F401
     SearchRequestRecord,
     SearchRequestResult,
     SearchRequestResultSpan,
-    SemanticGovernanceEvent,
-    TechnicalReportClaimRetrievalFeedback,
 )
+from app.db.public.semantic_memory import SemanticGovernanceEvent  # noqa: F401
 from app.schemas.search import (  # noqa: F401
     RetrievalLearningCandidateEvaluationRequest,
     RetrievalRerankerArtifactRequest,

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
 from app.core.time import utcnow
-from app.db.models import SearchHarnessEvaluation, SearchHarnessEvaluationSource
+from app.db.public.retrieval import SearchHarnessEvaluation, SearchHarnessEvaluationSource
 from app.schemas.search import (
     SearchHarnessEvaluationRequest,
     SearchHarnessEvaluationResponse,

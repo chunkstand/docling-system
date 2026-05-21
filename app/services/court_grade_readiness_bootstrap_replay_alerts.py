@@ -7,12 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.core.hashes import payload_sha256
 from app.core.time import utcnow
-from app.db.models import (
-    AgentTask,
-    ClaimSupportFixtureSet,
-    SearchRequestRecord,
-    SearchRequestResult,
-)
+from app.db.public.agent_tasks import AgentTask
+from app.db.public.claim_support import ClaimSupportFixtureSet
+from app.db.public.retrieval import SearchRequestRecord, SearchRequestResult
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.claim_support_replay_alert_fixture_corpus import (
     ensure_active_replay_alert_fixture_corpus_snapshot,

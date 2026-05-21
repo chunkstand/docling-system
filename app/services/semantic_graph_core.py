@@ -9,7 +9,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.db.models import SemanticGraphSnapshot, SemanticReviewStatus, WorkspaceSemanticGraphState
+from app.db.public import semantic_memory as sm
 from app.services.semantic_candidates import cosine_similarity, embedding_vector, tokenize
 from app.services.semantic_registry import (
     canonicalize_semantic_relation_endpoints,
@@ -81,15 +81,15 @@ def _graph_payload_sha256(payload: dict[str, Any]) -> str:
     ).hexdigest()
 
 
-def _workspace_graph_state(session: Session) -> WorkspaceSemanticGraphState | None:
-    return session.get(WorkspaceSemanticGraphState, WORKSPACE_SEMANTIC_GRAPH_STATE_KEY)
+def _workspace_graph_state(session: Session) -> sm.WorkspaceSemanticGraphState | None:
+    return session.get(sm.WorkspaceSemanticGraphState, WORKSPACE_SEMANTIC_GRAPH_STATE_KEY)
 
 
-def get_active_semantic_graph_snapshot(session: Session) -> SemanticGraphSnapshot | None:
+def get_active_semantic_graph_snapshot(session: Session) -> sm.SemanticGraphSnapshot | None:
     state = _workspace_graph_state(session)
     if state is None or state.active_graph_snapshot_id is None:
         return None
-    return session.get(SemanticGraphSnapshot, state.active_graph_snapshot_id)
+    return session.get(sm.SemanticGraphSnapshot, state.active_graph_snapshot_id)
 
 
 def get_active_semantic_graph_payload(session: Session) -> dict[str, Any] | None:
@@ -128,17 +128,17 @@ def _extractor_descriptor(extractor_name: str) -> GraphExtractorDescriptor:
 
 
 def _review_rank(review_status: str) -> int:
-    if review_status == SemanticReviewStatus.APPROVED.value:
+    if review_status == sm.SemanticReviewStatus.APPROVED.value:
         return 2
-    if review_status == SemanticReviewStatus.CANDIDATE.value:
+    if review_status == sm.SemanticReviewStatus.CANDIDATE.value:
         return 1
     return 0
 
 
 def _minimum_review_rank(minimum_review_status: str) -> int:
     if minimum_review_status not in {
-        SemanticReviewStatus.CANDIDATE.value,
-        SemanticReviewStatus.APPROVED.value,
+        sm.SemanticReviewStatus.CANDIDATE.value,
+        sm.SemanticReviewStatus.APPROVED.value,
     }:
         raise ValueError(f"Unsupported semantic graph review threshold: {minimum_review_status}")
     return _review_rank(minimum_review_status)

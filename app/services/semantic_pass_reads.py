@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 import app.services.semantic_pass_source_records as source_record_owner
 from app.api.errors import api_error
-from app.db.models import (
+from app.db.public.semantic_memory import (
     DocumentRunSemanticPass,
     SemanticEvidenceSourceType,
     SemanticFact,

@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 
-from app.db.models import SearchHarnessRelease, SearchReplayRun
+from app.db.public.retrieval import SearchHarnessRelease, SearchReplayRun
 from app.schemas.agent_tasks import VerifySearchHarnessEvaluationTaskInput
 from app.schemas.search import (
     SearchHarnessEvaluationResponse,

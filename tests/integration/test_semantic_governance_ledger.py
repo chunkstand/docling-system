@@ -12,10 +12,12 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import get_settings
-from app.db.models import (
+from app.db.public.retrieval import (
     SearchHarnessEvaluation,
     SearchHarnessEvaluationSource,
     SearchReplayRun,
+)
+from app.db.public.semantic_memory import (
     SemanticGovernanceEvent,
     SemanticGraphSourceKind,
     SemanticOntologySourceKind,

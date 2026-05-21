@@ -16,8 +16,10 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
   top-level optional follow-on for the remaining governed production trap set
   after the live routed queue, broader-rebaseline queue, and Python-cycle
   backlog all closed. The packet targets the still-central compatibility or
-  dispatch roots named by the live `routing_trap_paths` and quality summary:
-  `app/db/models.py` (`337` importer fan-in),
+  dispatch roots named by the live `routing_trap_paths` and quality summary.
+  The narrower `app.db.models` caller-gravity lane is already resolved
+  locally through `docs/db_models_caller_migration_boundary_milestone_plan.md`,
+  so the remaining umbrella targets are:
   `app/services/evidence.py` (`42` importer fan-in),
   `app/schemas/agent_tasks.py` (`37` importer fan-in),
   `app/services/agent_tasks.py` (`26` importer fan-in),
@@ -29,14 +31,23 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
   migration on the high-fan-in roots, dispatch contraction on the high-fan-out
   roots, and an accepted-legacy closeout if any selected shim remains in the
   trap set intentionally.
-- `docs/db_models_caller_migration_boundary_milestone_plan.md`: proposed
-  locally in the current checkout on 2026-05-20 as the detailed
-  `app.db.models` caller-migration sublane. It remains useful as a reference
-  brief for bounded `app/db/public/*` caller facades and importer-policy
-  ratchets, but the newer
-  `docs/production_trap_set_centrality_reduction_milestone_plan.md` now
-  absorbs it whenever we choose to work the broader production trap-set debt
-  rather than a DB-only fan-in lane.
+- `docs/db_models_caller_migration_boundary_milestone_plan.md`: resolved
+  locally in the current checkout on 2026-05-20. The packet adds bounded
+  `app/db/public/*` caller facades, installs the repo-owned
+  `config/db_model_import_policy.yaml` plus
+  `tests/unit/test_db_model_public_import_routes.py` gate, migrates `328`
+  callers off the legacy shim, and reduces the direct `app.db.models` census
+  from the Milestone 0 `337`-import gravity to the explicit `9`-file
+  compatibility and metadata allowlist (`0` under `app/`). The latest probe
+  no longer lists `app.db.models`; caller fan-in now lands on
+  `app.db.public.agent_tasks=173`, `app.db.public.retrieval=80`,
+  `app.db.public.ingest=69`, `app.db.public.semantic_memory=68`,
+  `app.db.public.audit_and_evidence=55`,
+  `app.db.public.claim_support=40`, and
+  `app.db.public.document_artifacts=38`. The broader
+  `docs/production_trap_set_centrality_reduction_milestone_plan.md` remains
+  the umbrella optional follow-on for other trap-set roots, but this DB-only
+  sublane is now closed rather than merely proposed.
 - `docs/search_api_harness_route_surface_boundary_milestone_plan.md`:
   resolved locally in the current checkout on 2026-05-20. The packet reduces
   `tests/unit/test_search_api_harnesses.py` to a `40`-line route-registration

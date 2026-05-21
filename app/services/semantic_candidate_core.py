@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.text import collapse_whitespace
-from app.db.models import Document
+from app.db.public.ingest import Document
 from app.services.semantic_registry import SemanticRegistry, normalize_semantic_text
 from app.services.semantics import (
     SemanticAssertionMaterialization,

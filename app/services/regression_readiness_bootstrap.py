@@ -6,13 +6,9 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.db.models import (
-    Document,
-    DocumentRun,
-    DocumentRunEvaluation,
-    SearchReplayRun,
-    SearchRequestRecord,
-)
+from app.db.public.document_artifacts import DocumentRunEvaluation
+from app.db.public.ingest import Document, DocumentRun
+from app.db.public.retrieval import SearchReplayRun, SearchRequestRecord
 from app.schemas.search import SearchReplayRunRequest, SearchRequest
 from app.services.docling_parser import DoclingParser
 from app.services.document_ingest import ingest_local_file

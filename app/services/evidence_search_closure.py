@@ -7,7 +7,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.db.models import EvidencePackageExport
+from app.db.public.audit_and_evidence import EvidencePackageExport
 from app.services.evidence_common import (
     page_spans_overlap as _page_spans_overlap,
 )

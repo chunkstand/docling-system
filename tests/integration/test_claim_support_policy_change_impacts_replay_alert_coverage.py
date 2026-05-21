@@ -6,8 +6,8 @@ from uuid import UUID
 import pytest
 from sqlalchemy import select
 
-from app.db.models import (
-    AgentTaskArtifact,
+from app.db.public.agent_tasks import AgentTaskArtifact
+from app.db.public.claim_support import (
     ClaimSupportReplayAlertFixtureCoverageWaiverEscalation,
     ClaimSupportReplayAlertFixtureCoverageWaiverLedger,
 )

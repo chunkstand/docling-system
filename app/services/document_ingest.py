@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
 from app.core.config import default_local_ingest_roots, get_settings
-from app.db.models import Document
+from app.db.public.ingest import Document
 from app.schemas.documents import DocumentUploadResponse
 from app.services import document_run_queue
 from app.services.storage import StorageService

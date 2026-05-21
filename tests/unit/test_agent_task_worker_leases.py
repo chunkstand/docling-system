@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from sqlalchemy.dialects import postgresql
 
-from app.db.models import AgentTask, AgentTaskStatus
+from app.db.public.agent_tasks import AgentTask, AgentTaskStatus
 from app.services.agent_task_worker import claim_next_agent_task, unblock_ready_agent_tasks
 
 

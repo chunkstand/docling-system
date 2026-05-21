@@ -6,15 +6,15 @@ from uuid import UUID
 import pytest
 from sqlalchemy import select
 
-from app.db.models import (
-    AgentTaskArtifact,
+from app.db.public.agent_tasks import AgentTaskArtifact
+from app.db.public.claim_support import (
     ClaimSupportFixtureSet,
     ClaimSupportReplayAlertFixtureCorpusRow,
     ClaimSupportReplayAlertFixtureCorpusSnapshot,
     ClaimSupportReplayAlertFixtureCoverageWaiverEscalation,
     ClaimSupportReplayAlertFixtureCoverageWaiverLedger,
-    SemanticGovernanceEvent,
 )
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.claim_support_evaluations import (
     default_claim_support_evaluation_fixtures,
 )

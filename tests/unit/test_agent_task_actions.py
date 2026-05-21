@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 import app.services.agent_task_actions as agent_task_actions_module
-from app.db.models import AgentTask
+from app.db.public.agent_tasks import AgentTask
 from app.schemas.agent_tasks import (
     ApplyClaimSupportCalibrationPolicyTaskInput,
     ApplyClaimSupportCalibrationPolicyTaskOutput,

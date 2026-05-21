@@ -10,10 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.text import collapse_whitespace
-from app.db.models import (
-    DocumentChunk,
-    DocumentFigure,
-    DocumentTable,
+from app.db.public.document_artifacts import DocumentChunk, DocumentFigure, DocumentTable
+from app.db.public.semantic_memory import (
     SemanticAssertion,
     SemanticAssertionCategoryBinding,
     SemanticAssertionEvidence,

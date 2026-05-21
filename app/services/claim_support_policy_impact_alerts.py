@@ -9,13 +9,10 @@ from sqlalchemy.orm import Session
 
 from app.core.coercion import uuid_or_none as _uuid_or_none
 from app.core.time import utcnow
-from app.db.models import (
-    AgentTaskArtifact,
-    ClaimSupportPolicyChangeImpact,
-    EvidenceManifest,
-    SemanticGovernanceEvent,
-    SemanticGovernanceEventKind,
-)
+from app.db.public.agent_tasks import AgentTaskArtifact
+from app.db.public.audit_and_evidence import EvidenceManifest
+from app.db.public.claim_support import ClaimSupportPolicyChangeImpact
+from app.db.public.semantic_memory import SemanticGovernanceEvent, SemanticGovernanceEventKind
 from app.schemas.agent_task_claim_support import (
     ClaimSupportPolicyChangeImpactAlertEventRef,
     ClaimSupportPolicyChangeImpactAlertItemResponse,

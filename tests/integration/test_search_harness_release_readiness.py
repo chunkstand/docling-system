@@ -3,7 +3,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from uuid import UUID
 
-from app.db.models import SearchHarnessReleaseReadinessAssessment, SemanticGovernanceEvent
+from app.db.public.retrieval import SearchHarnessReleaseReadinessAssessment
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from tests.integration.search_harness_release_audit_support import (
     materialize_search_harness_release_learning_records,
 )

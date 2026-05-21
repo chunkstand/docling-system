@@ -5,10 +5,8 @@ from datetime import UTC, timedelta
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
-from app.db.models import (
-    AgentTask,
-    ClaimSupportCalibrationPolicy,
-)
+from app.db.public.agent_tasks import AgentTask
+from app.db.public.claim_support import ClaimSupportCalibrationPolicy
 from app.schemas.agent_task_claim_support import (
     DraftClaimSupportCalibrationPolicyTaskOutput,
     VerifyClaimSupportCalibrationPolicyTaskInput,

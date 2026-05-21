@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.db.models import ClaimEvidenceDerivation
+from app.db.public.audit_and_evidence import ClaimEvidenceDerivation
 from app.services.claim_support_replay_alert_fixture_candidates import (
     _candidate_from_derivation,
 )

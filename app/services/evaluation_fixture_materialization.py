@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 import app.services.evaluation_fixture_auto_generation as auto_generation_owners
 import app.services.evaluation_fixtures as fixture_owners
-from app.db.models import Document, DocumentRun
+from app.db.public.ingest import Document, DocumentRun
 from app.schemas.search import SearchFilters, SearchRequest
 
 

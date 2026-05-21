@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
-from app.db.models import AgentTask
+from app.db.public.agent_tasks import AgentTask
 from app.schemas.agent_task_core import AgentTaskCreateRequest
 from app.services.claim_support_policy_impact_replay import (
     CLAIM_SUPPORT_IMPACT_REPLAY_PLAN_SCHEMA,

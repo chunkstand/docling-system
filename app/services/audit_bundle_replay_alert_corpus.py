@@ -9,16 +9,14 @@ from sqlalchemy.orm import Session
 from app.core.coercion import maybe_uuid as _uuid_or_none
 from app.core.hashes import embedded_payload_hash_matches as _payload_hash_matches_embedded_field
 from app.core.hashes import payload_sha256 as _payload_sha256
-from app.db.models import (
-    AgentTaskArtifact,
-    AuditBundleExport,
+from app.db.public.agent_tasks import AgentTaskArtifact
+from app.db.public.audit_and_evidence import AuditBundleExport
+from app.db.public.claim_support import (
     ClaimSupportReplayAlertFixtureCorpusRow,
     ClaimSupportReplayAlertFixtureCorpusSnapshot,
-    RetrievalHardNegative,
-    RetrievalJudgment,
-    RetrievalTrainingRun,
-    SemanticGovernanceEvent,
 )
+from app.db.public.retrieval import RetrievalHardNegative, RetrievalJudgment, RetrievalTrainingRun
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.query_utils import load_by_ids as _load_by_ids
 from app.services.semantic_governance import (
     semantic_governance_event_payload as _semantic_governance_event_payload,

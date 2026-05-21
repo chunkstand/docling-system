@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 import app.services.agent_task_context_technical_reports_claim_support as claim_support_owner
 from app.core.time import utcnow
-from app.db.models import AgentTask, AgentTaskVerification
+from app.db.public.agent_tasks import AgentTask, AgentTaskVerification
 from app.schemas import agent_task_core as task_core
 from app.schemas.agent_task_reports import (
     BuildReportEvidenceCardsTaskOutput,

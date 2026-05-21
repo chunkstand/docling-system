@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
 from app.core.time import utcnow
-from app.db.models import AgentTask, AgentTaskVerification
+from app.db.public.agent_tasks import AgentTask, AgentTaskVerification
 from app.schemas.agent_task_core import AgentTaskVerificationResponse
 
 

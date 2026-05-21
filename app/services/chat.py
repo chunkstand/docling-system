@@ -15,7 +15,7 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.core.text import collapse_whitespace
 from app.core.time import utcnow
-from app.db.models import ChatAnswerFeedback, ChatAnswerRecord
+from app.db.public.retrieval import ChatAnswerFeedback, ChatAnswerRecord
 from app.schemas.chat import (
     ChatAnswerFeedbackCreateRequest,
     ChatAnswerFeedbackResponse,

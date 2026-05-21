@@ -3,14 +3,9 @@ from __future__ import annotations
 from sqlalchemy import and_, case, cast, func, literal, select
 from sqlalchemy.orm import Session
 
-from app.db.models import (
-    Document,
-    DocumentRunEvaluation,
-    DocumentRunEvaluationQuery,
-    SearchFeedback,
-    SearchRequestRecord,
-    SearchRequestResult,
-)
+from app.db.public.document_artifacts import DocumentRunEvaluation, DocumentRunEvaluationQuery
+from app.db.public.ingest import Document
+from app.db.public.retrieval import SearchFeedback, SearchRequestRecord, SearchRequestResult
 from app.schemas.search import SearchReplayRunRequest
 from app.services import search_replay_claim_feedback_cases as claim_feedback_cases
 from app.services import search_replay_common as replay_common

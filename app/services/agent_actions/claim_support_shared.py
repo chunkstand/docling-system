@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from app.db.models import (
-    ClaimSupportCalibrationPolicy,
-)
+from app.db.public.claim_support import ClaimSupportCalibrationPolicy
 from app.schemas.agent_task_claim_support import DraftClaimSupportCalibrationPolicyTaskOutput
 from app.services.evidence import (
     payload_sha256,

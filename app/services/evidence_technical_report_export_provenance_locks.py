@@ -8,15 +8,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.json_utils import json_object_payload as _json_payload
-from app.db.models import (
-    AuditBundleExport,
-    AuditBundleValidationReceipt,
+from app.db.public.audit_and_evidence import AuditBundleExport, AuditBundleValidationReceipt
+from app.db.public.retrieval import (
     RetrievalRerankerArtifact,
     SearchHarnessRelease,
     SearchRequestRecord,
-    SemanticFact,
-    SemanticGraphSnapshot,
 )
+from app.db.public.semantic_memory import SemanticFact, SemanticGraphSnapshot
 from app.services.evidence_common import (
     id_str_values as _id_str_values,
 )

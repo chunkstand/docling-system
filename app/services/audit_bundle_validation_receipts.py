@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.time import utcnow
-from app.db.models import AuditBundleExport, AuditBundleValidationReceipt
+from app.db.public.audit_and_evidence import AuditBundleExport, AuditBundleValidationReceipt
 from app.schemas.search import (
     AuditBundleValidationReceiptResponse,
     AuditBundleValidationReceiptSummaryResponse,

@@ -3,7 +3,7 @@
 Purpose: reduce `app/db/models.py` centrality without destabilizing Alembic,
 `Base.metadata.create_all(...)`, or active runtime imports.
 
-Status refreshed: 2026-05-18. `app/db/models.py` remains a governed
+Status refreshed: 2026-05-20. `app/db/models.py` remains a governed
 architecture hotspot, but several bounded model-domain splits are complete or
 verified locally: `platform support` owns `ApiIdempotencyKey` in
 `app/db/model_domains/platform.py`, `ingest` owns `IngestBatch`,
@@ -48,6 +48,16 @@ family-local sibling files; and owner routing now lives under
 `IC-46C5B38A1D2E`, `IC-7D8AE7C83B8F`, and `IC-62C75B82F0AA`. Each model-domain
 milestone must finish with a local commit before another domain moves.
 
+The repo deliberately changed the caller-facing import contract on
+2026-05-20. The legacy `app.db.models` surface now remains only as a
+compatibility shim for the allowlisted metadata and import-compatibility
+harnesses, while bounded production caller surfaces now live under
+`app/db/public/`. The live policy artifact is
+`config/db_model_import_policy.yaml`, the route contract lives in
+`tests/unit/test_db_model_public_import_routes.py`, and the migration reduced
+the direct legacy-import census from `337` files (`224` under `app/`) to `9`
+allowlisted tests (`0` under `app/`).
+
 ## Proposed Domains
 
 - ingest: `IngestBatch`, `IngestBatchItem`, `Document`, `DocumentRun`
@@ -90,6 +100,7 @@ milestone must finish with a local commit before another domain moves.
 ## Owner Surfaces
 
 - hotspot facade: `app/db/models.py`
+- caller-facing public facades: `app/db/public/*.py`
 - focused owner modules: `app/db/model_domains/*.py`
 - shared metadata contract: `tests/db_model_contract.py`
 - import compatibility gate:
@@ -102,8 +113,12 @@ milestone must finish with a local commit before another domain moves.
 
 ## Placement Rules
 
-- Keep `app/db/models.py` as the public compatibility facade until the repo
-  deliberately changes that import contract.
+- Keep `app/db/models.py` as the legacy compatibility facade and metadata
+  registration surface; ordinary callers should use the narrowest matching
+  `app/db/public/*` module instead.
+- Keep `app/db/model_domains/*` internal to `app/db/`; app and test callers
+  outside the explicit compatibility harnesses should not import those modules
+  directly.
 - Move one bounded ORM concern at a time into `app/db/model_domains/`; do not
   mix retrieval, semantic, agent-task, and claim-support rows in the same
   milestone.

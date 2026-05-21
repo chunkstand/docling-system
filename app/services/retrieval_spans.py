@@ -10,14 +10,9 @@ from sqlalchemy.orm import Session
 
 from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.time import utcnow
-from app.db.models import (
-    Document,
-    DocumentChunk,
-    DocumentRun,
-    DocumentTable,
-    RetrievalEvidenceSpan,
-    RetrievalEvidenceSpanMultiVector,
-)
+from app.db.public.document_artifacts import DocumentChunk, DocumentTable
+from app.db.public.ingest import Document, DocumentRun
+from app.db.public.retrieval import RetrievalEvidenceSpan, RetrievalEvidenceSpanMultiVector
 from app.services.embeddings import EmbeddingProvider
 from app.services.evidence_operator_runs import record_knowledge_operator_run
 from app.services.retrieval_span_specs import (

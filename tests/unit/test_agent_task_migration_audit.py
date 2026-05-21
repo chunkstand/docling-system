@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from app.db.models import AgentTask
+from app.db.public.agent_tasks import AgentTask
 from app.schemas.documents import DocumentUploadResponse
 from app.schemas.evaluations import EvaluationDetailResponse
 from app.schemas.quality import QualityEvaluationCandidateResponse

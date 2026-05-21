@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 import app.services.agent_task_context_search_harness_drafting as drafting_owner
 import app.services.agent_task_context_search_harness_triage as triage_owner
 from app.core.time import utcnow
-from app.db.models import AgentTask, AgentTaskVerification, SearchReplayRun
+from app.db.public.agent_tasks import AgentTask, AgentTaskVerification
+from app.db.public.retrieval import SearchReplayRun
 from app.schemas import agent_task_core as task_core
 from app.schemas.agent_task_search_workflows import (
     EvaluateSearchHarnessTaskOutput,

@@ -7,7 +7,8 @@ from sqlalchemy import func, or_, select
 
 import app.services.search_query_features as _query_features
 import app.services.search_retrieval_primitives as _search_retrieval_primitives
-from app.db.models import Document, DocumentChunk
+from app.db.public.document_artifacts import DocumentChunk
+from app.db.public.ingest import Document
 from app.schemas.search import SearchRequest
 
 token_coverage = _query_features.token_coverage

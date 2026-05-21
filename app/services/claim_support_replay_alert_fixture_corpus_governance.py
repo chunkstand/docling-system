@@ -10,12 +10,12 @@ from sqlalchemy.orm import Session
 from app.core.coercion import maybe_uuid as _uuid_or_none
 from app.core.coercion import unique_strings as _string_list
 from app.core.time import utcnow
-from app.db.models import (
-    AgentTaskArtifact,
+from app.db.public.agent_tasks import AgentTaskArtifact
+from app.db.public.claim_support import (
     ClaimSupportReplayAlertFixtureCorpusRow,
     ClaimSupportReplayAlertFixtureCorpusSnapshot,
-    SemanticGovernanceEvent,
 )
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.claim_support_replay_alert_fixture_corpus import (
     ACTIVE_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_NAME,

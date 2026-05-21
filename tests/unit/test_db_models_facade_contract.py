@@ -10,6 +10,7 @@ from tests.db_model_contract import (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DB_PACKAGE_ROOT = (PROJECT_ROOT / "app/db").resolve()
 MODELS_PATH = PROJECT_ROOT / "app/db/models.py"
 ALLOWED_IMPORT_MODULES = frozenset(
     {
@@ -23,7 +24,6 @@ ALLOWED_IMPORT_MODULES = frozenset(
 )
 ALLOWED_PRIVATE_SUPPORT_IMPORTERS = frozenset(
     {
-        MODELS_PATH.resolve(),
         (PROJECT_ROOT / "tests/unit/test_db_model_import_compatibility.py").resolve(),
     }
 )
@@ -199,7 +199,10 @@ def test_db_models_private_enum_support_module_is_not_a_second_public_surface() 
     for path in PROJECT_ROOT.rglob("*.py"):
         if ".venv" in path.parts:
             continue
-        if path.resolve() in ALLOWED_PRIVATE_SUPPORT_IMPORTERS:
+        resolved_path = path.resolve()
+        if resolved_path.is_relative_to(DB_PACKAGE_ROOT):
+            continue
+        if resolved_path in ALLOWED_PRIVATE_SUPPORT_IMPORTERS:
             continue
         tree = ast.parse(path.read_text(), filename=str(path))
         for node in ast.walk(tree):

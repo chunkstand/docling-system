@@ -5,7 +5,7 @@ import json
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 
-from app.db.models import AgentTask
+from app.db.public.agent_tasks import AgentTask
 from app.schemas.agent_task_search_workflows import (
     TriageReplayRegressionTaskInput,
     VerifySearchHarnessEvaluationTaskInput,

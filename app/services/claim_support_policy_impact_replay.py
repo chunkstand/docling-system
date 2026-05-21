@@ -7,7 +7,7 @@ from fastapi import status
 
 from app.api.errors import api_error
 from app.core.coercion import uuid_or_none as _uuid_or_none
-from app.db.models import ClaimSupportPolicyChangeImpact
+from app.db.public.claim_support import ClaimSupportPolicyChangeImpact
 from app.schemas.agent_task_claim_support import (
     ClaimSupportPolicyChangeImpactReplayResponse,
     ClaimSupportPolicyChangeImpactReplayTaskResponse,

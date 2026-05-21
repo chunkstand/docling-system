@@ -43,6 +43,13 @@ Boundary modules also avoid importing `app.db.models` directly. They may accept
 database sessions from FastAPI dependencies, but ORM row lookup and active-run
 scoping belong behind the service capability facades.
 
+Outside the explicit DB metadata and import-compatibility harnesses, callers
+that need ORM models or DB enums should import the narrowest matching
+`app.db.public.*` module instead of `app.db.models`. The legacy
+`app.db.models` module remains a compatibility shim; `app.db.model_domains.*`
+remain internal to `app/db/` and are not approved application caller
+surfaces.
+
 Service modules also avoid importing underscore-prefixed helpers from other
 service modules. When shared behavior crosses a module boundary, expose a public
 helper or move it to an explicitly shared module.

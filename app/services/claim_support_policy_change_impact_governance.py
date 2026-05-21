@@ -10,16 +10,15 @@ from app.core.coercion import unique_strings as _unique_strings
 from app.core.coercion import uuid_or_none as _uuid_or_none
 from app.core.json_utils import json_object_payload as _json_payload
 from app.core.time import utcnow
-from app.db.models import (
+from app.db.public.agent_tasks import (
     AgentTask,
     AgentTaskArtifact,
     AgentTaskVerification,
-    ClaimEvidenceDerivation,
-    ClaimSupportCalibrationPolicy,
-    EvidencePackageExport,
     KnowledgeOperatorRun,
-    SemanticGovernanceEvent,
 )
+from app.db.public.audit_and_evidence import ClaimEvidenceDerivation, EvidencePackageExport
+from app.db.public.claim_support import ClaimSupportCalibrationPolicy
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.claim_support_policy_governance import value_sha256
 from app.services.evidence import payload_sha256
 from app.services.semantic_governance import active_semantic_basis
@@ -456,7 +455,7 @@ def persist_claim_support_policy_change_impact(
     row_kwargs: dict[str, Any] = {}
     if row_id is not None:
         row_kwargs["id"] = row_id
-    from app.db.models import ClaimSupportPolicyChangeImpact
+    from app.db.public.claim_support import ClaimSupportPolicyChangeImpact
 
     row = ClaimSupportPolicyChangeImpact(
         **row_kwargs,

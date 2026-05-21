@@ -6,12 +6,8 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 
-from app.db.models import (
-    AgentTask,
-    AgentTaskArtifact,
-    AgentTaskDependency,
-    SearchReplayRun,
-)
+from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact, AgentTaskDependency
+from app.db.public.retrieval import SearchReplayRun
 from app.schemas.agent_tasks import ContextFreshnessStatus, ContextRef, TaskContextEnvelope
 from app.services.agent_task_context import (
     refresh_task_context_freshness,

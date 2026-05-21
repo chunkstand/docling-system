@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
-from app.db.models import (
+from app.db.public.agent_tasks import (
     AgentTask,
     AgentTaskDependency,
     AgentTaskDependencyKind,

@@ -6,7 +6,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, DocumentRun, DocumentRunEvaluation
+from app.db.public.document_artifacts import DocumentRunEvaluation
+from app.db.public.ingest import Document, DocumentRun
 from app.schemas.eval_workbench import (
     EvalFailureCaseInspectionResponse,
     EvalFailureCaseRefreshResponse,

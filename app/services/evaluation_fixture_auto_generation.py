@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 import app.services.evaluation_fixtures as fixture_owners
 from app.core.files import source_filename_matches
 from app.core.text import collapse_whitespace
-from app.db.models import Document, DocumentChunk, DocumentFigure, DocumentRun, DocumentTable
+from app.db.public.document_artifacts import DocumentChunk, DocumentFigure, DocumentTable
+from app.db.public.ingest import Document, DocumentRun
 
 AUTO_QUERY_TOP_N = 3
 AUTO_TABLE_QUERY_LIMIT = 2

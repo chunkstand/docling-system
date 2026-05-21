@@ -7,7 +7,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 
 from app.api.main import app
-from app.db.models import DocumentRun
+from app.db.public.ingest import DocumentRun
 from app.db.session import get_db_session
 from app.services.storage import StorageService
 

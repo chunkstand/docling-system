@@ -5,7 +5,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from uuid import UUID
 
-from app.db.models import AuditBundleExport, SearchHarnessRelease
+from app.db.public.audit_and_evidence import AuditBundleExport
+from app.db.public.retrieval import SearchHarnessRelease
 from tests.integration.search_harness_release_audit_support import (
     materialize_search_harness_release_learning_records,
 )

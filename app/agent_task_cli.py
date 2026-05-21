@@ -7,7 +7,7 @@ from uuid import UUID
 
 import yaml
 
-from app.db.models import AgentTask
+from app.db.public.agent_tasks import AgentTask
 from app.db.session import get_session_factory
 from app.schemas.agent_task_core import (
     AgentTaskApprovalRequest,

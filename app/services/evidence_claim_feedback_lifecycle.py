@@ -8,9 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
-from app.db.models import (
-    AgentTask,
-    AgentTaskArtifact,
+from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact
+from app.db.public.audit_and_evidence import (
     ClaimEvidenceDerivation,
     EvidenceManifest,
     EvidencePackageExport,

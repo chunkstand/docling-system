@@ -5,9 +5,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.core.coercion import unique_strings as _unique_strings
-from app.db.models import (
-    AgentTask,
-)
+from app.db.public.agent_tasks import AgentTask
 from app.schemas.agent_task_reports import (
     BuildReportEvidenceCardsTaskInput,
     BuildReportEvidenceCardsTaskOutput,

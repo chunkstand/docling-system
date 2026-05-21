@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 
 import app.services.semantic_governance_context as _semantic_governance_context
 import app.services.semantic_governance_core as _semantic_governance_core
-from app.db.models import SearchHarnessRelease, SemanticGovernanceEvent, SemanticGovernanceEventKind
+from app.db.public.retrieval import SearchHarnessRelease
+from app.db.public.semantic_memory import SemanticGovernanceEvent, SemanticGovernanceEventKind
 
 
 def semantic_governance_event_integrity(row: SemanticGovernanceEvent) -> dict[str, Any]:

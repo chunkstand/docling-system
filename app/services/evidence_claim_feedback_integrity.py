@@ -5,13 +5,13 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.db.models import (
-    AgentTaskArtifact,
+from app.db.public.agent_tasks import AgentTaskArtifact
+from app.db.public.audit_and_evidence import (
     EvidenceManifest,
-    SemanticGovernanceEvent,
     TechnicalReportClaimRetrievalFeedback,
     TechnicalReportReleaseReadinessDbGate,
 )
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.evidence_common import payload_sha256
 from app.services.evidence_common import string_values as _string_values
 from app.services.evidence_constants import (

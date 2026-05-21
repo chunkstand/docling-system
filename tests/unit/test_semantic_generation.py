@@ -4,7 +4,7 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from app.db.models import Document
+from app.db.public.ingest import Document
 from app.schemas.semantics import (
     DocumentSemanticPassResponse,
     SemanticAssertionCategoryBindingResponse,

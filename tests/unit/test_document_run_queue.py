@@ -8,7 +8,7 @@ from uuid import uuid4
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 
-from app.db.models import Document, DocumentRun, RunStatus
+from app.db.public.ingest import Document, DocumentRun, RunStatus
 from app.services.document_run_queue import (
     _build_duplicate_response,
     _enforce_remote_document_run_backpressure,

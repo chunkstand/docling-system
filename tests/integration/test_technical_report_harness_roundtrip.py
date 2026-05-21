@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 
-from app.db.models import AgentTask, KnowledgeOperatorRun
+from app.db.public.agent_tasks import AgentTask, KnowledgeOperatorRun
 from tests.integration.technical_report_harness_support import run_verified_report_roundtrip
 
 pytestmark = pytest.mark.skipif(

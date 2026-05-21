@@ -8,7 +8,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import AgentTask
+from app.db.public.agent_tasks import AgentTask
 from app.services import semantic_candidate_core as _semantic_candidate_core
 
 

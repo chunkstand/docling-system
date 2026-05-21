@@ -8,12 +8,9 @@ from sqlalchemy.orm import Session
 import app.services.evidence_release_readiness as _release_readiness
 from app.core.json_utils import json_object_payload as _json_payload
 from app.core.time import utcnow
-from app.db.models import (
-    AgentTaskArtifact,
-    EvidenceManifest,
-    SemanticGovernanceEvent,
-    TechnicalReportReleaseReadinessDbGate,
-)
+from app.db.public.agent_tasks import AgentTaskArtifact
+from app.db.public.audit_and_evidence import EvidenceManifest, TechnicalReportReleaseReadinessDbGate
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.evidence_audit_views_context import (
     technical_report_context_pack_audit_for_verification_task,
 )

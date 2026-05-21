@@ -10,15 +10,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
-from app.db.models import (
-    Document,
+from app.db.public.document_artifacts import (
     DocumentChunk,
     DocumentFigure,
-    DocumentRun,
     DocumentTable,
     DocumentTableSegment,
-    RunStatus,
 )
+from app.db.public.ingest import Document, DocumentRun, RunStatus
 from app.services.audit import KNOWN_FAILURE_STAGES
 from app.services.storage import StorageService
 

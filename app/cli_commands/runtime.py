@@ -7,7 +7,7 @@ from uuid import UUID
 
 from app.cli_commands import readiness as readiness_commands
 from app.cli_commands.common import lazy_service_attr
-from app.db.models import Document, DocumentRun
+from app.db.public.ingest import Document, DocumentRun
 from app.db.session import get_session_factory
 from app.schemas.search import SearchReplayRunRequest
 from app.services.storage import StorageService

@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
-from app.db.models import ClaimSupportEvaluation, ClaimSupportEvaluationCase, ClaimSupportFixtureSet
+from app.db.public import claim_support as cm
 from app.services.evidence import payload_sha256
 
 CLAIM_SUPPORT_JUDGE_NAME = "technical_report_claim_support_judge"
@@ -361,7 +361,7 @@ def ensure_claim_support_fixture_set(
     fixtures: list[dict[str, Any]] | None = None,
     status: str = "active",
     metadata: dict[str, Any] | None = None,
-) -> ClaimSupportFixtureSet:
+) -> cm.ClaimSupportFixtureSet:
     fixture_rows = list(fixtures or default_claim_support_evaluation_fixtures())
     payload = _fixture_set_payload(
         fixture_set_name=fixture_set_name,
@@ -371,15 +371,15 @@ def ensure_claim_support_fixture_set(
         metadata=metadata,
     )
     existing = session.scalar(
-        select(ClaimSupportFixtureSet).where(
-            ClaimSupportFixtureSet.fixture_set_name == fixture_set_name,
-            ClaimSupportFixtureSet.fixture_set_version == fixture_set_version,
-            ClaimSupportFixtureSet.fixture_set_sha256 == payload["fixture_set_sha256"],
+        select(cm.ClaimSupportFixtureSet).where(
+            cm.ClaimSupportFixtureSet.fixture_set_name == fixture_set_name,
+            cm.ClaimSupportFixtureSet.fixture_set_version == fixture_set_version,
+            cm.ClaimSupportFixtureSet.fixture_set_sha256 == payload["fixture_set_sha256"],
         )
     )
     if existing is not None:
         return existing
-    row = ClaimSupportFixtureSet(
+    row = cm.ClaimSupportFixtureSet(
         id=uuid.uuid4(),
         fixture_set_name=fixture_set_name,
         fixture_set_version=fixture_set_version,
@@ -398,7 +398,7 @@ def ensure_claim_support_fixture_set(
 
 
 def _fixture_from_fixture_set(
-    fixture_set: ClaimSupportFixtureSet | None,
+    fixture_set: cm.ClaimSupportFixtureSet | None,
     *,
     case_id: str,
 ) -> dict[str, Any] | None:
@@ -424,22 +424,22 @@ def mine_claim_support_failure_fixtures(
     if requested_limit:
         rows = session.execute(
             select(
-                ClaimSupportEvaluationCase,
-                ClaimSupportEvaluation,
-                ClaimSupportFixtureSet,
+                cm.ClaimSupportEvaluationCase,
+                cm.ClaimSupportEvaluation,
+                cm.ClaimSupportFixtureSet,
             )
             .join(
-                ClaimSupportEvaluation,
-                ClaimSupportEvaluation.id == ClaimSupportEvaluationCase.evaluation_id,
+                cm.ClaimSupportEvaluation,
+                cm.ClaimSupportEvaluation.id == cm.ClaimSupportEvaluationCase.evaluation_id,
             )
             .outerjoin(
-                ClaimSupportFixtureSet,
-                ClaimSupportFixtureSet.id == ClaimSupportEvaluation.fixture_set_id,
+                cm.ClaimSupportFixtureSet,
+                cm.ClaimSupportFixtureSet.id == cm.ClaimSupportEvaluation.fixture_set_id,
             )
-            .where(ClaimSupportEvaluationCase.passed.is_(False))
+            .where(cm.ClaimSupportEvaluationCase.passed.is_(False))
             .order_by(
-                ClaimSupportEvaluationCase.created_at.desc(),
-                ClaimSupportEvaluationCase.id.desc(),
+                cm.ClaimSupportEvaluationCase.created_at.desc(),
+                cm.ClaimSupportEvaluationCase.id.desc(),
             )
             .limit(requested_limit * 4)
         ).all()

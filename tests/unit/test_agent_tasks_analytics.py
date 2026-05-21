@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from app.db.models import AgentTask, AgentTaskAttempt, AgentTaskOutcome, AgentTaskStatus
+from app.db.public.agent_tasks import AgentTask, AgentTaskAttempt, AgentTaskOutcome, AgentTaskStatus
 from app.services.agent_tasks import (
     get_agent_approval_trends,
     get_agent_task_cost_summary,

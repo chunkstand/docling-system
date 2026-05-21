@@ -5,7 +5,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.db.models import SemanticOntologySourceKind
+from app.db.public.semantic_memory import SemanticOntologySourceKind
 from app.services.semantic_orchestration import (
     draft_semantic_registry_update,
     draft_semantic_registry_update_from_bootstrap_report,

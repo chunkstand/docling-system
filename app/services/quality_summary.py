@@ -6,12 +6,8 @@ from dataclasses import dataclass
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import (
-    Document,
-    DocumentRun,
-    DocumentRunEvaluation,
-    RunStatus,
-)
+from app.db.public.document_artifacts import DocumentRunEvaluation
+from app.db.public.ingest import Document, DocumentRun, RunStatus
 from app.schemas.quality import (
     QualityEvaluationStatusResponse,
     QualityFailuresResponse,

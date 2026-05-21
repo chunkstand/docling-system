@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from app.db.models import AgentTaskArtifact, SemanticGovernanceEvent
+from app.db.public.agent_tasks import AgentTaskArtifact
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.agent_task_decision_signal_integrity import (
     _valid_replay_alert_fixture_coverage_waiver_closure_event,
 )

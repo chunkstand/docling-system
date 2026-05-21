@@ -6,13 +6,9 @@ from uuid import uuid4
 from sqlalchemy import select
 
 from app.core.time import utcnow
-from app.db.models import (
-    AgentTask,
-    AgentTaskArtifact,
-    AgentTaskStatus,
-    ClaimSupportPolicyChangeImpact,
-    SemanticGovernanceEvent,
-)
+from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact, AgentTaskStatus
+from app.db.public.claim_support import ClaimSupportPolicyChangeImpact
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.schemas.agent_tasks import AgentTaskCreateRequest
 from app.services.agent_tasks import create_agent_task
 from app.services.claim_support_evaluations import (

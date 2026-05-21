@@ -9,20 +9,20 @@ import yaml
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import (
+from app.db.public.audit_and_evidence import TechnicalReportClaimRetrievalFeedback
+from app.db.public.claim_support import (
     ClaimSupportReplayAlertFixtureCorpusRow,
     ClaimSupportReplayAlertFixtureCorpusSnapshot,
-    Document,
-    DocumentRun,
-    DocumentRunEvaluation,
-    DocumentRunEvaluationQuery,
+)
+from app.db.public.document_artifacts import DocumentRunEvaluation, DocumentRunEvaluationQuery
+from app.db.public.ingest import Document, DocumentRun
+from app.db.public.retrieval import (
     RetrievalJudgmentSet,
     RetrievalTrainingRun,
     SearchFeedback,
     SearchHarnessEvaluationSource,
     SearchReplayRun,
     SearchRequestRecord,
-    TechnicalReportClaimRetrievalFeedback,
 )
 
 REPLAY_SOURCE_TYPES = [

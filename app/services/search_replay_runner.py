@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.files import source_filename_matches
 from app.core.time import utcnow
-from app.db.models import SearchReplayQuery, SearchReplayRun
+from app.db.public.retrieval import SearchReplayQuery, SearchReplayRun
 from app.schemas.search import SearchReplayRunDetailResponse, SearchReplayRunRequest, SearchRequest
 from app.services import search_replay_cases as replay_cases
 from app.services import search_replay_claim_feedback_cases as claim_feedback_cases

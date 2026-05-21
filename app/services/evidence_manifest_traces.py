@@ -10,11 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.json_utils import json_object_payload as _json_payload
 from app.core.time import utcnow
-from app.db.models import (
-    EvidenceManifest,
-    EvidenceTraceEdge,
-    EvidenceTraceNode,
-)
+from app.db.public.audit_and_evidence import EvidenceManifest, EvidenceTraceEdge, EvidenceTraceNode
 from app.services.evidence_common import (
     trace_edge_spec_from_row as _trace_edge_spec_from_row,
 )

@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import (
+from app.db.public.retrieval import (
     SearchFeedback,
     SearchReplayQuery,
     SearchReplayRun,

@@ -2,11 +2,8 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.db.models import (
-    RetrievalRerankerArtifact,
-    RetrievalTrainingRun,
-    SemanticGovernanceEventKind,
-)
+from app.db.public.retrieval import RetrievalRerankerArtifact, RetrievalTrainingRun
+from app.db.public.semantic_memory import SemanticGovernanceEventKind
 from app.services.semantic_governance import record_semantic_governance_event
 
 

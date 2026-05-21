@@ -5,7 +5,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.db.models import AgentTask, Document, DocumentRun
+from app.db.public.agent_tasks import AgentTask
+from app.db.public.ingest import Document, DocumentRun
 from app.services.evidence_audit_views import get_agent_task_audit_bundle
 from app.services.evidence_common import string_values as _string_values
 from app.services.evidence_common import uuid_values as _uuid_values

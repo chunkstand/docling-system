@@ -3,17 +3,16 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.hashes import payload_sha256 as _payload_sha256
-from app.db.models import (
-    AuditBundleExport,
-    AuditBundleValidationReceipt,
+from app.db.public.audit_and_evidence import AuditBundleExport, AuditBundleValidationReceipt
+from app.db.public.retrieval import (
     RetrievalLearningCandidateEvaluation,
     RetrievalRerankerArtifact,
     SearchHarnessEvaluation,
     SearchHarnessEvaluationSource,
     SearchHarnessRelease,
     SearchReplayRun,
-    SemanticGovernanceEvent,
 )
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.semantic_governance import (
     semantic_governance_event_payload as _semantic_governance_event_payload,
 )

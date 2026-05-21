@@ -10,13 +10,8 @@ from sqlalchemy.orm import Session
 from app.api.errors import api_error
 from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.time import utcnow
-from app.db.models import (
-    AgentTask,
-    AgentTaskArtifact,
-    AgentTaskVerification,
-    SearchHarnessEvaluation,
-    SearchReplayRun,
-)
+from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact, AgentTaskVerification
+from app.db.public.retrieval import SearchHarnessEvaluation, SearchReplayRun
 from app.schemas.agent_task_core import (
     ContextFreshnessStatus,
     ContextRef,

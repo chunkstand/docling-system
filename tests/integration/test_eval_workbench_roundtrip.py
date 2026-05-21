@@ -7,7 +7,8 @@ from uuid import UUID, uuid4
 import pytest
 from sqlalchemy import select
 
-from app.db.models import AgentTask, AgentTaskStatus, EvalFailureCase, EvalObservation
+from app.db.public.agent_tasks import AgentTask, AgentTaskStatus
+from app.db.public.evaluation_feedback import EvalFailureCase, EvalObservation
 from app.schemas.agent_tasks import AgentTaskApprovalRequest, AgentTaskCreateRequest
 from app.services.agent_task_worker import claim_next_agent_task, process_agent_task
 from app.services.agent_tasks import approve_agent_task, create_agent_task

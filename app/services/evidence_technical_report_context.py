@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.db.models import AgentTask, AgentTaskDependency, AgentTaskVerification
+from app.db.public.agent_tasks import AgentTask, AgentTaskDependency, AgentTaskVerification
 from app.services.evidence_common import uuid_or_none_safe as _uuid_or_none_safe
 from app.services.evidence_constants import DOCUMENT_GENERATION_CONTEXT_PACK_GATE
 

@@ -7,12 +7,9 @@ from sqlalchemy import Float, Select, and_, cast, func, select
 from sqlalchemy.orm import Session
 
 import app.services.search_ranking as _search_ranking
-from app.db.models import (
-    Document,
-    DocumentChunk,
-    DocumentTable,
-    RetrievalEvidenceSpan,
-)
+from app.db.public.document_artifacts import DocumentChunk, DocumentTable
+from app.db.public.ingest import Document
+from app.db.public.retrieval import RetrievalEvidenceSpan
 from app.schemas.search import SearchRequest
 
 SEARCH_RESULT_SPAN_LIMIT = 5

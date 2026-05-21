@@ -3,7 +3,8 @@ from __future__ import annotations
 import uuid
 
 from app.core.time import utcnow
-from app.db.models import DocumentChunk, DocumentTable, RetrievalEvidenceSpan
+from app.db.public.document_artifacts import DocumentChunk, DocumentTable
+from app.db.public.retrieval import RetrievalEvidenceSpan
 from app.services.retrieval_spans import (
     MULTIVECTOR_WORD_WINDOW,
     SPAN_WORD_WINDOW,

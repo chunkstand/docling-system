@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.db.models import (
+from app.db.public.agent_tasks import (
     AgentTask,
     AgentTaskArtifact,
     AgentTaskArtifactImmutabilityEvent,

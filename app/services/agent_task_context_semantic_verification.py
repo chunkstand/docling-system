@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
-from app.db.models import AgentTask, AgentTaskArtifact, AgentTaskVerification
+from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact, AgentTaskVerification
 from app.schemas.agent_task_core import (
     ContextFreshnessStatus,
     ContextRef,

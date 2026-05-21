@@ -8,13 +8,9 @@ from sqlalchemy.orm import Session
 
 import app.services.search_hydration as _search_hydration
 from app.core.hashes import payload_sha256
-from app.db.models import (
-    Document,
-    DocumentChunk,
-    DocumentTable,
-    RetrievalEvidenceSpan,
-    RetrievalEvidenceSpanMultiVector,
-)
+from app.db.public.document_artifacts import DocumentChunk, DocumentTable
+from app.db.public.ingest import Document
+from app.db.public.retrieval import RetrievalEvidenceSpan, RetrievalEvidenceSpanMultiVector
 from app.schemas.search import SearchFilters, SearchRequest
 from app.services.search_ranking import RankedResult
 

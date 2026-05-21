@@ -28,7 +28,7 @@
             }
           ],
           "returns": "list[DocumentChunkResponse]",
-          "source_lineno": 68
+          "source_lineno": 69
         },
         {
           "name": "get_active_figure_detail",
@@ -59,7 +59,7 @@
             }
           ],
           "returns": "DocumentFigureDetailResponse",
-          "source_lineno": 93
+          "source_lineno": 94
         },
         {
           "name": "get_active_figure_row",
@@ -90,7 +90,7 @@
             }
           ],
           "returns": "DocumentFigure | None",
-          "source_lineno": 109
+          "source_lineno": 110
         },
         {
           "name": "get_active_figures",
@@ -114,7 +114,7 @@
             }
           ],
           "returns": "list[DocumentFigureSummaryResponse]",
-          "source_lineno": 87
+          "source_lineno": 88
         },
         {
           "name": "get_active_table_detail",
@@ -145,7 +145,7 @@
             }
           ],
           "returns": "DocumentTableDetailResponse",
-          "source_lineno": 80
+          "source_lineno": 81
         },
         {
           "name": "get_active_table_row",
@@ -176,7 +176,7 @@
             }
           ],
           "returns": "DocumentTable | None",
-          "source_lineno": 102
+          "source_lineno": 103
         },
         {
           "name": "get_active_tables",
@@ -200,7 +200,7 @@
             }
           ],
           "returns": "list[DocumentTableSummaryResponse]",
-          "source_lineno": 74
+          "source_lineno": 75
         },
         {
           "name": "get_document_detail",
@@ -224,7 +224,7 @@
             }
           ],
           "returns": "DocumentDetailResponse",
-          "source_lineno": 42
+          "source_lineno": 43
         },
         {
           "name": "get_document_run_summary",
@@ -248,7 +248,7 @@
             }
           ],
           "returns": "DocumentRunSummaryResponse",
-          "source_lineno": 54
+          "source_lineno": 55
         },
         {
           "name": "get_run_row",
@@ -272,7 +272,7 @@
             }
           ],
           "returns": "DocumentRun | None",
-          "source_lineno": 100
+          "source_lineno": 101
         },
         {
           "name": "ingest_upload",
@@ -310,7 +310,7 @@
             }
           ],
           "returns": "tuple[DocumentUploadResponse, int]",
-          "source_lineno": 33
+          "source_lineno": 34
         },
         {
           "name": "list_document_runs",
@@ -334,7 +334,7 @@
             }
           ],
           "returns": "list[DocumentRunSummaryResponse]",
-          "source_lineno": 48
+          "source_lineno": 49
         },
         {
           "name": "list_documents",
@@ -358,7 +358,7 @@
             }
           ],
           "returns": "list[DocumentSummaryResponse]",
-          "source_lineno": 26
+          "source_lineno": 27
         },
         {
           "name": "process_run",
@@ -403,7 +403,7 @@
             }
           ],
           "returns": "None",
-          "source_lineno": 116
+          "source_lineno": 117
         },
         {
           "name": "reprocess_document",
@@ -434,7 +434,7 @@
             }
           ],
           "returns": "DocumentUploadResponse",
-          "source_lineno": 60
+          "source_lineno": 61
         },
         {
           "name": "run_worker_loop",
@@ -443,7 +443,7 @@
           "owner_symbol": "run_worker_loop",
           "parameters": [],
           "returns": "None",
-          "source_lineno": 125
+          "source_lineno": 126
         }
       ],
       "implementation": "ServicesRunLifecycleCapability",
@@ -1732,7 +1732,7 @@
             }
           ],
           "returns": "DocumentRunEvaluation",
-          "source_lineno": 22
+          "source_lineno": 23
         },
         {
           "name": "explain_latest_document_evaluation",
@@ -1756,7 +1756,7 @@
             }
           ],
           "returns": "dict",
-          "source_lineno": 39
+          "source_lineno": 40
         },
         {
           "name": "explain_search_harness_evaluation",
@@ -1780,7 +1780,7 @@
             }
           ],
           "returns": "dict",
-          "source_lineno": 45
+          "source_lineno": 46
         },
         {
           "name": "get_eval_failure_case",
@@ -1804,7 +1804,7 @@
             }
           ],
           "returns": "EvalFailureCaseResponse",
-          "source_lineno": 77
+          "source_lineno": 78
         },
         {
           "name": "get_eval_workbench",
@@ -1828,7 +1828,7 @@
             }
           ],
           "returns": "EvalWorkbenchResponse",
-          "source_lineno": 59
+          "source_lineno": 60
         },
         {
           "name": "get_latest_document_evaluation_detail",
@@ -1852,7 +1852,7 @@
             }
           ],
           "returns": "EvaluationDetailResponse",
-          "source_lineno": 33
+          "source_lineno": 34
         },
         {
           "name": "inspect_eval_failure_case",
@@ -1876,7 +1876,7 @@
             }
           ],
           "returns": "EvalFailureCaseInspectionResponse",
-          "source_lineno": 83
+          "source_lineno": 84
         },
         {
           "name": "list_eval_failure_cases",
@@ -1914,7 +1914,7 @@
             }
           ],
           "returns": "list[EvalFailureCaseResponse]",
-          "source_lineno": 68
+          "source_lineno": 69
         },
         {
           "name": "list_eval_observations",
@@ -1938,7 +1938,7 @@
             }
           ],
           "returns": "list[EvalObservationResponse]",
-          "source_lineno": 61
+          "source_lineno": 62
         },
         {
           "name": "refresh_eval_failure_cases",
@@ -1969,7 +1969,7 @@
             }
           ],
           "returns": "EvalFailureCaseRefreshResponse",
-          "source_lineno": 51
+          "source_lineno": 52
         }
       ],
       "implementation": "ServicesEvaluationCapability",

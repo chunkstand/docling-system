@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.db.models import AuditBundleExport
+from app.db.public.audit_and_evidence import AuditBundleExport
 from app.services.audit_bundle_release_payload_serialization import (
     SEARCH_HARNESS_RELEASE_AUDIT_BUNDLE_KIND,
 )

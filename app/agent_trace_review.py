@@ -14,7 +14,8 @@ from app.architecture_inspection import (
 )
 from app.core.files import repo_root
 from app.core.time import utcnow
-from app.db.models import AgentTask, AgentTaskStatus, SearchReplayQuery, SearchReplayRun
+from app.db.public.agent_tasks import AgentTask, AgentTaskStatus
+from app.db.public.retrieval import SearchReplayQuery, SearchReplayRun
 from app.db.session import get_session_factory
 from app.hygiene import run_improvement_case_contract_checks, run_python_hygiene_checks
 from app.services.improvement_cases import (

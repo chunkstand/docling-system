@@ -9,12 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.json_utils import json_object_payload as _json_payload
-from app.db.models import (
-    AgentTaskArtifact,
-    AgentTaskVerification,
-    KnowledgeOperatorRun,
-    TechnicalReportReleaseReadinessDbGate,
-)
+from app.db.public.agent_tasks import AgentTaskArtifact, AgentTaskVerification, KnowledgeOperatorRun
+from app.db.public.audit_and_evidence import TechnicalReportReleaseReadinessDbGate
 from app.services.evidence_common import int_or_none as _int_or_none
 from app.services.evidence_common import payload_sha256
 from app.services.evidence_common import string_values as _string_values

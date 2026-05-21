@@ -4,9 +4,8 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.db.models import (
-    KnowledgeOperatorOutput,
-    KnowledgeOperatorRun,
+from app.db.public.agent_tasks import KnowledgeOperatorOutput, KnowledgeOperatorRun
+from app.db.public.retrieval import (
     SearchRequestRecord,
     SearchRequestResult,
     SearchRequestResultSpan,

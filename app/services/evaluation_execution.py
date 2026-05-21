@@ -6,7 +6,8 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from app.db.models import Document, DocumentRun, DocumentRunEvaluationQuery
+from app.db.public.document_artifacts import DocumentRunEvaluationQuery
+from app.db.public.ingest import Document, DocumentRun
 from app.schemas.search import SearchFilters, SearchRequest
 
 

@@ -7,15 +7,17 @@ from uuid import UUID
 import pytest
 from sqlalchemy import select
 
-from app.db.models import (
+from app.db.public.agent_tasks import (
     AgentTask,
     AgentTaskArtifact,
+    KnowledgeOperatorOutput,
+    KnowledgeOperatorRun,
+)
+from app.db.public.claim_support import (
     ClaimSupportCalibrationPolicy,
     ClaimSupportEvaluation,
     ClaimSupportEvaluationCase,
     ClaimSupportFixtureSet,
-    KnowledgeOperatorOutput,
-    KnowledgeOperatorRun,
 )
 from app.schemas.agent_tasks import AgentTaskCreateRequest
 from app.services.agent_tasks import create_agent_task

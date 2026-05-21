@@ -12,9 +12,8 @@ from sqlalchemy.orm import Session
 from app.api.errors import api_error
 from app.core.config import get_settings
 from app.core.text import collapse_whitespace
-from app.db.models import (
-    Document,
-    DocumentRun,
+from app.db.public.ingest import Document, DocumentRun
+from app.db.public.semantic_memory import (
     SemanticAssertionKind,
     SemanticBindingOrigin,
     SemanticCategoryBindingType,

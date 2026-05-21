@@ -6,7 +6,8 @@ from uuid import UUID
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
-from app.db.models import DocumentFigure, DocumentRun, DocumentTable
+from app.db.public.document_artifacts import DocumentFigure, DocumentTable
+from app.db.public.ingest import DocumentRun
 from app.schemas.chunks import DocumentChunkResponse
 from app.schemas.documents import (
     DocumentDetailResponse,

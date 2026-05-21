@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
 from app.core.time import utcnow
-from app.db.models import AgentTask, AgentTaskOutcome, AgentTaskStatus
+from app.db.public.agent_tasks import AgentTask, AgentTaskOutcome, AgentTaskStatus
 from app.schemas.agent_task_core import (
     AgentTaskApprovalRequest,
     AgentTaskDetailResponse,

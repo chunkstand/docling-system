@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from app.db.models import AgentTaskArtifact, AgentTaskVerification
+from app.db.public.agent_tasks import AgentTaskArtifact, AgentTaskVerification
 
 
 def _build_harness_evaluation_result(

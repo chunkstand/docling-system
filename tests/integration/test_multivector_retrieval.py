@@ -6,16 +6,14 @@ from uuid import UUID
 import pytest
 from sqlalchemy import func, select
 
-from app.db.models import (
-    DocumentRun,
+from app.db.public.agent_tasks import KnowledgeOperatorOutput, KnowledgeOperatorRun
+from app.db.public.audit_and_evidence import (
     EvidencePackageExport,
     EvidenceTraceEdge,
     EvidenceTraceNode,
-    KnowledgeOperatorOutput,
-    KnowledgeOperatorRun,
-    RetrievalEvidenceSpanMultiVector,
-    SearchRequestResultSpan,
 )
+from app.db.public.ingest import DocumentRun
+from app.db.public.retrieval import RetrievalEvidenceSpanMultiVector, SearchRequestResultSpan
 from app.services.retrieval_spans import (
     rebuild_retrieval_evidence_span_multivectors,
     rebuild_retrieval_evidence_spans,

@@ -9,11 +9,9 @@ from sqlalchemy.orm import Session
 from app.core.coercion import maybe_uuid as _uuid_or_none
 from app.core.coercion import unique_strings as _string_list
 from app.core.hashes import embedded_payload_hash_matches as _hash_matches_embedded_receipt
-from app.db.models import (
-    AgentTaskArtifact,
-    ClaimSupportFixtureSet,
-    SemanticGovernanceEvent,
-)
+from app.db.public.agent_tasks import AgentTaskArtifact
+from app.db.public.claim_support import ClaimSupportFixtureSet
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.claim_support_payloads import (
     claim_support_fixture_promotion_payload as _promotion_payload,
 )

@@ -7,13 +7,12 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import (
-    AgentTaskArtifact,
-    ClaimSupportPolicyChangeImpact,
-    ClaimSupportReplayAlertFixtureCoverageWaiverEscalation,
+from app.db.public.agent_tasks import AgentTaskArtifact
+from app.db.public.claim_support import (
+    ClaimSupportPolicyChangeImpact, ClaimSupportReplayAlertFixtureCoverageWaiverEscalation,
     ClaimSupportReplayAlertFixtureCoverageWaiverLedger,
-    SemanticGovernanceEvent,
 )
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 import app.services.evidence_claim_support_replay_alert_corpus as _replay_alert_corpus
 from app.services.evidence_common import payload_sha256
 from app.services.evidence_common import string_values as _string_values

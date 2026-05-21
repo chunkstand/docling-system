@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from app.db.models import AgentTask
+from app.db.public.agent_tasks import AgentTask
 from tests.integration.technical_report_harness_support import (
     _create_audit_bundle_validation_receipt,
     _forge_harness_context_latest_bundle_ref,

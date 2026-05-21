@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.core.time import utcnow
-from app.db.models import Document, DocumentFigure, DocumentRun, DocumentTable, RunStatus
+from app.db.public.document_artifacts import DocumentFigure, DocumentTable
+from app.db.public.ingest import Document, DocumentRun, RunStatus
 from app.services.run_failure_artifacts import write_failure_artifact
 from app.services.run_leases import is_retryable_error
 from app.services.storage import StorageService

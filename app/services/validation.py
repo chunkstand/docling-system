@@ -12,14 +12,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.db.models import (
-    Document,
+from app.db.public.document_artifacts import (
     DocumentChunk,
     DocumentFigure,
-    DocumentRun,
     DocumentTable,
     DocumentTableSegment,
 )
+from app.db.public.ingest import Document, DocumentRun
 from app.services.docling_parser import (
     FIGURE_ARTIFACT_SCHEMA_VERSION,
     TABLE_ARTIFACT_SCHEMA_VERSION,

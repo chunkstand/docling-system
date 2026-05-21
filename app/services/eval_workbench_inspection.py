@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 import app.services.eval_workbench as workbench_owners
 from app.core.time import utcnow
-from app.db.models import EvalFailureCase, EvalObservation
+from app.db.public.evaluation_feedback import EvalFailureCase, EvalObservation
 from app.schemas.eval_workbench import (
     EvalFailureCaseInspectionResponse,
     EvalWorkbenchResponse,

@@ -9,8 +9,8 @@ from uuid import UUID, uuid4
 from sqlalchemy import select
 
 from app.core.config import get_settings
-from app.db.models import (
-    AgentTaskArtifact,
+from app.db.public.agent_tasks import AgentTaskArtifact
+from app.db.public.retrieval import (
     SearchHarnessEvaluation,
     SearchHarnessEvaluationSource,
     SearchReplayRun,

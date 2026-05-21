@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.db.models import ClaimEvidenceDerivation, EvidencePackageExport
+from app.db.public.audit_and_evidence import ClaimEvidenceDerivation, EvidencePackageExport
 from app.services.evidence_common import payload_sha256
 from app.services.evidence_technical_report_exports import (
     build_technical_report_derivation_package,

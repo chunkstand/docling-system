@@ -7,9 +7,7 @@ from sqlalchemy import func
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateTable
 
-from app.db.models import (
-    Document,
-)
+from app.db.public.ingest import Document
 from app.schemas.search import SearchRequest
 from app.services.search import RankedResult, execute_search
 from app.services.search_metadata_supplement import (

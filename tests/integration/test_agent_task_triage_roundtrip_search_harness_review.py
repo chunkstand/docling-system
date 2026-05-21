@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 
-from app.db.models import (
+from app.db.public.agent_tasks import (
     AgentTask,
     AgentTaskArtifact,
     AgentTaskAttempt,

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from app.db.models import AgentTaskArtifact
+from app.db.public.agent_tasks import AgentTaskArtifact
 
 
 class FakeScalarResult:

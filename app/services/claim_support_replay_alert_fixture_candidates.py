@@ -8,7 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.coercion import compact_strings as _string_list
-from app.db.models import AgentTask, ClaimEvidenceDerivation
+from app.db.public.agent_tasks import AgentTask
+from app.db.public.audit_and_evidence import ClaimEvidenceDerivation
 from app.schemas.agent_task_claim_support import (
     ClaimSupportPolicyChangeImpactAlertItemResponse,
     ClaimSupportPolicyChangeImpactFixtureCandidateListResponse,

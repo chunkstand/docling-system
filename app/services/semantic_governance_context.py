@@ -7,17 +7,18 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import app.services.semantic_governance_core as _semantic_governance_core
-from app.db.models import (
-    AgentTaskArtifact,
+from app.db.public.agent_tasks import AgentTaskArtifact
+from app.db.public.audit_and_evidence import (
     EvidenceManifest,
-    SearchHarnessRelease,
-    SearchRequestRecord,
+    TechnicalReportClaimRetrievalFeedback,
+    TechnicalReportReleaseReadinessDbGate,
+)
+from app.db.public.retrieval import SearchHarnessRelease, SearchRequestRecord
+from app.db.public.semantic_memory import (
     SemanticGovernanceEvent,
     SemanticGovernanceEventKind,
     SemanticGraphSnapshot,
     SemanticOntologySnapshot,
-    TechnicalReportClaimRetrievalFeedback,
-    TechnicalReportReleaseReadinessDbGate,
     WorkspaceSemanticGraphState,
     WorkspaceSemanticState,
 )

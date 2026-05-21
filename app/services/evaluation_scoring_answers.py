@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 import app.services.evaluation_scoring as scoring_owners
 from app.core.files import source_filename_matches
-from app.db.models import Document
+from app.db.public.ingest import Document
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.evaluation_fixtures import EvaluationAnswerCase
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from app.core.hashes import payload_sha256 as _payload_sha256
-from app.db.models import SearchHarnessReleaseReadinessAssessment
+from app.db.public.retrieval import SearchHarnessReleaseReadinessAssessment
 from app.schemas.search import (
     SearchHarnessReleaseReadinessAssessmentResponse,
     SearchHarnessReleaseReadinessAssessmentSummaryResponse,

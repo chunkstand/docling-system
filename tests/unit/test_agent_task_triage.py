@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from app.db.models import AgentTask, AgentTaskArtifact, AgentTaskVerification
+from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact, AgentTaskVerification
 from app.schemas.agent_tasks import TriageReplayRegressionTaskInput
 from app.schemas.search import (
     SearchHarnessEvaluationResponse,

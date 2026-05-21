@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.core.text import collapse_whitespace
-from app.db.models import SemanticReviewStatus
+from app.db.public.semantic_memory import SemanticReviewStatus
 from app.services import semantic_graph_core as _semantic_graph_core
 
 

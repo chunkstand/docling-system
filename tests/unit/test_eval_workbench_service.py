@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from app.db.models import EvalFailureCase
+from app.db.public.evaluation_feedback import EvalFailureCase
 from app.services.eval_workbench import triage_eval_failure_case
 
 

@@ -8,17 +8,20 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.hashes import file_sha256 as _file_sha256
-from app.db.models import (
-    Document,
-    DocumentChunk,
-    DocumentFigure,
-    DocumentRun,
-    DocumentTable,
-    DocumentTableSegment,
-    EvidencePackageExport,
+from app.db.public.agent_tasks import (
     KnowledgeOperatorInput,
     KnowledgeOperatorOutput,
     KnowledgeOperatorRun,
+)
+from app.db.public.audit_and_evidence import EvidencePackageExport
+from app.db.public.document_artifacts import (
+    DocumentChunk,
+    DocumentFigure,
+    DocumentTable,
+    DocumentTableSegment,
+)
+from app.db.public.ingest import Document, DocumentRun
+from app.db.public.retrieval import (
     RetrievalEvidenceSpanMultiVector,
     SearchRequestResult,
     SearchRequestResultSpan,

@@ -37,6 +37,23 @@ DB_MODELS_ENUM_SUPPORT_MODULE = _common.DB_MODELS_ENUM_SUPPORT_MODULE
 ENUM_SYMBOLS = _common.ENUM_SYMBOLS
 FACADE_CONSTANT_SYMBOLS = _common.FACADE_CONSTANT_SYMBOLS
 ALLOWED_DB_MODELS_SUPPORT_SYMBOLS = _common.ALLOWED_DB_MODELS_SUPPORT_SYMBOLS
+PUBLIC_DB_FACADE_EXPORT_SYMBOLS = {
+    "agent_tasks": _common.AGENT_TASK_ENUM_SYMBOLS + _agent_tasks.MODEL_SYMBOLS,
+    "audit_and_evidence": _common.AUDIT_AND_EVIDENCE_ENUM_SYMBOLS
+    + _audit_and_evidence.MODEL_SYMBOLS,
+    "claim_support": _claim_support.MODEL_SYMBOLS,
+    "document_artifacts": _document_artifacts.MODEL_SYMBOLS,
+    "evaluation_feedback": _evaluation_feedback.MODEL_SYMBOLS,
+    "ingest": _common.INGEST_ENUM_SYMBOLS + FACADE_CONSTANT_SYMBOLS + _ingest.MODEL_SYMBOLS,
+    "platform": _platform_support.MODEL_SYMBOLS,
+    "retrieval": _common.RETRIEVAL_ENUM_SYMBOLS + _retrieval.MODEL_SYMBOLS,
+    "semantic_memory": _common.SEMANTIC_MEMORY_ENUM_SYMBOLS + _semantic_memory.MODEL_SYMBOLS,
+}
+PUBLIC_DB_FACADE_SYMBOL_TO_MODULE = {
+    symbol_name: module_name
+    for module_name, module_symbols in PUBLIC_DB_FACADE_EXPORT_SYMBOLS.items()
+    for symbol_name in module_symbols
+}
 
 MODEL_DOMAIN_SYMBOLS = {
     "ingest": _ingest.MODEL_SYMBOLS,

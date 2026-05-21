@@ -9,7 +9,8 @@ import app.services.search_metadata_supplement_support as _search_metadata_suppl
 import app.services.search_query_features as _query_features
 import app.services.search_ranking as _search_ranking
 import app.services.search_retrieval_primitives as _search_retrieval_primitives
-from app.db.models import Document, DocumentChunk
+from app.db.public.document_artifacts import DocumentChunk
+from app.db.public.ingest import Document
 from app.schemas.search import SearchRequest
 from app.services.search_ranking import RankedResult
 

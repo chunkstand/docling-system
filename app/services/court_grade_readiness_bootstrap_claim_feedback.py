@@ -8,16 +8,16 @@ from sqlalchemy.orm import Session
 
 from app.core.hashes import payload_sha256
 from app.core.time import utcnow
-from app.db.models import (
-    AgentTask,
-    AgentTaskArtifact,
-    AgentTaskVerification,
+from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact, AgentTaskVerification
+from app.db.public.audit_and_evidence import (
     EvidenceManifest,
+    TechnicalReportClaimRetrievalFeedback,
+    TechnicalReportReleaseReadinessDbGate,
+)
+from app.db.public.retrieval import (
     SearchRequestRecord,
     SearchRequestResult,
     SearchRequestResultSpan,
-    TechnicalReportClaimRetrievalFeedback,
-    TechnicalReportReleaseReadinessDbGate,
 )
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.court_grade_readiness_bootstrap_support import (

@@ -9,7 +9,12 @@ from sqlalchemy import func, literal, select
 from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
-from app.db.models import SearchFeedback, SearchReplayQuery, SearchReplayRun, SearchRequestRecord
+from app.db.public.retrieval import (
+    SearchFeedback,
+    SearchReplayQuery,
+    SearchReplayRun,
+    SearchRequestRecord,
+)
 from app.schemas.search import (
     SearchReplayQueryResponse,
     SearchReplayRunDetailResponse,

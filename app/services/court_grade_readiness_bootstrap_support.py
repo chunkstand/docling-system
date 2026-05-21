@@ -10,10 +10,16 @@ from sqlalchemy.orm import Session
 
 from app.core.hashes import payload_sha256
 from app.core.time import utcnow
-from app.db.models import (
+from app.db.public.audit_and_evidence import (
+    TechnicalReportClaimRetrievalFeedback,
+    TechnicalReportReleaseReadinessDbGate,
+)
+from app.db.public.claim_support import (
     ClaimSupportFixtureSet,
     ClaimSupportReplayAlertFixtureCorpusSnapshot,
-    Document,
+)
+from app.db.public.ingest import Document
+from app.db.public.retrieval import (
     RetrievalJudgmentSet,
     RetrievalTrainingRun,
     SearchFeedback,
@@ -23,8 +29,6 @@ from app.db.models import (
     SearchRequestRecord,
     SearchRequestResult,
     SearchRequestResultSpan,
-    TechnicalReportClaimRetrievalFeedback,
-    TechnicalReportReleaseReadinessDbGate,
 )
 from app.schemas.search import SearchRequest
 from app.services.evaluation_data_readiness import build_evaluation_data_readiness_report

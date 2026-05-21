@@ -5,7 +5,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.db.models import DocumentRunSemanticPass
+from app.db.public.semantic_memory import DocumentRunSemanticPass
 from app.schemas.semantic_backfill import (
     SemanticBackfillRequest,
     SemanticBackfillRunResponse,

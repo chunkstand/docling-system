@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 import app.services.search_ranking as _search_ranking
 from app.core.time import utcnow
-from app.db.models import (
+from app.db.public.retrieval import (
     SearchRequestRecord,
     SearchRequestResult,
     SearchRequestResultSpan,

@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.db.models import AgentTask, AgentTaskSideEffectLevel
+from app.db.public.agent_tasks import AgentTask, AgentTaskSideEffectLevel
 
 AgentTaskExecutor = Callable[[Session, AgentTask, BaseModel], dict]
 AGENT_ACTION_CAPABILITIES = frozenset(

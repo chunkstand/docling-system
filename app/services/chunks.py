@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import DocumentChunk
+from app.db.public.document_artifacts import DocumentChunk
 from app.schemas.chunks import DocumentChunkResponse
 from app.services.documents import get_document_or_404
 

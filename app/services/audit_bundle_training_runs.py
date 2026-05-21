@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 
 import app.services.audit_bundle_replay_alert_corpus as _audit_bundle_replay_alert_corpus
 from app.core.time import utcnow
-from app.db.models import (
-    AuditBundleExport,
+from app.db.public.audit_and_evidence import AuditBundleExport
+from app.db.public.retrieval import (
     RetrievalHardNegative,
     RetrievalJudgment,
     RetrievalJudgmentSet,
@@ -21,8 +21,8 @@ from app.db.models import (
     RetrievalRerankerArtifact,
     RetrievalTrainingRun,
     SearchHarnessRelease,
-    SemanticGovernanceEvent,
 )
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.audit_bundle_training_run_payloads import (
     retrieval_hard_negative_payload,
     retrieval_judgment_payload,

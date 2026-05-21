@@ -18,7 +18,8 @@ from sqlalchemy.orm import Session
 from alembic import command
 from app.core.config import get_settings
 from app.db.base import Base
-from app.db.models import AgentTask, AgentTaskStatus, DocumentRun, RunStatus
+from app.db.public.agent_tasks import AgentTask, AgentTaskStatus
+from app.db.public.ingest import DocumentRun, RunStatus
 from app.db.session import get_engine, get_session_factory
 from app.services.evaluations import AUTO_CORPUS_FILENAME
 from app.services.knowledge_base_reset_contracts import KnowledgeBaseResetError

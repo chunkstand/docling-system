@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import Date, case, cast, func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import (
+from app.db.public.retrieval import (
     ChatAnswerFeedback,
     SearchFeedback,
     SearchReplayRun,

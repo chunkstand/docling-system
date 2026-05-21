@@ -7,9 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.core.coercion import unique_strings as _unique_strings
 from app.core.coercion import unique_uuids as _unique_uuids
-from app.db.models import (
-    AuditBundleExport,
-    AuditBundleValidationReceipt,
+from app.db.public.audit_and_evidence import AuditBundleExport, AuditBundleValidationReceipt
+from app.db.public.retrieval import (
     SearchHarnessRelease,
     SearchHarnessReleaseReadinessAssessment,
     SearchRequestRecord,

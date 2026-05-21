@@ -8,12 +8,8 @@ from uuid import UUID
 import pytest
 from sqlalchemy import delete, select
 
-from app.db.models import (
-    DocumentFigure,
-    DocumentTable,
-    RetrievalEvidenceSpan,
-    SearchRequestResultSpan,
-)
+from app.db.public.document_artifacts import DocumentFigure, DocumentTable
+from app.db.public.retrieval import RetrievalEvidenceSpan, SearchRequestResultSpan
 from tests.integration.pdf_fixtures import valid_test_pdf_bytes
 from tests.integration.postgres_roundtrip_support import (
     StubParser,

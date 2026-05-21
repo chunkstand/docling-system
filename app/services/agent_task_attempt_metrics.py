@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from app.db.models import AgentTask, AgentTaskAttempt
+from app.db.public.agent_tasks import AgentTask, AgentTaskAttempt
 
 
 def duration_ms(started_at: datetime | None, completed_at: datetime | None) -> float | None:

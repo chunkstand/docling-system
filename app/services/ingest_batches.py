@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
 from app.core.time import utcnow
-from app.db.models import Document, DocumentRun, IngestBatch, IngestBatchItem, RunStatus
+from app.db.public.ingest import Document, DocumentRun, IngestBatch, IngestBatchItem, RunStatus
 from app.schemas.ingest_batches import (
     IngestBatchDetailResponse,
     IngestBatchItemResponse,

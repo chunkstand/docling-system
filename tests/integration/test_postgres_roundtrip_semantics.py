@@ -7,7 +7,7 @@ from uuid import UUID
 import pytest
 
 from app.core.config import get_settings
-from app.db.models import SemanticGraphSourceKind, SemanticOntologySourceKind
+from app.db.public.semantic_memory import SemanticGraphSourceKind, SemanticOntologySourceKind
 from app.services.semantic_graph import persist_semantic_graph_snapshot
 from app.services.semantic_registry import (
     clear_semantic_registry_cache,

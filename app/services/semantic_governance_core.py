@@ -13,7 +13,7 @@ from app.core.coercion import uuid_text as _uuid_text
 from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.json_utils import json_object_payload as _json_payload
 from app.core.time import coerce_utc_datetime, utcnow
-from app.db.models import SemanticGovernanceEvent
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 
 WORKSPACE_SEMANTIC_SCOPE = "workspace:default"
 WORKSPACE_SEMANTIC_STATE_KEY = "default"

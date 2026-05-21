@@ -4,15 +4,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.coercion import maybe_uuid as _maybe_uuid
-from app.db.models import (
-    ChatAnswerFeedback,
-    ChatAnswerRecord,
-    Document,
-    DocumentRun,
-    DocumentRunEvaluation,
-    DocumentRunEvaluationQuery,
-    SearchRequestRecord,
-)
+from app.db.public.document_artifacts import DocumentRunEvaluation, DocumentRunEvaluationQuery
+from app.db.public.ingest import Document, DocumentRun
+from app.db.public.retrieval import ChatAnswerFeedback, ChatAnswerRecord, SearchRequestRecord
 from app.schemas.quality import QualityEvaluationCandidateResponse
 from app.services import quality_candidate_core as _quality_candidate_core
 

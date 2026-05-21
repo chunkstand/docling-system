@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
-from app.db.models import DocumentTable, DocumentTableSegment
+from app.db.public.document_artifacts import DocumentTable, DocumentTableSegment
 from app.schemas.tables import (
     DocumentTableDetailResponse,
     DocumentTableSegmentResponse,

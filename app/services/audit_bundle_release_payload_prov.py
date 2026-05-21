@@ -4,8 +4,8 @@ from typing import Any
 from uuid import UUID
 
 from app.core.hashes import payload_sha256 as _payload_sha256
-from app.db.models import (
-    AuditBundleExport,
+from app.db.public.audit_and_evidence import AuditBundleExport
+from app.db.public.retrieval import (
     RetrievalJudgmentSet,
     RetrievalLearningCandidateEvaluation,
     RetrievalRerankerArtifact,
@@ -14,8 +14,8 @@ from app.db.models import (
     SearchHarnessEvaluationSource,
     SearchHarnessRelease,
     SearchReplayRun,
-    SemanticGovernanceEvent,
 )
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.audit_bundle_release_payload_serialization import (
     SEARCH_HARNESS_RELEASE_AUDIT_BUNDLE_KIND,
 )

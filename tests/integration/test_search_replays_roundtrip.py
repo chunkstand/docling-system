@@ -3,14 +3,9 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from app.db.models import (
-    Document,
-    DocumentRun,
-    DocumentRunEvaluation,
-    DocumentRunEvaluationQuery,
-    SearchFeedback,
-    SearchRequestRecord,
-)
+from app.db.public.document_artifacts import DocumentRunEvaluation, DocumentRunEvaluationQuery
+from app.db.public.ingest import Document, DocumentRun
+from app.db.public.retrieval import SearchFeedback, SearchRequestRecord
 from app.services.search_replays import (
     _feedback_cases,
     _latest_evaluation_queries,

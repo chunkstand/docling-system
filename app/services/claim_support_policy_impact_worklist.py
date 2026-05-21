@@ -7,13 +7,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
-from app.db.models import (
-    AgentTask,
-    AgentTaskArtifact,
-    ClaimSupportPolicyChangeImpact,
-    SemanticGovernanceEvent,
-    SemanticGovernanceEventKind,
-)
+from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact
+from app.db.public.claim_support import ClaimSupportPolicyChangeImpact
+from app.db.public.semantic_memory import SemanticGovernanceEvent, SemanticGovernanceEventKind
 from app.schemas.agent_task_claim_support import (
     ClaimSupportPolicyChangeImpactClosureEventRef,
     ClaimSupportPolicyChangeImpactWorklistItemResponse,

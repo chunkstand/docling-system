@@ -9,13 +9,12 @@ from sqlalchemy.orm import Session
 
 from app.core.coercion import maybe_uuid as _maybe_uuid
 from app.core.json_utils import canonical_json_value as _json_payload
-from app.db.models import (
+from app.db.public.audit_and_evidence import (
     ClaimEvidenceDerivation,
     EvidenceTraceEdge,
     EvidenceTraceNode,
-    RetrievalTrainingRun,
-    SearchHarnessRelease,
 )
+from app.db.public.retrieval import RetrievalTrainingRun, SearchHarnessRelease
 from app.schemas.search import SearchHarnessEvaluationResponse, SearchHarnessReleaseResponse
 from app.services.semantic_governance import (
     search_harness_release_semantic_governance_context,

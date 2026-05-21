@@ -9,7 +9,7 @@ from uuid import uuid4
 from sqlalchemy.dialects import postgresql
 
 from app.core.time import utcnow
-from app.db.models import Document, DocumentRun, RunStatus
+from app.db.public.ingest import Document, DocumentRun, RunStatus
 from app.services.runs import (
     claim_next_run,
     finalize_run_failure,

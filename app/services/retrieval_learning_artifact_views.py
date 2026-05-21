@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import RetrievalLearningCandidateEvaluation, RetrievalRerankerArtifact
+from app.db.public.retrieval import RetrievalLearningCandidateEvaluation, RetrievalRerankerArtifact
 from app.schemas.search import (
     RetrievalRerankerArtifactResponse,
     RetrievalRerankerArtifactSummaryResponse,

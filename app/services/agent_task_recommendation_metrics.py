@@ -6,7 +6,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.db.models import (
+from app.db.public.agent_tasks import (
     AgentTask,
     AgentTaskAttempt,
     AgentTaskOutcome,

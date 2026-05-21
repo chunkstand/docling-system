@@ -8,14 +8,9 @@ from sqlalchemy.orm import Session
 from app.core.coercion import compact_strings as _string_list
 from app.core.coercion import uuid_or_none as _uuid_or_none
 from app.core.time import utcnow
-from app.db.models import (
-    AgentTask,
-    AgentTaskStatus,
-    AgentTaskVerification,
-    ClaimSupportPolicyChangeImpact,
-    SemanticGovernanceEvent,
-    SemanticGovernanceEventKind,
-)
+from app.db.public.agent_tasks import AgentTask, AgentTaskStatus, AgentTaskVerification
+from app.db.public.claim_support import ClaimSupportPolicyChangeImpact
+from app.db.public.semantic_memory import SemanticGovernanceEvent, SemanticGovernanceEventKind
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.claim_support_policy_impact_replay import (
     CLAIM_SUPPORT_IMPACT_REPLAY_CLOSURE_ARTIFACT_KIND,

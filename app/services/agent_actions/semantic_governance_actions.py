@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 import app.services.agent_actions.semantic_governance_graph_actions as graph_owner
 import app.services.agent_actions.semantic_governance_ontology_actions as ontology_owner
-from app.db.models import AgentTask, AgentTaskSideEffectLevel
+from app.db.public.agent_tasks import AgentTask, AgentTaskSideEffectLevel
 from app.schemas import agent_task_semantic_graph as graph_schemas
 from app.schemas.agent_task_semantics import (
     ApplyOntologyExtensionTaskInput,

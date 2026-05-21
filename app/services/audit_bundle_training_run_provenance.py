@@ -3,13 +3,13 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from app.db.models import (
+from app.db.public.retrieval import (
     RetrievalHardNegative,
     RetrievalJudgment,
     RetrievalJudgmentSet,
     RetrievalTrainingRun,
-    SemanticGovernanceEvent,
 )
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 
 
 def training_run_prov_graph(

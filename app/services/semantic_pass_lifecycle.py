@@ -9,9 +9,8 @@ import app.services.semantic_pass_artifacts as artifact_owner
 import app.services.semantic_pass_reviews as review_owner
 from app.core.config import get_settings, semantics_feature_enabled
 from app.core.time import utcnow
-from app.db.models import (
-    Document,
-    DocumentRun,
+from app.db.public.ingest import Document, DocumentRun
+from app.db.public.semantic_memory import (
     DocumentRunSemanticPass,
     SemanticAssertion,
     SemanticAssertionCategoryBinding,

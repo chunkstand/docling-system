@@ -5,7 +5,8 @@ from uuid import UUID
 
 from sqlalchemy import select
 
-from app.db.models import Document, DocumentRunEvaluation, DocumentRunEvaluationQuery
+from app.db.public.document_artifacts import DocumentRunEvaluation, DocumentRunEvaluationQuery
+from app.db.public.ingest import Document
 from app.services.docling_parser import (
     ParsedChunk,
     ParsedDocument,

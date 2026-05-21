@@ -8,12 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
 from app.core.hashes import payload_sha256
-from app.db.models import (
-    AuditBundleExport,
-    AuditBundleValidationReceipt,
-    SearchHarnessRelease,
-    SearchHarnessReleaseReadinessAssessment,
-)
+from app.db.public.audit_and_evidence import AuditBundleExport, AuditBundleValidationReceipt
+from app.db.public.retrieval import SearchHarnessRelease, SearchHarnessReleaseReadinessAssessment
 
 
 def search_harness_release_not_found_error(release_id: UUID) -> HTTPException:

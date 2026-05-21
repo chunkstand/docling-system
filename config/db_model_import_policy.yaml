@@ -1,0 +1,32 @@
+schema_name: db_model_import_policy
+schema_version: "1.0"
+legacy_db_models_allowlist:
+  - tests/integration/test_db_model_metadata.py
+  - tests/integration/test_db_model_metadata_audit_and_evidence.py
+  - tests/integration/test_db_model_metadata_claim_support.py
+  - tests/integration/test_db_model_metadata_semantic_memory.py
+  - tests/unit/test_db_model_import_compatibility.py
+  - tests/unit/test_db_model_import_compatibility_audit_and_evidence.py
+  - tests/unit/test_db_model_import_compatibility_claim_support.py
+  - tests/unit/test_db_model_import_compatibility_semantic_memory.py
+  - tests/unit/test_db_models_facade_contract.py
+allowed_model_domain_import_roots:
+  - app/db/
+allowed_model_domain_import_files:
+  - tests/unit/test_db_model_import_compatibility.py
+  - tests/unit/test_db_model_import_compatibility_audit_and_evidence.py
+  - tests/unit/test_db_model_import_compatibility_claim_support.py
+  - tests/unit/test_db_model_import_compatibility_semantic_memory.py
+expected_direct_import_counts:
+  total: 9
+  app: 0
+  tests: 9
+expected_direct_import_prefix_counts:
+  app/services/agent_actions: 0
+  app/services/agent_task: 0
+  app/services/claim_support: 0
+  app/services/court_grade_readiness: 0
+  app/services/retrieval: 0
+  app/services/run: 0
+  app/services/search: 0
+  app/services/semantic: 0

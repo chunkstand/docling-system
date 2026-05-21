@@ -22,7 +22,8 @@ from app.core.config import get_settings
 from app.core.hashes import file_sha256 as _file_sha256
 from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.time import utcnow
-from app.db.models import AuditBundleExport, RetrievalTrainingRun, SearchHarnessRelease
+from app.db.public.audit_and_evidence import AuditBundleExport
+from app.db.public.retrieval import RetrievalTrainingRun, SearchHarnessRelease
 from app.schemas.search import (
     AuditBundleExportResponse,
     AuditBundleExportSummaryResponse,

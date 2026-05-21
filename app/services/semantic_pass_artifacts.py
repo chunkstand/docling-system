@@ -7,7 +7,8 @@ from typing import Any
 
 import yaml
 
-from app.db.models import Document, DocumentRun, DocumentRunSemanticPass
+from app.db.public.ingest import Document, DocumentRun
+from app.db.public.semantic_memory import DocumentRunSemanticPass
 from app.services.semantic_registry import SemanticRegistry
 from app.services.storage import StorageService
 

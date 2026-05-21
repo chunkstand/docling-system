@@ -4,7 +4,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.db.models import AgentTask
+from app.db.public.agent_tasks import AgentTask
 from app.schemas.agent_task_semantic_generation import (
     DraftSemanticGroundedDocumentTaskOutput,
     VerifySemanticGroundedDocumentTaskInput,

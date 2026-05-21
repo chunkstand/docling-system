@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.time import utcnow
-from app.db.models import AgentTask, AgentTaskAttempt, AgentTaskStatus
+from app.db.public.agent_tasks import AgentTask, AgentTaskAttempt, AgentTaskStatus
 from app.services.agent_task_attempt_metrics import derive_attempt_cost, derive_attempt_performance
 from app.services.claim_support_policy_impacts import (
     refresh_claim_support_policy_change_impacts_for_replay_task,

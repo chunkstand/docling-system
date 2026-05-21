@@ -7,7 +7,8 @@ from uuid import UUID
 import pytest
 
 from app.core.time import utcnow
-from app.db.models import AgentTask, AgentTaskStatus, ClaimSupportCalibrationPolicy
+from app.db.public.agent_tasks import AgentTask, AgentTaskStatus
+from app.db.public.claim_support import ClaimSupportCalibrationPolicy
 from app.schemas.agent_tasks import AgentTaskApprovalRequest, AgentTaskCreateRequest
 from app.services.agent_tasks import approve_agent_task, create_agent_task
 from app.services.claim_support_evaluations import (

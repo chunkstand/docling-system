@@ -7,14 +7,11 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import (
-    AgentTaskVerification,
-    ClaimEvidenceDerivation,
-    ClaimSupportPolicyChangeImpact,
-    Document,
-    EvidencePackageExport,
-    SemanticGovernanceEvent,
-)
+from app.db.public.agent_tasks import AgentTaskVerification
+from app.db.public.audit_and_evidence import ClaimEvidenceDerivation, EvidencePackageExport
+from app.db.public.claim_support import ClaimSupportPolicyChangeImpact
+from app.db.public.ingest import Document
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.evidence_common import uuid_values as _uuid_values
 from app.services.evidence_constants import (
     CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED_EVENT_KIND,

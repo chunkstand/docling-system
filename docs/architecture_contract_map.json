@@ -43,7 +43,8 @@
     {
       "decision_ids": [
         "ADR-0001",
-        "ADR-0005"
+        "ADR-0005",
+        "ADR-0010"
       ],
       "name": "architecture_contract_map",
       "schema_name": "architecture_contract_map",
@@ -169,7 +170,7 @@
       "decision_ids": [
         "ADR-0009"
       ],
-      "item_count": 9,
+      "item_count": 10,
       "map_source": "docs/architecture_decision_map.json",
       "name": "architecture_decisions",
       "schema_name": "architecture_decisions",
@@ -264,7 +265,8 @@
     },
     {
       "decision_ids": [
-        "ADR-0005"
+        "ADR-0005",
+        "ADR-0010"
       ],
       "name": "architecture_quality_report",
       "report_fields": [

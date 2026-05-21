@@ -5,10 +5,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import (
-    AgentTask,
-    AgentTaskVerification,
-)
+from app.db.public.agent_tasks import AgentTask, AgentTaskVerification
 from app.schemas.agent_task_reports import (
     EvaluateDocumentGenerationContextPackTaskInput,
     PrepareReportAgentHarnessTaskOutput,

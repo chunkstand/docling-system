@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
-from app.db.models import AgentTask, AgentTaskArtifact, AgentTaskVerification
+from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact, AgentTaskVerification
 from app.schemas import agent_task_core as task_core
 from app.schemas.agent_task_search_workflows import (
     ApplyHarnessConfigUpdateTaskOutput,

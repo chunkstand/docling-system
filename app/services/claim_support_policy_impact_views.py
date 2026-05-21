@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.api.errors import api_error
 from app.core.coercion import compact_strings as _string_list
 from app.core.time import utcnow
-from app.db.models import ClaimSupportPolicyChangeImpact
+from app.db.public.claim_support import ClaimSupportPolicyChangeImpact
 from app.schemas.agent_task_claim_support import (
     ClaimSupportPolicyChangeImpactResponse,
     ClaimSupportPolicyChangeImpactSummaryResponse,

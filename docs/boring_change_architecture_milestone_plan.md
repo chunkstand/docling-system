@@ -60,9 +60,15 @@ queue and broader-rebaseline backlog both closed. That newer packet targets
 the selected caller-gravity and orchestration-gravity roots named by the live
 `routing_trap_paths`, starts with a fresh selected-root census, and absorbs
 `docs/db_models_caller_migration_boundary_milestone_plan.md` as its narrower
-`app.db.models` caller-migration lane. It is not a queue-selected packet and
-should not override a future fresh live rebaseline unless we explicitly choose
-centrality paydown over queue-driven work.
+`app.db.models` caller-migration lane. That DB-only sublane is now resolved
+locally through bounded `app/db/public/*` facades plus the explicit
+`config/db_model_import_policy.yaml` route gate, so the umbrella packet now
+remains relevant only for the other centrality roots. The resolved sublane now
+holds the legacy shim at an explicit `9`-file allowlist with `0` `app/`
+direct importers, and the current probe’s top replacement fan-in is
+`app.db.public.agent_tasks=173` instead of `app.db.models`. It is not a
+queue-selected packet and should not override a future fresh live rebaseline
+unless we explicitly choose centrality paydown over queue-driven work.
 The later
 2026-05-19 registry-alignment sweep also deploys the stale reduced-root
 agent-task, claim-support, action-test, and UI bootstrap cases left behind by

@@ -3,15 +3,14 @@ from __future__ import annotations
 from uuid import UUID, uuid4
 
 from app.core.time import utcnow
-from app.db.models import (
+from app.db.public.agent_tasks import (
     AgentTask,
     AgentTaskArtifact,
     AgentTaskStatus,
     AgentTaskVerification,
-    ClaimEvidenceDerivation,
-    EvidencePackageExport,
     KnowledgeOperatorRun,
 )
+from app.db.public.audit_and_evidence import ClaimEvidenceDerivation, EvidencePackageExport
 from app.services.claim_support_policy_governance import (
     CLAIM_SUPPORT_POLICY_CHANGE_IMPACT_HASH_FIELD,
     claim_support_policy_change_impact_payload_sha256,

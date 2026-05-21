@@ -12,12 +12,10 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.json_utils import json_object_payload as _json_payload
 from app.core.time import utcnow
-from app.db.models import (
-    AgentTask,
-    AgentTaskArtifact,
-    AgentTaskArtifactImmutabilityEvent,
-    EvidencePackageExport,
+from app.db.public.agent_tasks import (
+    AgentTask, AgentTaskArtifact, AgentTaskArtifactImmutabilityEvent,
 )
+from app.db.public.audit_and_evidence import EvidencePackageExport
 from app.services.evidence_audit_views import (
     persist_technical_report_release_readiness_db_gate,
 )

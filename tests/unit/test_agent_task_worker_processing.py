@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.db.models import AgentTask, AgentTaskAttempt, AgentTaskStatus
+from app.db.public.agent_tasks import AgentTask, AgentTaskAttempt, AgentTaskStatus
 from app.services.agent_task_worker import (
     PROMOTABLE_SIDE_EFFECT_APPLIED_KEY,
     PROMOTABLE_SIDE_EFFECT_CHECKPOINT_KEY,

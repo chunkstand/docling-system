@@ -5,7 +5,8 @@ import os
 import pytest
 from sqlalchemy import select
 
-from app.db.models import AgentTask, TechnicalReportClaimRetrievalFeedback
+from app.db.public.agent_tasks import AgentTask
+from app.db.public.audit_and_evidence import TechnicalReportClaimRetrievalFeedback
 from tests.integration.technical_report_harness_support import run_verified_report_roundtrip
 
 pytestmark = pytest.mark.skipif(

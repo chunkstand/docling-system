@@ -19,7 +19,8 @@
       "contract": "architecture_contract_map",
       "decision_ids": [
         "ADR-0001",
-        "ADR-0005"
+        "ADR-0005",
+        "ADR-0010"
       ]
     },
     {
@@ -38,7 +39,8 @@
     {
       "contract": "architecture_quality_report",
       "decision_ids": [
-        "ADR-0005"
+        "ADR-0005",
+        "ADR-0010"
       ]
     },
     {
@@ -71,7 +73,7 @@
       ]
     }
   ],
-  "decision_count": 9,
+  "decision_count": 10,
   "decisions": [
     {
       "consequences": [
@@ -271,6 +273,30 @@
       ],
       "status": "accepted",
       "title": "Treat architecture decisions as first-class contracts"
+    },
+    {
+      "consequences": [
+        "Production and routine test callers use the narrowest matching app.db.public.* module available.",
+        "app.db.models remains import-compatible for the governed symbol set and is reserved for compatibility and metadata harnesses.",
+        "Future DB caller migration is measured by machine-checked import counts instead of review convention alone."
+      ],
+      "context": "The repo intentionally preserved app.db.models as the only public caller surface while the ORM owner-family splits were still landing, but that left the legacy shim with 337 local importers and made unrelated callers share one high-blast-radius import root.",
+      "date": "2026-05-20",
+      "decision": "Keep app.db.models as a legacy compatibility shim and move ordinary callers onto bounded app.db.public.* facades that each mirror one model family. app.db.model_domains.* remain internal to app/db/, and the exact legacy-import allowlist is enforced by the repo-owned db-model import policy.",
+      "id": "ADR-0010",
+      "linked_contracts": [
+        "architecture_contract_map",
+        "architecture_quality_report"
+      ],
+      "linked_sources": [
+        "app/db/public",
+        "config/db_model_import_policy.yaml",
+        "docs/architecture_boundaries.md",
+        "docs/data_model_boundary_plan.md",
+        "tests/unit/test_db_model_public_import_routes.py"
+      ],
+      "status": "accepted",
+      "title": "Use bounded public DB facades for ORM callers"
     }
   ],
   "registry_source": "docs/architecture_decisions.yaml",

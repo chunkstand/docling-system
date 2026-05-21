@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.json_utils import json_object_payload as _json_payload
 from app.core.time import utcnow
-from app.db.models import (
+from app.db.public.audit_and_evidence import (
     EvidencePackageExport,
     EvidenceTraceEdge,
     EvidenceTraceNode,

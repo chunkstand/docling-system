@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 import app.services.agent_task_verifications_search_harness as search_harness_owner
 import app.services.agent_task_verifications_semantics as semantics_owner
-from app.db.models import AgentTask
+from app.db.public.agent_tasks import AgentTask
 from app.schemas.agent_task_search_workflows import (
     VerifyDraftHarnessConfigTaskInput,
     VerifySearchHarnessEvaluationTaskInput,

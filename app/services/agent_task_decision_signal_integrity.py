@@ -6,7 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.hashes import embedded_payload_hash_matches as hash_matches_embedded_receipt
-from app.db.models import AgentTaskArtifact, SemanticGovernanceEvent
+from app.db.public.agent_tasks import AgentTaskArtifact
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 
 CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED_EVENT_KIND = (
     "claim_support_policy_impact_replay_escalated"

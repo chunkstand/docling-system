@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from app.db.models import RetrievalJudgmentKind, RetrievalTrainingRun
+from app.db.public.retrieval import RetrievalJudgmentKind, RetrievalTrainingRun
 from app.schemas.search import (
     RetrievalLearningCandidateEvaluationRequest,
     RetrievalRerankerArtifactRequest,

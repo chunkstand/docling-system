@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 import app.services.evaluation_fixtures as fixture_owners
 import app.services.evaluation_scoring as scoring_owners
 from app.core.files import path_exists
-from app.db.models import DocumentFigure, DocumentRun, DocumentTable
+from app.db.public.document_artifacts import DocumentFigure, DocumentTable
+from app.db.public.ingest import DocumentRun
 from app.services.evaluation_fixtures import EvaluationThresholds
 
 

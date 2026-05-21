@@ -1,12 +1,14 @@
 # DB Models Caller Migration Boundary Milestone Plan
 
 Date: 2026-05-20 local / 2026-05-20 UTC
-Status: proposed in the current checkout as a detailed
-`app.db.models` caller-migration sublane after the DB-model compatibility
-facade and residual owner-family packets closed locally. The newer
-`docs/production_trap_set_centrality_reduction_milestone_plan.md` absorbs this
-brief whenever we choose to work the broader governed production trap set
-rather than a DB-only fan-in lane.
+Status: resolved locally in the current checkout on 2026-05-20. The packet
+completed the `app.db.models` caller migration by adding bounded
+`app/db/public/*` facades, moving ordinary production and routine test callers
+onto the narrow public modules, and leaving the legacy shim behind an explicit
+machine-checked allowlist. The newer
+`docs/production_trap_set_centrality_reduction_milestone_plan.md` remains the
+broader optional follow-on for the remaining governed production trap set, but
+this DB-only fan-in lane is no longer an open subpacket underneath it.
 Owner context: [app/db/models.py](/Users/chunkstand/Documents/docling-system/app/db/models.py:1)
 is already the governed public compatibility facade under
 `IC-F2A8110185EB`; the remaining debt is importer gravity, not remaining ORM
@@ -47,6 +49,56 @@ rebuild the current `337`-import gravity.
 - The residual DB-model owner-family packet is also already closed. The
   remaining debt is not in `app/db/model_domains/*` line count or schema
   ownership; it is in how broadly callers still depend on the legacy facade.
+
+## Closeout Summary
+
+- Added bounded public caller surfaces under `app/db/public/` for the
+  `agent_tasks`, `audit_and_evidence`, `claim_support`,
+  `document_artifacts`, `evaluation_feedback`, `ingest`, `platform`,
+  `retrieval`, and `semantic_memory` model families.
+- Added the repo-owned policy artifact
+  `config/db_model_import_policy.yaml` plus
+  `tests/unit/test_db_model_public_import_routes.py` so the exact legacy
+  allowlist, direct-import counts, and the internal-only
+  `app.db.model_domains.*` rule are machine-checked.
+- Migrated `328` production, unit-test, and integration callers from
+  `app.db.models` to the narrow public modules without introducing new
+  `app.db.model_domains.*` application callers.
+- Reduced the live direct-import census from the Milestone 0 `337`-import
+  legacy gravity to `9` allowlisted compatibility and metadata harness files
+  (`0` under `app/`, `9` under `tests/`).
+- Cleared the dense production cohorts named by the packet: the live importer
+  census now reports `0` direct legacy imports under
+  `app/services/agent_actions`, `app/services/agent_task*`,
+  `app/services/claim_support*`, `app/services/court_grade_readiness*`,
+  `app/services/retrieval*`, `app/services/run*`, `app/services/search*`, and
+  `app/services/semantic*`.
+- The latest architecture probe no longer lists `app.db.models` in the top
+  import fan-in table. The new bounded public roots now absorb that caller
+  gravity with `app.db.public.agent_tasks=173`,
+  `app.db.public.retrieval=80`, `app.db.public.ingest=69`,
+  `app.db.public.semantic_memory=68`,
+  `app.db.public.audit_and_evidence=55`,
+  `app.db.public.claim_support=40`, and
+  `app.db.public.document_artifacts=38`.
+
+## Verification Snapshot
+
+- `git diff --check`: pass
+- `uv run ruff check app/db app/services tests`: pass
+- `uv run pytest -q tests/unit/test_db_models_facade_contract.py tests/unit/test_db_model_import_compatibility.py tests/unit/test_db_model_import_compatibility_audit_and_evidence.py tests/unit/test_db_model_import_compatibility_claim_support.py tests/unit/test_db_model_import_compatibility_semantic_memory.py tests/unit/test_db_model_public_import_routes.py`: `617 passed`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_db_model_metadata.py tests/integration/test_db_model_metadata_audit_and_evidence.py tests/integration/test_db_model_metadata_claim_support.py tests/integration/test_db_model_metadata_semantic_memory.py`: `335 passed`
+- `uv run --extra dev alembic heads`: `0076_claim_feedback_replay_src (head)`
+- `uv run --extra dev alembic current`: `0076_claim_feedback_replay_src (head)`
+- `uv run --extra dev alembic upgrade head`: pass
+- `uv run --extra dev alembic check`: `No new upgrade operations detected.`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `2192 passed`, `1` docling deprecation warning
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-improvement-case-validate`: `valid=true`
+- `uv run docling-system-improvement-case-summary`: `status_counts={"deployed":67}`
+- `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
+- `uv run docling-system-architecture-quality-report --summary`: `top_routed_hotspot_paths=[]`, `broader_rebaseline_candidate_count=0`, `max_hotspot_risk_score=466.06`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles`: pass, `Python cycles: none detected`
 
 ## Goal
 

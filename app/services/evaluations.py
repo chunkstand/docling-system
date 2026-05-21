@@ -12,12 +12,8 @@ import app.services.evaluation_reads as read_owners
 import app.services.evaluation_scoring as scoring_owners
 from app.core.config import get_settings as _get_settings
 from app.core.time import utcnow
-from app.db.models import (
-    Document,
-    DocumentRun,
-    DocumentRunEvaluation,
-    DocumentRunEvaluationQuery,
-)
+from app.db.public.document_artifacts import DocumentRunEvaluation, DocumentRunEvaluationQuery
+from app.db.public.ingest import Document, DocumentRun
 from app.schemas.evaluations import EvaluationDetailResponse, EvaluationSummaryResponse
 from app.services.chat import answer_question as _answer_question
 from app.services.evaluation_execution import (

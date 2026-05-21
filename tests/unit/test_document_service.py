@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from fastapi import HTTPException, UploadFile
 
-from app.db.models import Document, DocumentRun, RunStatus
+from app.db.public.ingest import Document, DocumentRun, RunStatus
 from app.services.document_ingest import (
     _is_pdf,
     _validate_local_ingest_path,

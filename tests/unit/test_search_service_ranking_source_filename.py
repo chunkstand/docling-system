@@ -3,7 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.db.models import SearchRequestRecord
+from app.db.public.retrieval import SearchRequestRecord
 from app.schemas.search import SearchRequest
 from app.services.search import RankedResult, execute_search, search_documents
 

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
 from app.core.time import utcnow
-from app.db.models import ApiIdempotencyKey
+from app.db.public.platform import ApiIdempotencyKey
 
 
 def _load_idempotency_row(

@@ -4,13 +4,13 @@ from uuid import UUID
 
 from sqlalchemy import select
 
-from app.db.models import (
+from app.db.public.agent_tasks import (
     AgentTaskArtifact,
-    ClaimSupportPolicyChangeImpact,
     KnowledgeOperatorOutput,
     KnowledgeOperatorRun,
-    SemanticGovernanceEvent,
 )
+from app.db.public.claim_support import ClaimSupportPolicyChangeImpact
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.evidence import payload_sha256
 
 

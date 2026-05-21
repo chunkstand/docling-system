@@ -3,8 +3,8 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import app.services.evidence_provenance as evidence_provenance
-from app.db.models import (
-    AgentTaskVerification,
+from app.db.public.agent_tasks import AgentTaskVerification
+from app.db.public.audit_and_evidence import (
     TechnicalReportClaimRetrievalFeedback,
     TechnicalReportReleaseReadinessDbGate,
 )

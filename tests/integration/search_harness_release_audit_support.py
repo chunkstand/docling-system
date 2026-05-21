@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
-from app.db.models import (
+from app.db.public.retrieval import (
     RetrievalHardNegative,
     RetrievalJudgment,
     RetrievalJudgmentSet,

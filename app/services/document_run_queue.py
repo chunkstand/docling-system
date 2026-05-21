@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.api.errors import api_error
 from app.core.config import get_settings, resolve_api_mode
 from app.core.time import utcnow
-from app.db.models import Document, DocumentRun, RunStatus
+from app.db.public.ingest import Document, DocumentRun, RunStatus
 from app.schemas.documents import DocumentUploadResponse
 from app.services.idempotency import get_idempotent_response, store_idempotent_response
 from app.services.storage import StorageService

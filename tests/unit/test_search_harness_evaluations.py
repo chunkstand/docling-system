@@ -3,7 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.db.models import SearchHarnessEvaluation, SearchHarnessEvaluationSource
+from app.db.public.retrieval import SearchHarnessEvaluation, SearchHarnessEvaluationSource
 from app.schemas.search import SearchHarnessEvaluationRequest
 from app.services.search_harness_evaluations import (
     evaluate_search_harness,

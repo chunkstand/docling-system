@@ -7,8 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
-from app.db.models import (
-    Document,
+from app.db.public.ingest import Document
+from app.db.public.semantic_memory import (
     SemanticAssertion,
     SemanticConcept,
     SemanticEntity,

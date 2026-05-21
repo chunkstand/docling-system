@@ -5,7 +5,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
-from app.db.models import (
+from app.db.public.retrieval import (
     SearchHarnessEvaluation,
     SearchHarnessEvaluationSource,
     SearchReplayRun,

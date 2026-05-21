@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 import app.services.agent_actions.search_harness_drafting_actions as drafting_owner
 import app.services.agent_actions.search_harness_triage_actions as triage_owner
-from app.db.models import AgentTask, AgentTaskSideEffectLevel
+from app.db.public.agent_tasks import AgentTask, AgentTaskSideEffectLevel
 from app.schemas.agent_task_search_workflows import (
     ApplyHarnessConfigUpdateTaskInput,
     ApplyHarnessConfigUpdateTaskOutput,

@@ -5,13 +5,13 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 
-from app.db.models import (
+from app.db.public.agent_tasks import (
     AgentTask,
     AgentTaskArtifact,
     AgentTaskDependency,
     AgentTaskVerification,
-    SearchReplayRun,
 )
+from app.db.public.retrieval import SearchReplayRun
 from app.schemas.agent_tasks import (
     VerifyDraftHarnessConfigTaskInput,
     VerifySearchHarnessEvaluationTaskInput,

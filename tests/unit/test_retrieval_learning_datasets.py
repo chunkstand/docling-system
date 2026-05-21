@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.db.models import SemanticGovernanceEventKind
+from app.db.public.semantic_memory import SemanticGovernanceEventKind
 from app.services import retrieval_learning_datasets
 
 

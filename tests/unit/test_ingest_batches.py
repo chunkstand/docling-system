@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.db.models import IngestBatch, RunStatus
+from app.db.public.ingest import IngestBatch, RunStatus
 from app.services.ingest_batches import (
     _derive_batch_status,
     _iter_local_pdf_files,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.db.models import Document, DocumentRun
+from app.db.public.ingest import Document, DocumentRun
 from app.db.session import get_session_factory
 from app.services.evaluation_embedding_cache import prewarm_eval_corpus_query_embeddings
 from app.services.evaluations import evaluate_run

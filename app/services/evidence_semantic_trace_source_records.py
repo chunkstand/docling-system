@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.coercion import uuid_or_none as _uuid_or_none
-from app.db.models import (
+from app.db.public.document_artifacts import (
     DocumentChunk,
     DocumentFigure,
     DocumentTable,

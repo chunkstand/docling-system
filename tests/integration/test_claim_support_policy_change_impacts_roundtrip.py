@@ -8,15 +8,17 @@ import pytest
 from sqlalchemy import delete, select, text, update
 
 from app.core.time import utcnow
-from app.db.models import (
+from app.db.public.agent_tasks import (
     AgentTask,
     AgentTaskArtifact,
     AgentTaskArtifactImmutabilityEvent,
     AgentTaskStatus,
+)
+from app.db.public.claim_support import (
     ClaimSupportPolicyChangeImpact,
     ClaimSupportReplayAlertFixtureCoverageWaiverEscalation,
-    SemanticGovernanceEvent,
 )
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.claim_support_evaluations import (
     build_claim_support_calibration_policy_payload,
     ensure_claim_support_calibration_policy,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.core.json_utils import json_object_payload as _json_payload
-from app.db.models import AgentTaskArtifact
+from app.db.public.agent_tasks import AgentTaskArtifact
 from app.services.evidence_provenance import (
     frozen_export_receipt as _frozen_export_receipt,
 )

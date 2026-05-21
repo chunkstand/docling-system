@@ -7,11 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
-from app.db.models import (
-    AgentTask,
-    ClaimSupportCalibrationPolicy,
-    KnowledgeOperatorOutput,
-)
+from app.db.public.agent_tasks import AgentTask, KnowledgeOperatorOutput
+from app.db.public.claim_support import ClaimSupportCalibrationPolicy
 from app.schemas.agent_task_claim_support import (
     REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_MAX_HOURS,
     ApplyClaimSupportCalibrationPolicyTaskInput,

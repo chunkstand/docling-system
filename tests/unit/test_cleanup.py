@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-from app.db.models import Document, DocumentRun, RunStatus
+from app.db.public.ingest import Document, DocumentRun, RunStatus
 from app.services.cleanup import (
     backfill_legacy_run_audit_fields,
     cleanup_expired_failed_run_artifacts,

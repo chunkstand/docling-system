@@ -3,11 +3,8 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import (
-    SearchRequestRecord,
-    SearchRequestResult,
-    TechnicalReportClaimRetrievalFeedback,
-)
+from app.db.public.audit_and_evidence import TechnicalReportClaimRetrievalFeedback
+from app.db.public.retrieval import SearchRequestRecord, SearchRequestResult
 from app.services import search_replay_common as replay_common
 from app.services.session_utils import uses_in_memory_session
 

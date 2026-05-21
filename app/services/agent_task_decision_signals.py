@@ -7,7 +7,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.time import coerce_utc_datetime, utcnow
-from app.db.models import AgentTaskArtifact, ClaimSupportPolicyChangeImpact, SemanticGovernanceEvent
+from app.db.public.agent_tasks import AgentTaskArtifact
+from app.db.public.claim_support import ClaimSupportPolicyChangeImpact
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.schemas.agent_task_core import AgentTaskDecisionSignalResponse
 from app.services.agent_task_decision_signal_integrity import (
     CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED_EVENT_KIND,

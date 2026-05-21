@@ -8,9 +8,8 @@ from sqlalchemy.orm import Session
 import app.services.audit_bundle_replay_alert_corpus as _audit_bundle_replay_alert_corpus
 import app.services.audit_bundle_training_runs as _audit_bundle_training_runs
 from app.core.hashes import payload_sha256 as _payload_sha256
-from app.db.models import (
-    AuditBundleExport,
-    AuditBundleValidationReceipt,
+from app.db.public.audit_and_evidence import AuditBundleExport, AuditBundleValidationReceipt
+from app.db.public.retrieval import (
     RetrievalJudgmentSet,
     RetrievalLearningCandidateEvaluation,
     RetrievalRerankerArtifact,

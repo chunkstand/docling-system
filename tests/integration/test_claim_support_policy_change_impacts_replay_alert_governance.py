@@ -7,11 +7,9 @@ from uuid import UUID
 import pytest
 from sqlalchemy import select
 
-from app.db.models import (
-    AgentTask,
-    ClaimSupportReplayAlertFixtureCorpusRow,
-    SemanticGovernanceEvent,
-)
+from app.db.public.agent_tasks import AgentTask
+from app.db.public.claim_support import ClaimSupportReplayAlertFixtureCorpusRow
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.schemas.agent_tasks import AgentTaskCreateRequest
 from app.services.agent_tasks import create_agent_task
 from app.services.evidence import (

@@ -10,11 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.core.json_utils import json_object_payload as _json_payload
 from app.core.time import utcnow
-from app.db.models import (
-    AgentTask,
-    EvidenceManifest,
-    TechnicalReportReleaseReadinessDbGate,
-)
+from app.db.public.agent_tasks import AgentTask
+from app.db.public.audit_and_evidence import EvidenceManifest, TechnicalReportReleaseReadinessDbGate
 from app.services.evidence_common import payload_sha256
 from app.services.evidence_common import trace_edge_row_payload as _trace_edge_row_payload
 from app.services.evidence_common import trace_node_row_payload as _trace_node_row_payload

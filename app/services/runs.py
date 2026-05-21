@@ -12,7 +12,7 @@ import app.services.run_persistence as _run_persistence
 import app.services.run_post_promotion as _run_post_promotion
 from app.core.config import get_settings, semantics_feature_enabled
 from app.core.logging import get_logger
-from app.db.models import Document, DocumentRun
+from app.db.public.ingest import Document, DocumentRun
 from app.services.docling_parser import DoclingParser, ParsedDocument
 from app.services.embeddings import EmbeddingProvider, get_embedding_provider
 from app.services.evaluations import (

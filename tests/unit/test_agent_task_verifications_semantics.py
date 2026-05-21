@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 
-from app.db.models import AgentTask, AgentTaskArtifact, AgentTaskDependency
+from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact, AgentTaskDependency
 from app.schemas.agent_tasks import (
     VerifyDraftSemanticRegistryUpdateTaskInput,
     VerifySemanticGroundedDocumentTaskInput,

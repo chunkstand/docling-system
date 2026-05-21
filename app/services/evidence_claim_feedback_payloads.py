@@ -9,12 +9,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.json_utils import json_object_payload as _json_payload
-from app.db.models import (
-    ClaimEvidenceDerivation,
-    SearchRequestRecord,
-    SearchRequestResult,
-    SearchRequestResultSpan,
-    TechnicalReportReleaseReadinessDbGate,
+from app.db.public.audit_and_evidence import (
+    ClaimEvidenceDerivation, TechnicalReportReleaseReadinessDbGate,
+)
+from app.db.public.retrieval import (
+    SearchRequestRecord, SearchRequestResult, SearchRequestResultSpan,
 )
 from app.services.evidence_common import payload_sha256
 from app.services.evidence_common import string_values as _string_values

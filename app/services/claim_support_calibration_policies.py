@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
-from app.db.models import ClaimSupportCalibrationPolicy
+from app.db.public.claim_support import ClaimSupportCalibrationPolicy
 from app.services.claim_support_evaluation_fixtures import (
     CLAIM_SUPPORT_JUDGE_NAME,
     CLAIM_SUPPORT_JUDGE_VERSION,

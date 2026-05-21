@@ -6,8 +6,8 @@ from copy import deepcopy
 import pytest
 from sqlalchemy import select
 
-from app.db.models import (
-    AgentTask,
+from app.db.public.agent_tasks import AgentTask
+from app.db.public.audit_and_evidence import (
     TechnicalReportClaimRetrievalFeedback,
     TechnicalReportReleaseReadinessDbGate,
 )

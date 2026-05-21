@@ -11,7 +11,7 @@ import app.services.agent_task_lifecycle as lifecycle_owner
 import app.services.agent_task_reads as read_owner
 from app.api.errors import api_error
 from app.core.time import utcnow
-from app.db.models import AgentTask, AgentTaskDependency
+from app.db.public.agent_tasks import AgentTask, AgentTaskDependency
 from app.schemas.agent_task_core import (
     AgentTaskActionDefinitionResponse,
     AgentTaskApprovalRequest,

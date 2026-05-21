@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.coercion import uuid_or_none as _uuid_or_none
 from app.core.json_utils import json_object_payload as _json_payload
 from app.core.time import utcnow
-from app.db.models import (
+from app.db.public.agent_tasks import (
     KnowledgeOperatorInput,
     KnowledgeOperatorOutput,
     KnowledgeOperatorRun,

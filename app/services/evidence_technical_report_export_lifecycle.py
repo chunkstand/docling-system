@@ -8,10 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.coercion import uuid_or_none as _uuid_or_none
 from app.core.json_utils import json_object_payload as _json_payload
 from app.core.time import utcnow as _utcnow
-from app.db.models import (
-    ClaimEvidenceDerivation,
-    EvidencePackageExport,
-)
+from app.db.public.audit_and_evidence import ClaimEvidenceDerivation, EvidencePackageExport
 from app.services.evidence_common import (
     string_values as _string_values,
 )

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
 from app.core.time import utcnow
-from app.db.models import (
+from app.db.public.retrieval import (
     SearchFeedback,
     SearchRequestRecord,
     SearchRequestResult,

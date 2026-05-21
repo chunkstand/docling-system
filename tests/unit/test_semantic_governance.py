@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from app.db.models import SemanticGovernanceEvent
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.semantic_governance import (
     _event_hash_basis,
     _payload_sha256,

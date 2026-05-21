@@ -12,36 +12,36 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.core.time import utcnow
-from app.db.models import AgentTask, AgentTaskAttempt, AgentTaskDependency, AgentTaskStatus
+from app.db.public import agent_tasks as am
 from app.services.agent_task_worker_finalization import current_attempt, write_failure_artifact
 from app.services.storage import StorageService
 
 logger = get_logger(__name__)
-CurrentAttemptFunc = Callable[[Session, AgentTask], AgentTaskAttempt | None]
+CurrentAttemptFunc = Callable[[Session, am.AgentTask], am.AgentTaskAttempt | None]
 
 
 def unblock_ready_agent_tasks(session: Session) -> int:
     blocked_tasks = session.execute(
-        select(AgentTask).where(AgentTask.status == AgentTaskStatus.BLOCKED.value)
+        select(am.AgentTask).where(am.AgentTask.status == am.AgentTaskStatus.BLOCKED.value)
     ).scalars()
 
     updated = 0
     for task in blocked_tasks:
         incomplete_dependency_count = session.execute(
-            select(AgentTaskDependency.id)
-            .join(AgentTask, AgentTask.id == AgentTaskDependency.depends_on_task_id)
+            select(am.AgentTaskDependency.id)
+            .join(am.AgentTask, am.AgentTask.id == am.AgentTaskDependency.depends_on_task_id)
             .where(
-                AgentTaskDependency.task_id == task.id,
-                AgentTask.status != AgentTaskStatus.COMPLETED.value,
+                am.AgentTaskDependency.task_id == task.id,
+                am.AgentTask.status != am.AgentTaskStatus.COMPLETED.value,
             )
             .limit(1)
         ).first()
         if incomplete_dependency_count is not None:
             continue
         task.status = (
-            AgentTaskStatus.AWAITING_APPROVAL.value
+            am.AgentTaskStatus.AWAITING_APPROVAL.value
             if task.requires_approval and task.approved_at is None
-            else AgentTaskStatus.QUEUED.value
+            else am.AgentTaskStatus.QUEUED.value
         )
         task.updated_at = utcnow()
         updated += 1
@@ -63,10 +63,10 @@ def requeue_stale_agent_tasks(
     settings = get_settings()
     stale_before = utcnow() - timedelta(seconds=settings.worker_lease_timeout_seconds)
     stale_tasks = session.execute(
-        select(AgentTask).where(
-            AgentTask.status == AgentTaskStatus.PROCESSING.value,
-            AgentTask.last_heartbeat_at.is_not(None),
-            AgentTask.last_heartbeat_at < stale_before,
+        select(am.AgentTask).where(
+            am.AgentTask.status == am.AgentTaskStatus.PROCESSING.value,
+            am.AgentTask.last_heartbeat_at.is_not(None),
+            am.AgentTask.last_heartbeat_at < stale_before,
         )
     ).scalars()
 
@@ -89,7 +89,7 @@ def requeue_stale_agent_tasks(
         }
         task.updated_at = utcnow()
         if task.attempts >= settings.worker_max_attempts:
-            task.status = AgentTaskStatus.FAILED.value
+            task.status = am.AgentTaskStatus.FAILED.value
             task.completed_at = utcnow()
             failure_path = write_failure_artifact(
                 storage_service,
@@ -99,7 +99,7 @@ def requeue_stale_agent_tasks(
             )
             task.failure_artifact_path = str(failure_path) if failure_path is not None else None
         else:
-            task.status = AgentTaskStatus.RETRY_WAIT.value
+            task.status = am.AgentTaskStatus.RETRY_WAIT.value
             task.next_attempt_at = utcnow()
         updated += 1
 
@@ -110,20 +110,23 @@ def requeue_stale_agent_tasks(
     return updated
 
 
-def claim_next_agent_task(session: Session, worker_id: str) -> AgentTask | None:
+def claim_next_agent_task(session: Session, worker_id: str) -> am.AgentTask | None:
     now = utcnow()
-    eligible_query: Select[tuple[AgentTask]] = (
-        select(AgentTask)
+    eligible_query: Select[tuple[am.AgentTask]] = (
+        select(am.AgentTask)
         .where(
             or_(
-                AgentTask.status == AgentTaskStatus.QUEUED.value,
+                am.AgentTask.status == am.AgentTaskStatus.QUEUED.value,
                 and_(
-                    AgentTask.status == AgentTaskStatus.RETRY_WAIT.value,
-                    or_(AgentTask.next_attempt_at.is_(None), AgentTask.next_attempt_at <= now),
+                    am.AgentTask.status == am.AgentTaskStatus.RETRY_WAIT.value,
+                    or_(
+                        am.AgentTask.next_attempt_at.is_(None),
+                        am.AgentTask.next_attempt_at <= now,
+                    ),
                 ),
             )
         )
-        .order_by(AgentTask.priority.asc(), AgentTask.created_at.asc())
+        .order_by(am.AgentTask.priority.asc(), am.AgentTask.created_at.asc())
         .limit(1)
         .with_for_update(skip_locked=True)
     )
@@ -132,7 +135,7 @@ def claim_next_agent_task(session: Session, worker_id: str) -> AgentTask | None:
         session.rollback()
         return None
 
-    task.status = AgentTaskStatus.PROCESSING.value
+    task.status = am.AgentTaskStatus.PROCESSING.value
     task.locked_at = now
     task.locked_by = worker_id
     task.last_heartbeat_at = now
@@ -140,7 +143,7 @@ def claim_next_agent_task(session: Session, worker_id: str) -> AgentTask | None:
     task.next_attempt_at = None
     task.updated_at = now
     task.attempts += 1
-    attempt = AgentTaskAttempt(
+    attempt = am.AgentTaskAttempt(
         task_id=task.id,
         attempt_number=task.attempts,
         status="processing",
@@ -162,7 +165,7 @@ def claim_next_agent_task(session: Session, worker_id: str) -> AgentTask | None:
     return task
 
 
-def heartbeat_agent_task(session: Session, task: AgentTask) -> None:
+def heartbeat_agent_task(session: Session, task: am.AgentTask) -> None:
     task.last_heartbeat_at = utcnow()
     task.updated_at = task.last_heartbeat_at
     session.commit()
@@ -211,11 +214,11 @@ def _refresh_agent_task_lease(session_factory, task_id: UUID, worker_id: str) ->
     now = utcnow()
     with session_factory() as heartbeat_session:
         result = heartbeat_session.execute(
-            update(AgentTask)
+            update(am.AgentTask)
             .where(
-                AgentTask.id == task_id,
-                AgentTask.locked_by == worker_id,
-                AgentTask.status == AgentTaskStatus.PROCESSING.value,
+                am.AgentTask.id == task_id,
+                am.AgentTask.locked_by == worker_id,
+                am.AgentTask.status == am.AgentTaskStatus.PROCESSING.value,
             )
             .values(last_heartbeat_at=now, updated_at=now)
         )

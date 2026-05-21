@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.coercion import uuid_text as _uuid_text
 from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.json_utils import canonical_json_value as _json_payload
-from app.db.models import (
+from app.db.public.retrieval import (
     RetrievalJudgmentKind,
     SearchReplayQuery,
     SearchReplayRun,

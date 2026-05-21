@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.core.text import collapse_whitespace
-from app.db.models import Document
+from app.db.public.ingest import Document
 from app.services.semantic_candidates import tokenize, unique_document_ids
 from app.services.semantic_registry import get_semantic_registry
 from app.services.semantics import build_semantic_sources, source_artifact_api_path

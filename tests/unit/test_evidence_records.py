@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from app.core.time import utcnow
-from app.db.models import KnowledgeOperatorInput, KnowledgeOperatorRun
+from app.db.public.agent_tasks import KnowledgeOperatorInput, KnowledgeOperatorRun
 from app.services import evidence
 from app.services.evidence_records import (
     io_payload,

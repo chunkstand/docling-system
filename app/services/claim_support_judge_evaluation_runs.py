@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
-from app.db.models import ClaimSupportEvaluation, ClaimSupportEvaluationCase
+from app.db.public.claim_support import ClaimSupportEvaluation, ClaimSupportEvaluationCase
 from app.services.claim_support_calibration_policies import (
     DEFAULT_MIN_HARD_CASE_KIND_COUNT,
     thresholds_payload,

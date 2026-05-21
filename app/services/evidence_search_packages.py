@@ -8,9 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.json_utils import json_object_payload as _json_payload
 from app.core.time import utcnow
-from app.db.models import (
-    EvidencePackageExport,
-)
+from app.db.public.audit_and_evidence import EvidencePackageExport
 from app.services.evidence_common import string_values as _string_values
 from app.services.evidence_search_package_build import build_search_evidence_package
 from app.services.evidence_search_trace_store import (

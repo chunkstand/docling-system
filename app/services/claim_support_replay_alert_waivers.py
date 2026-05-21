@@ -11,12 +11,12 @@ from app.core.coercion import maybe_uuid as _uuid_or_none
 from app.core.coercion import sorted_unique_strings as _string_list
 from app.core.time import coerce_utc_datetime as _coerce_utc_datetime
 from app.core.time import utcnow
-from app.db.models import (
-    AgentTaskArtifact,
+from app.db.public.agent_tasks import AgentTaskArtifact
+from app.db.public.claim_support import (
     ClaimSupportReplayAlertFixtureCoverageWaiverEscalation,
     ClaimSupportReplayAlertFixtureCoverageWaiverLedger,
-    SemanticGovernanceEvent,
 )
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.evidence import payload_sha256
 
 

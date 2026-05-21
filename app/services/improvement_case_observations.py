@@ -152,7 +152,7 @@ def collect_eval_failure_case_observations(
 ) -> list[ImprovementCaseObservation]:
     from sqlalchemy import select
 
-    from app.db.models import EvalFailureCase
+    from app.db.public.evaluation_feedback import EvalFailureCase
 
     rows = (
         session.execute(
@@ -200,7 +200,7 @@ def collect_failed_agent_task_observations(
 ) -> list[ImprovementCaseObservation]:
     from sqlalchemy import select
 
-    from app.db.models import AgentTask, AgentTaskStatus
+    from app.db.public.agent_tasks import AgentTask, AgentTaskStatus
 
     rows = (
         session.execute(
@@ -242,7 +242,7 @@ def collect_failed_agent_verification_observations(
 ) -> list[ImprovementCaseObservation]:
     from sqlalchemy import select
 
-    from app.db.models import AgentTaskVerification
+    from app.db.public.agent_tasks import AgentTaskVerification
 
     rows = (
         session.execute(

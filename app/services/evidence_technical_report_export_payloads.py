@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from app.db.models import ClaimEvidenceDerivation
+from app.db.public.audit_and_evidence import ClaimEvidenceDerivation
 from app.services.evidence_common import (
     clean_mapping as _clean_mapping,
 )

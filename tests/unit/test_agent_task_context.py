@@ -4,11 +4,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import app.services.agent_task_context as agent_task_context_module
-from app.db.models import (
-    AgentTask,
-    AgentTaskArtifact,
-    AgentTaskDependency,
-)
+from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact, AgentTaskDependency
 from app.schemas.agent_tasks import ContextFreshnessStatus
 from app.services.agent_task_context import (
     build_agent_task_context,

@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 from app.api.errors import api_error
 from app.core.config import get_settings
 from app.core.time import utcnow
-from app.db.models import Document, DocumentFigure, DocumentRun, DocumentTable, RunStatus
+from app.db.public.document_artifacts import DocumentFigure, DocumentTable
+from app.db.public.ingest import Document, DocumentRun, RunStatus
 from app.schemas.documents import (
     DocumentDetailResponse,
     DocumentRunSummaryResponse,

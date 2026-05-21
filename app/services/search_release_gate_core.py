@@ -12,11 +12,8 @@ from sqlalchemy.orm import Session
 from app.api.errors import api_error
 from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.time import utcnow
-from app.db.models import (
-    AgentTaskVerificationOutcome,
-    SearchHarnessRelease,
-    SearchReplayRun,
-)
+from app.db.public.agent_tasks import AgentTaskVerificationOutcome
+from app.db.public.retrieval import SearchHarnessRelease, SearchReplayRun
 from app.schemas.search import (
     SearchHarnessEvaluationResponse,
     SearchHarnessReleaseGateRequest,

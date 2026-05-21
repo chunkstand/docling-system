@@ -6,11 +6,11 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import (
+from app.db.public.claim_support import (
     ClaimSupportReplayAlertFixtureCorpusRow,
     ClaimSupportReplayAlertFixtureCorpusSnapshot,
-    SemanticGovernanceEvent,
 )
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.claim_support_replay_alert_fixture_corpus import (
     replay_alert_fixture_corpus_snapshot_governance_integrity,
 )

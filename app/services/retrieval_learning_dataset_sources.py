@@ -8,7 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.json_utils import canonical_json_value as _json_payload
-from app.db.models import (
+from app.db.public.audit_and_evidence import TechnicalReportClaimRetrievalFeedback
+from app.db.public.retrieval import (
     RetrievalHardNegativeKind,
     RetrievalJudgmentKind,
     SearchFeedback,
@@ -16,7 +17,6 @@ from app.db.models import (
     SearchReplayRun,
     SearchRequestRecord,
     SearchRequestResult,
-    TechnicalReportClaimRetrievalFeedback,
 )
 from app.services.query_utils import load_by_ids as _load_by_ids
 from app.services.retrieval_learning_dataset_rows import (

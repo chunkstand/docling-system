@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
-from app.db.models import (
+from app.db.public.semantic_memory import (
     SemanticGraphSnapshot,
     SemanticGraphSourceKind,
     WorkspaceSemanticGraphState,

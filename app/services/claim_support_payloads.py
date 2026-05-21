@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.db.models import SemanticGovernanceEvent
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 
 
 def claim_support_fixture_promotion_payload(

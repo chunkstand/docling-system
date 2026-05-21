@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-from app.db.models import AgentTask, AgentTaskStatus
+from app.db.public.agent_tasks import AgentTask, AgentTaskStatus
 from app.services.agent_task_worker import finalize_agent_task_failure
 from app.services.storage import StorageService
 

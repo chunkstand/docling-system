@@ -14,13 +14,13 @@ from app.api.errors import api_error
 from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.json_utils import canonical_json_value as _json_payload
 from app.core.time import utcnow
-from app.db.models import (
+from app.db.public.retrieval import (
     RetrievalLearningCandidateEvaluation,
     RetrievalLearningCandidateStatus,
     RetrievalTrainingRun,
     RetrievalTrainingRunStatus,
-    SemanticGovernanceEventKind,
 )
+from app.db.public.semantic_memory import SemanticGovernanceEventKind
 from app.schemas.search import (
     RetrievalLearningCandidateEvaluationRequest,
     RetrievalLearningCandidateEvaluationResponse,

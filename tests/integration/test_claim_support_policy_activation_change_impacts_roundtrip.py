@@ -7,15 +7,17 @@ import pytest
 from sqlalchemy import select
 
 from app.core.time import utcnow
-from app.db.models import (
+from app.db.public.agent_tasks import (
     AgentTask,
     AgentTaskArtifact,
     AgentTaskStatus,
     AgentTaskVerification,
+)
+from app.db.public.claim_support import (
     ClaimSupportCalibrationPolicy,
     ClaimSupportPolicyChangeImpact,
-    SemanticGovernanceEvent,
 )
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.schemas.agent_tasks import AgentTaskApprovalRequest, AgentTaskCreateRequest
 from app.services.agent_task_worker import finalize_agent_task_success
 from app.services.agent_tasks import approve_agent_task, create_agent_task

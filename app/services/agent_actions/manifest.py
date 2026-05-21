@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from pydantic import ValidationError
 
-from app.db.models import AgentTaskSideEffectLevel
+from app.db.public.agent_tasks import AgentTaskSideEffectLevel
 from app.services.agent_actions.types import (
     AGENT_ACTION_CAPABILITIES,
     AGENT_ACTION_DEFINITION_KINDS,

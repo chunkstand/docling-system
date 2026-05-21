@@ -10,15 +10,15 @@ from sqlalchemy.orm import Session
 from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.json_utils import canonical_json_value as _json_payload
 from app.core.time import utcnow
-from app.db.models import (
+from app.db.public.retrieval import (
     RetrievalHardNegative,
     RetrievalJudgment,
     RetrievalJudgmentKind,
     RetrievalJudgmentSet,
     RetrievalTrainingRun,
     RetrievalTrainingRunStatus,
-    SemanticGovernanceEventKind,
 )
+from app.db.public.semantic_memory import SemanticGovernanceEventKind
 from app.services import retrieval_learning_dataset_rows as _rows
 from app.services import retrieval_learning_dataset_sources as _sources
 from app.services import retrieval_learning_replay_alert_sources as _replay_alert_sources

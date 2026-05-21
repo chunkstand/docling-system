@@ -7,16 +7,14 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 
-from app.db.models import (
-    AgentTask,
-    AgentTaskArtifact,
+from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact, KnowledgeOperatorRun
+from app.db.public.audit_and_evidence import (
     ClaimEvidenceDerivation,
     EvidenceManifest,
     EvidencePackageExport,
-    KnowledgeOperatorRun,
-    SemanticGovernanceEvent,
     TechnicalReportReleaseReadinessDbGate,
 )
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.evidence import payload_sha256
 from tests.integration.technical_report_harness_support import run_verified_report_roundtrip
 

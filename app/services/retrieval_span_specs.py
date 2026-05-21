@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from app.core.hashes import payload_sha256
-from app.db.models import DocumentChunk, DocumentTable, RetrievalEvidenceSpan
+from app.db.public.document_artifacts import DocumentChunk, DocumentTable
+from app.db.public.retrieval import RetrievalEvidenceSpan
 
 SPAN_SCHEMA_VERSION = "retrieval_evidence_span_v1"
 SPAN_WORD_WINDOW = 80

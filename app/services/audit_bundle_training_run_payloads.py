@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.db.models import (
+from app.db.public.retrieval import (
     RetrievalHardNegative,
     RetrievalJudgment,
     RetrievalJudgmentSet,

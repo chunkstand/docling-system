@@ -6,7 +6,7 @@ from uuid import UUID
 import pytest
 from sqlalchemy import select
 
-from app.db.models import KnowledgeOperatorRun
+from app.db.public.agent_tasks import KnowledgeOperatorRun
 from tests.integration.pdf_fixtures import valid_test_pdf_bytes
 from tests.integration.test_postgres_roundtrip import StubParser, _build_parsed_document
 

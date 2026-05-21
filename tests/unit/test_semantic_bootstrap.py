@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from app.db.models import Document
+from app.db.public.ingest import Document
 from app.services.semantic_bootstrap import discover_semantic_bootstrap_candidates
 from app.services.semantic_registry import normalize_semantic_text, semantic_registry_from_payload
 from app.services.semantics import SemanticSourceItem

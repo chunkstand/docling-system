@@ -3,7 +3,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from app.db.models import AgentTask, AgentTaskArtifact, AgentTaskDependency, AgentTaskVerification
+from app.db.public.agent_tasks import (
+    AgentTask,
+    AgentTaskArtifact,
+    AgentTaskDependency,
+    AgentTaskVerification,
+)
 from app.services.agent_task_context import build_agent_task_context
 from tests.unit.agent_task_context_reports_claim_support_support import (
     FakeSession,

@@ -9,7 +9,7 @@ import pytest
 from sqlalchemy import select
 
 from app.core.config import get_settings
-from app.db.models import DocumentRunSemanticPass, SemanticFact
+from app.db.public.semantic_memory import DocumentRunSemanticPass, SemanticFact
 from app.services.docling_parser import ParsedChunk, ParsedDocument
 from app.services.semantic_registry import clear_semantic_registry_cache
 from tests.integration.pdf_fixtures import valid_test_pdf_bytes

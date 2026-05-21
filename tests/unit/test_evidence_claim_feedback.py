@@ -10,7 +10,7 @@ import app.services.evidence_claim_feedback as evidence_claim_feedback
 import app.services.evidence_claim_feedback_integrity as evidence_claim_feedback_integrity
 import app.services.evidence_claim_feedback_lifecycle as evidence_claim_feedback_lifecycle
 import app.services.evidence_claim_feedback_payloads as evidence_claim_feedback_payloads
-from app.db.models import SearchRequestRecord, SearchRequestResult
+from app.db.public.retrieval import SearchRequestRecord, SearchRequestResult
 from app.services import evidence
 
 CLAIM_FEEDBACK_ROOT_ALIASES = {

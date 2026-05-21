@@ -11,15 +11,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.files import path_exists
-from app.db.models import (
-    Document,
+from app.db.public.document_artifacts import (
     DocumentChunk,
     DocumentFigure,
-    DocumentRun,
     DocumentRunEvaluation,
     DocumentTable,
-    RunStatus,
 )
+from app.db.public.ingest import Document, DocumentRun, RunStatus
 
 KNOWN_FAILURE_STAGES = {
     "artifact_write",

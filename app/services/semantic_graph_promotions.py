@@ -5,10 +5,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.db.models import (
-    SemanticOntologySnapshot,
-    SemanticReviewStatus,
-)
+from app.db.public.semantic_memory import SemanticOntologySnapshot, SemanticReviewStatus
 from app.services import semantic_graph_core as _semantic_graph_core
 from app.services.semantic_registry import (
     canonicalize_semantic_relation_endpoints,

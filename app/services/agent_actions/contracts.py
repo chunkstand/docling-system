@@ -3,7 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.db.models import AgentTask
+from app.db.public.agent_tasks import AgentTask
 from app.services.agent_actions.claim_support_actions import (
     build_claim_support_action_definitions,
 )

@@ -8,7 +8,7 @@ import app.services.evidence_technical_report_export_contracts as technical_repo
 import app.services.evidence_technical_report_export_lifecycle as technical_report_export_lifecycle
 import app.services.evidence_technical_report_export_payloads as technical_report_export_payloads
 import app.services.evidence_technical_report_exports as technical_report_exports
-from app.db.models import ClaimEvidenceDerivation, EvidencePackageExport
+from app.db.public.audit_and_evidence import ClaimEvidenceDerivation, EvidencePackageExport
 from app.services import evidence
 from app.services import (
     evidence_technical_report_export_provenance_locks as technical_report_export_provenance_locks,

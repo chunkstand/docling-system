@@ -12,14 +12,13 @@ from app.core.coercion import maybe_uuid as _maybe_uuid
 from app.core.hashes import embedded_payload_hash_matches as _payload_hash_matches_embedded_field
 from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.json_utils import canonical_json_value as _json_payload
-from app.db.models import (
-    AgentTaskArtifact,
+from app.db.public.agent_tasks import AgentTaskArtifact
+from app.db.public.claim_support import (
     ClaimSupportReplayAlertFixtureCorpusRow,
     ClaimSupportReplayAlertFixtureCorpusSnapshot,
-    RetrievalHardNegativeKind,
-    RetrievalJudgmentKind,
-    SemanticGovernanceEvent,
 )
+from app.db.public.retrieval import RetrievalHardNegativeKind, RetrievalJudgmentKind
+from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.claim_support_replay_alert_fixture_corpus import (
     active_replay_alert_fixture_corpus_rows,
     replay_alert_fixture_corpus_snapshot_governance_integrity,

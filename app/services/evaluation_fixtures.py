@@ -9,7 +9,7 @@ import yaml
 
 from app.core.config import get_settings as _base_get_settings
 from app.core.files import source_filename_matches
-from app.db.models import Document
+from app.db.public.ingest import Document
 from app.schemas.search import SearchResult
 from app.services.evaluation_fixture_cache import load_corpus_documents_cached
 from app.services.search import search_documents as _search_documents

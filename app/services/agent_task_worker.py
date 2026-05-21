@@ -11,7 +11,7 @@ import app.services.agent_task_worker_leases as lease_owner
 import app.services.agent_task_worker_processing as processing_owner
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.db.models import AgentTask
+from app.db.public.agent_tasks import AgentTask
 from app.services.agent_task_actions import execute_agent_task_action
 from app.services.agent_task_context import write_agent_task_context
 from app.services.runtime import (
