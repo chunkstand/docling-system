@@ -31,11 +31,11 @@ rebuild the current `337`-import gravity.
   `status_counts={"deployed":67}`. This is not an active queued packet; it is
   discretionary technical paydown.
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 25`
-  currently reports `app.db.models` imported by `337` local modules, still the
-  highest import fan-in in the repo.
-- A repo-wide importer census currently finds `336` Python files importing
-  `app.db.models`: `223` under `app/`, `113` under `tests/`, and `220` under
-  `app/services/`; the densest current bounded cluster is
+  measured the Milestone 0 baseline at `337` local `app.db.models` importers,
+  still the highest import fan-in in the repo at packet start.
+- A repo-wide importer census at Milestone 0 found `337` Python files
+  importing `app.db.models`: `224` under `app/`, `113` under `tests/`, and
+  `221` under `app/services/`; the densest current bounded cluster was
   `app/services/agent_actions/` with `26` direct importers.
 - The earlier compatibility-facade packet intentionally froze
   `app/db/models.py` as the only public caller surface and explicitly said
@@ -99,6 +99,32 @@ rebuild the current `337`-import gravity.
 - `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
 - `uv run docling-system-architecture-quality-report --summary`: `top_routed_hotspot_paths=[]`, `broader_rebaseline_candidate_count=0`, `max_hotspot_risk_score=466.06`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles`: pass, `Python cycles: none detected`
+
+## Alignment And Debt-Shift Review
+
+- The active packet docs, handoff, architecture index, and broader trap-set
+  brief now agree that this DB caller-migration lane is resolved locally and
+  is no longer an open queued subpacket.
+- The packet-local debt-shift audit over closeout commit `4284cd5d` stayed
+  bounded: `app/db/public/*` closes at `5` to `75` lines, direct
+  `app.db.models` imports fell from `337` to `9`, and no ordinary caller now
+  imports `app.db.model_domains.*`.
+- `uv run docling-system-hotspot-prevention-check --strict`,
+  `uv run docling-system-hygiene-check`,
+  `uv run docling-system-architecture-inspect`, and
+  `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles`
+  all stayed green after the closeout, so the packet did not reopen cycles,
+  routed hotspots, or architecture violations.
+- The selected production trap roots stayed flat on fan-out except
+  `app/services/audit_bundles.py`, which moved from `14` to `15` local imports
+  because one legacy `app.db.models` dependency became bounded retrieval plus
+  audit-and-evidence public-module imports. The root remains `596` lines, no
+  sibling public facade regrew into a broad sink, and the live routed queue
+  stayed empty.
+- No changed Python file crossed upward through the `600` or `800` line
+  thresholds in `HEAD^..4284cd5d`; the only threshold crossing was downward,
+  with `app/services/claim_support_replay_alert_promotions.py` moving
+  `600 -> 597`.
 
 ## Goal
 

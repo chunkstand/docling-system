@@ -44,7 +44,12 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
   `app.db.public.ingest=69`, `app.db.public.semantic_memory=68`,
   `app.db.public.audit_and_evidence=55`,
   `app.db.public.claim_support=40`, and
-  `app.db.public.document_artifacts=38`. The broader
+  `app.db.public.document_artifacts=38`. The packet-local debt-shift audit on
+  closeout commit `4284cd5d` also stayed clean: no external
+  `app.db.model_domains.*` callers leaked in, no new cycle or routed hotspot
+  appeared, no changed Python file crossed upward through the `600` or `800`
+  line thresholds, and the only selected-root fan-out increase was the bounded
+  `app/services/audit_bundles.py` `14 -> 15` import tradeoff. The broader
   `docs/production_trap_set_centrality_reduction_milestone_plan.md` remains
   the umbrella optional follow-on for other trap-set roots, but this DB-only
   sublane is now closed rather than merely proposed.

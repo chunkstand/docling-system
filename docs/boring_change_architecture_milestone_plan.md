@@ -66,7 +66,12 @@ locally through bounded `app/db/public/*` facades plus the explicit
 remains relevant only for the other centrality roots. The resolved sublane now
 holds the legacy shim at an explicit `9`-file allowlist with `0` `app/`
 direct importers, and the current probe’s top replacement fan-in is
-`app.db.public.agent_tasks=173` instead of `app.db.models`. It is not a
+`app.db.public.agent_tasks=173` instead of `app.db.models`. The later
+packet-local debt-shift audit on closeout commit `4284cd5d` stayed bounded as
+well: no external `app.db.model_domains.*` callers leaked in, no new cycle or
+upward `600`/`800` threshold crossing appeared, and the only selected-root
+fan-out increase was the intentional `app/services/audit_bundles.py`
+`14 -> 15` split tradeoff. It is not a
 queue-selected packet and should not override a future fresh live rebaseline
 unless we explicitly choose centrality paydown over queue-driven work.
 The later

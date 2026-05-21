@@ -105,7 +105,14 @@ roots instead of the monolithic shim:
 `app.db.public.audit_and_evidence=55`, `app.db.public.claim_support=40`, and
 `app.db.public.document_artifacts=38`. Use the broader trap-set packet only
 when explicitly choosing centrality paydown for the remaining roots over
-queue-driven work. The later
+queue-driven work. A packet-local debt-shift audit over closeout commit
+`4284cd5d` stayed bounded: the new public DB facades close at `5` to `75`
+lines, no ordinary caller now imports `app.db.model_domains.*`, no Python
+cycles or architecture findings reopened, no changed Python file crossed
+upward through the `600` or `800` line thresholds, and the only selected-root
+fan-out increase was the intentional `app/services/audit_bundles.py`
+`14 -> 15` tradeoff caused by replacing one monolithic DB facade import with
+bounded retrieval plus audit-and-evidence public-module imports. The later
 governance gap-close then adds
 `tests/unit/test_hotspot_prevention_search_api_harness_routes.py` plus the
 matching hotspot-governance classifier support and hotspot-policy contract

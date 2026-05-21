@@ -45,20 +45,37 @@ splits. What remains is a cross-cutting centrality problem:
   `app/services/evidence.py`, `app/cli.py`, `app/schemas/agent_tasks.py`,
   `app/services/agent_tasks.py`, `app/services/search.py`, and
   `app/services/audit_bundles.py`.
+- The narrower DB caller-migration lane is already resolved locally:
+  `app.db.models` direct imports are down from the Milestone 0 `337`-import
+  gravity to the explicit `9`-file compatibility and metadata allowlist
+  (`0` under `app/`), and the replacement caller fan-in now lands on the
+  bounded public roots
+  `app.db.public.agent_tasks=173`, `app.db.public.retrieval=80`,
+  `app.db.public.ingest=69`, `app.db.public.semantic_memory=68`,
+  `app.db.public.audit_and_evidence=55`,
+  `app.db.public.claim_support=40`, and
+  `app.db.public.document_artifacts=38`.
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 25`
   currently reports the strongest remaining production fan-in on
-  `app.db.models` (`337` importers), `app.services.evidence` (`42`),
-  `app.schemas.agent_tasks` (`37`), and `app.services.agent_tasks` (`26`).
+  `app.services.evidence` (`42`), `app.schemas.agent_tasks` (`37`), and
+  `app.services.agent_tasks` (`26`); the older `app.db.models` caller gravity
+  is now handled by the resolved child packet above rather than by the
+  remaining umbrella targets.
 - The same live probe reports the strongest remaining production fan-out on
   `app.services.agent_task_actions` (`18` imports),
-  `app.services.evidence` (`17`), `app.services.audit_bundles` (`14`),
+  `app.services.evidence` (`17`), `app.services.audit_bundles` (`15`),
   `app.services.agent_tasks` (`13`), and `app.services.search` (`12`).
 - Current line counts confirm that this is no longer a pure file-size problem:
   `app/db/models.py=159`, `app/services/agent_task_actions.py=163`,
   `app/services/evidence.py=141`, `app/cli.py=213`,
   `app/services/agent_tasks.py=324`, `app/services/search.py=231`,
-  `app/services/audit_bundles.py=595`, and
+  `app/services/audit_bundles.py=596`, and
   `app/schemas/agent_tasks.py=38`.
+- The child packet’s closeout audit on `4284cd5d` stayed bounded: no ordinary
+  caller now imports `app.db.model_domains.*`, no Python cycle or routed
+  hotspot reopened, no changed Python file crossed upward through the `600` or
+  `800` line thresholds, and the only selected-root fan-out increase was the
+  intentional `app/services/audit_bundles.py` `14 -> 15` split tradeoff.
 - `docs/architecture_boundaries.md` already records the routing-source-of-truth
   rule: fresh packet selection must come from `top_routed_hotspot_paths`, while
   `routing_trap_paths`, `stale_facade_hotspot_count`, and
