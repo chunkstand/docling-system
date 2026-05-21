@@ -1,3 +1,163 @@
-corpus_name: semantic_foundation_empty
+corpus_name: semantic_foundation_ontology_contract
 eval_version: 2
 documents: []
+ontology_evaluation:
+  ontology_eval_version: 1
+  slice_expectations:
+    - slice_key: core
+      expected_status: active
+      required_layer_keys:
+        - portable_upper_core
+      required_entity_type_keys:
+        - document
+        - concept
+        - literal
+      required_relation_keys:
+        - document_mentions_concept
+        - concept_related_to_concept
+        - concept_depends_on_concept
+        - concept_enables_concept
+    - slice_key: application_semantics
+      expected_status: active
+      required_layer_keys:
+        - portable_upper_core
+        - docling_application
+      required_entity_type_keys:
+        - document
+        - section
+        - table
+        - figure
+        - claim
+        - evidence
+        - actor
+        - event
+        - measurement
+        - unit
+        - source
+        - obligation
+      required_relation_keys:
+        - document_has_section
+        - section_contains_table
+        - section_contains_figure
+        - section_contains_claim
+    - slice_key: domain_overlays
+      expected_status: active
+      required_layer_keys:
+        - portable_upper_core
+        - domain_overlay_baseline
+      required_entity_type_keys:
+        - document
+        - concept
+        - domain_concept
+      required_relation_keys:
+        - domain_concept_maps_to_concept
+        - document_anchors_domain_concept
+    - slice_key: report_semantics
+      expected_status: active
+      required_layer_keys:
+        - portable_upper_core
+        - docling_application
+        - report_semantics_baseline
+      required_entity_type_keys:
+        - document
+        - claim
+        - evidence
+        - table
+        - measurement
+        - unit
+        - source
+        - actor
+        - obligation
+        - event
+      required_relation_keys:
+        - claim_supported_by_evidence
+        - evidence_cites_source
+        - document_cites_source
+        - table_reports_measurement
+        - measurement_has_unit
+        - obligation_applies_to_actor
+        - event_occurs_before_event
+    - slice_key: evaluation_coverage
+      expected_status: active
+      required_layer_keys:
+        - evaluation_coverage_baseline
+      required_entity_type_keys:
+        - ontology_slice
+        - competency_family
+        - competency_question
+        - evaluation_expectation
+      required_relation_keys:
+        - competency_question_covers_slice
+        - competency_question_validates_relation
+        - evaluation_expectation_targets_family
+  competency_family_expectations:
+    - family_key: claim_support
+      expected_status: active
+      required_slice_keys:
+        - application_semantics
+        - report_semantics
+        - evaluation_coverage
+      required_entity_type_keys:
+        - claim
+        - evidence
+        - source
+      required_relation_keys:
+        - claim_supported_by_evidence
+        - evidence_cites_source
+        - document_cites_source
+      competency_questions:
+        - Can the ontology represent a report claim and trace it to supporting evidence?
+        - Can the ontology preserve source linkage for supporting evidence without manual interpretation?
+    - family_key: measurement_or_unit
+      expected_status: active
+      required_slice_keys:
+        - application_semantics
+        - report_semantics
+        - evaluation_coverage
+      required_entity_type_keys:
+        - measurement
+        - unit
+        - table
+      required_relation_keys:
+        - table_reports_measurement
+        - measurement_has_unit
+      competency_questions:
+        - Can the ontology represent a measurement reported in a table together with its unit?
+        - Can the ontology support report statements that compare source-qualified measurements?
+    - family_key: actor_or_obligation
+      expected_status: active
+      required_slice_keys:
+        - application_semantics
+        - report_semantics
+        - evaluation_coverage
+      required_entity_type_keys:
+        - actor
+        - obligation
+        - event
+      required_relation_keys:
+        - obligation_applies_to_actor
+        - event_occurs_before_event
+      competency_questions:
+        - Can the ontology represent an obligation and the actor that it governs?
+        - Can the ontology represent ordered events that matter to report conclusions?
+    - family_key: document_or_source_linkage
+      expected_status: active
+      required_slice_keys:
+        - core
+        - application_semantics
+        - domain_overlays
+        - report_semantics
+        - evaluation_coverage
+      required_entity_type_keys:
+        - document
+        - source
+        - concept
+        - domain_concept
+      required_relation_keys:
+        - document_mentions_concept
+        - domain_concept_maps_to_concept
+        - document_anchors_domain_concept
+        - document_cites_source
+      competency_questions:
+        - Can the ontology link a document to both its governed concepts and its cited sources?
+        - Can the ontology map a corpus-specific domain concept back to the shared concept space?

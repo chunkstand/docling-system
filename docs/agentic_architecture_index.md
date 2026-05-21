@@ -11,6 +11,38 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
 
 ## Current Milestone Briefs
 
+- `docs/ontology_contract_refoundation_milestone_plan.md`: drafted locally on
+  2026-05-21 as a fresh standalone ontology packet after the semantic-registry
+  and semantic-pass owner closeouts, and the current implementation slices are
+  landed locally in the current checkout. The packet does not reopen those
+  closed large-owner splits; it refounds the ontology contract from the current
+  duplicate minimal portable seed into a layered canonical JSON authority with
+  compiled compatibility views for `config/upper_ontology.yaml` and
+  `config/semantic_registry.yaml`, deterministic JSON-LD, OWL/Turtle, and SHACL
+  exports, richer runtime snapshot legibility, first-class ontology slices for
+  agent context reuse, and ontology-specific competency-question gates for
+  report generation. The current landed slices add
+  `config/ontology/docling_ontology_contract.json`,
+  `app/services/ontology_contracts.py`,
+  `app/services/ontology_contract_runtime.py`,
+  `app/services/ontology_contract_evaluations.py`,
+  `app/ontology_contract_cli.py`,
+  `docs/ontology_contract_report.md`, and
+  `docs/ontology_evaluation_report.json`; strict validate/report/eval now prove
+  the canonical contract structure, legacy-view parity, active non-legacy slice
+  semantics, and explicit ontology coverage in
+  `docs/semantic_evaluation_corpus.yaml` with five slice expectations, four
+  competency-family expectations, and eight competency questions. The later
+  runtime slice adds additive ontology contract metadata plus first-class
+  `ontology_slices` and `competency_families` to the active snapshot, ontology
+  extension draft, and ontology apply payloads so downstream task contexts
+  inherit reusable slice data without reopening the larger context-owner split.
+  Focused ontology/context coverage now passes at `21 passed`, the dedicated
+  ontology integration cluster passes at `8 passed`, hygiene and architecture
+  governance gates are green, and the broad DB-backed suite stayed green at
+  `2203 passed` with `1` docling deprecation warning. The next honest boundary
+  inside the same packet is deeper ontology-readiness expansion plus richer
+  portable roundtrip coverage for the new report-semantics families.
 - `docs/production_trap_set_centrality_reduction_milestone_plan.md`:
   resolved locally in the current checkout on 2026-05-20. The packet adds
   `config/production_trap_set_centrality_budget.yaml` plus

@@ -1,0 +1,128 @@
+{
+  "competency_family_fail_count": 0,
+  "competency_family_pass_count": 4,
+  "competency_family_result_count": 4,
+  "competency_family_results": [
+    {
+      "actual_status": "active",
+      "competency_question_count": 2,
+      "expected_status": "active",
+      "family_key": "claim_support",
+      "missing_declared_entity_type_keys": [],
+      "missing_declared_relation_keys": [],
+      "missing_layer_entity_type_keys": [],
+      "missing_layer_relation_keys": [],
+      "missing_slice_keys": [],
+      "passed": true
+    },
+    {
+      "actual_status": "active",
+      "competency_question_count": 2,
+      "expected_status": "active",
+      "family_key": "measurement_or_unit",
+      "missing_declared_entity_type_keys": [],
+      "missing_declared_relation_keys": [],
+      "missing_layer_entity_type_keys": [],
+      "missing_layer_relation_keys": [],
+      "missing_slice_keys": [],
+      "passed": true
+    },
+    {
+      "actual_status": "active",
+      "competency_question_count": 2,
+      "expected_status": "active",
+      "family_key": "actor_or_obligation",
+      "missing_declared_entity_type_keys": [],
+      "missing_declared_relation_keys": [],
+      "missing_layer_entity_type_keys": [],
+      "missing_layer_relation_keys": [],
+      "missing_slice_keys": [],
+      "passed": true
+    },
+    {
+      "actual_status": "active",
+      "competency_question_count": 2,
+      "expected_status": "active",
+      "family_key": "document_or_source_linkage",
+      "missing_declared_entity_type_keys": [],
+      "missing_declared_relation_keys": [],
+      "missing_layer_entity_type_keys": [],
+      "missing_layer_relation_keys": [],
+      "missing_slice_keys": [],
+      "passed": true
+    }
+  ],
+  "contract_name": "portable_upper_ontology",
+  "contract_path": "config/ontology/docling_ontology_contract.json",
+  "contract_version": "portable-upper-ontology-v1",
+  "corpus_name": "semantic_foundation_ontology_contract",
+  "errors": [],
+  "global_entity_type_count": 19,
+  "global_relation_count": 20,
+  "overall_passed": true,
+  "schema_name": "docling_ontology_contract",
+  "schema_version": "1.0",
+  "semantic_evaluation_corpus_path": "docs/semantic_evaluation_corpus.yaml",
+  "slice_fail_count": 0,
+  "slice_pass_count": 5,
+  "slice_result_count": 5,
+  "slice_results": [
+    {
+      "actual_status": "active",
+      "expected_status": "active",
+      "missing_declared_entity_type_keys": [],
+      "missing_declared_relation_keys": [],
+      "missing_layer_entity_type_keys": [],
+      "missing_layer_keys": [],
+      "missing_layer_relation_keys": [],
+      "passed": true,
+      "slice_key": "core"
+    },
+    {
+      "actual_status": "active",
+      "expected_status": "active",
+      "missing_declared_entity_type_keys": [],
+      "missing_declared_relation_keys": [],
+      "missing_layer_entity_type_keys": [],
+      "missing_layer_keys": [],
+      "missing_layer_relation_keys": [],
+      "passed": true,
+      "slice_key": "application_semantics"
+    },
+    {
+      "actual_status": "active",
+      "expected_status": "active",
+      "missing_declared_entity_type_keys": [],
+      "missing_declared_relation_keys": [],
+      "missing_layer_entity_type_keys": [],
+      "missing_layer_keys": [],
+      "missing_layer_relation_keys": [],
+      "passed": true,
+      "slice_key": "domain_overlays"
+    },
+    {
+      "actual_status": "active",
+      "expected_status": "active",
+      "missing_declared_entity_type_keys": [],
+      "missing_declared_relation_keys": [],
+      "missing_layer_entity_type_keys": [],
+      "missing_layer_keys": [],
+      "missing_layer_relation_keys": [],
+      "passed": true,
+      "slice_key": "report_semantics"
+    },
+    {
+      "actual_status": "active",
+      "expected_status": "active",
+      "missing_declared_entity_type_keys": [],
+      "missing_declared_relation_keys": [],
+      "missing_layer_entity_type_keys": [],
+      "missing_layer_keys": [],
+      "missing_layer_relation_keys": [],
+      "passed": true,
+      "slice_key": "evaluation_coverage"
+    }
+  ],
+  "upper_ontology_version": "portable-upper-ontology-v1",
+  "warnings": []
+}

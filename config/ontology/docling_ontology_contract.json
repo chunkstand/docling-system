@@ -1,0 +1,621 @@
+{
+  "schema_name": "docling_ontology_contract",
+  "schema_version": "1.0",
+  "contract_name": "portable_upper_ontology",
+  "contract_version": "portable-upper-ontology-v1",
+  "upper_ontology_version": "portable-upper-ontology-v1",
+  "description": "Canonical ontology contract scaffold for Docling. This first slice preserves the current portable seed as the legacy-compatible upper layer while naming the application, overlay, report, and evaluation layers needed by later milestones.",
+  "layers": [
+    {
+      "layer_key": "portable_upper_core",
+      "layer_kind": "upper_ontology",
+      "layer_version": "portable-upper-ontology-v1",
+      "description": "Current portable bootstrap layer compiled into the legacy semantic registry views.",
+      "include_in_legacy_registry": true,
+      "registry_payload": {
+        "categories": [],
+        "concepts": [],
+        "entity_types": [
+          {
+            "entity_type": "document",
+            "preferred_label": "Document"
+          },
+          {
+            "entity_type": "concept",
+            "preferred_label": "Concept"
+          },
+          {
+            "entity_type": "literal",
+            "preferred_label": "Literal"
+          }
+        ],
+        "relations": [
+          {
+            "relation_key": "document_mentions_concept",
+            "preferred_label": "Document Mentions Concept",
+            "scope_note": "Generic relation connecting a document subject to a governed concept supported by evidence.",
+            "domain_entity_types": [
+              "document"
+            ],
+            "range_entity_types": [
+              "concept"
+            ],
+            "symmetric": false,
+            "allow_literal_object": false,
+            "cardinality_hint": "many_to_many"
+          },
+          {
+            "relation_key": "concept_related_to_concept",
+            "preferred_label": "Concept Related To Concept",
+            "scope_note": "Generic cross-document relation connecting governed concepts that repeatedly co-occur in supported evidence.",
+            "domain_entity_types": [
+              "concept"
+            ],
+            "range_entity_types": [
+              "concept"
+            ],
+            "symmetric": true,
+            "allow_literal_object": false,
+            "cardinality_hint": "many_to_many",
+            "inverse_relation_key": "concept_related_to_concept"
+          },
+          {
+            "relation_key": "concept_depends_on_concept",
+            "preferred_label": "Concept Depends On Concept",
+            "scope_note": "Generic directional relation indicating one governed concept depends on another concept in supported evidence.",
+            "domain_entity_types": [
+              "concept"
+            ],
+            "range_entity_types": [
+              "concept"
+            ],
+            "symmetric": false,
+            "allow_literal_object": false,
+            "cardinality_hint": "many_to_many",
+            "inverse_relation_key": "concept_enables_concept"
+          },
+          {
+            "relation_key": "concept_enables_concept",
+            "preferred_label": "Concept Enables Concept",
+            "scope_note": "Generic inverse relation indicating one concept enables or unlocks another concept in supported evidence.",
+            "domain_entity_types": [
+              "concept"
+            ],
+            "range_entity_types": [
+              "concept"
+            ],
+            "symmetric": false,
+            "allow_literal_object": false,
+            "cardinality_hint": "many_to_many",
+            "inverse_relation_key": "concept_depends_on_concept"
+          }
+        ]
+      }
+    },
+    {
+      "layer_key": "docling_application",
+      "layer_kind": "application_ontology",
+      "layer_version": "docling-application-ontology-v1",
+      "description": "Docling runtime layer for application-native semantics such as sections, tables, figures, claims, evidence, actors, events, measurements, units, obligations, and sources.",
+      "include_in_legacy_registry": false,
+      "registry_payload": {
+        "categories": [],
+        "concepts": [],
+        "entity_types": [
+          {
+            "entity_type": "section",
+            "preferred_label": "Section"
+          },
+          {
+            "entity_type": "table",
+            "preferred_label": "Table"
+          },
+          {
+            "entity_type": "figure",
+            "preferred_label": "Figure"
+          },
+          {
+            "entity_type": "claim",
+            "preferred_label": "Claim"
+          },
+          {
+            "entity_type": "evidence",
+            "preferred_label": "Evidence"
+          },
+          {
+            "entity_type": "actor",
+            "preferred_label": "Actor"
+          },
+          {
+            "entity_type": "event",
+            "preferred_label": "Event"
+          },
+          {
+            "entity_type": "measurement",
+            "preferred_label": "Measurement"
+          },
+          {
+            "entity_type": "unit",
+            "preferred_label": "Unit"
+          },
+          {
+            "entity_type": "source",
+            "preferred_label": "Source"
+          },
+          {
+            "entity_type": "obligation",
+            "preferred_label": "Obligation"
+          }
+        ],
+        "relations": [
+          {
+            "relation_key": "document_has_section",
+            "preferred_label": "Document Has Section",
+            "scope_note": "Structural relation connecting a document to a parsed section used in downstream analysis.",
+            "domain_entity_types": [
+              "document"
+            ],
+            "range_entity_types": [
+              "section"
+            ],
+            "symmetric": false,
+            "allow_literal_object": false,
+            "cardinality_hint": "one_to_many"
+          },
+          {
+            "relation_key": "section_contains_table",
+            "preferred_label": "Section Contains Table",
+            "scope_note": "Structural relation connecting a section to a table extracted from that section.",
+            "domain_entity_types": [
+              "section"
+            ],
+            "range_entity_types": [
+              "table"
+            ],
+            "symmetric": false,
+            "allow_literal_object": false,
+            "cardinality_hint": "one_to_many"
+          },
+          {
+            "relation_key": "section_contains_figure",
+            "preferred_label": "Section Contains Figure",
+            "scope_note": "Structural relation connecting a section to a figure extracted from that section.",
+            "domain_entity_types": [
+              "section"
+            ],
+            "range_entity_types": [
+              "figure"
+            ],
+            "symmetric": false,
+            "allow_literal_object": false,
+            "cardinality_hint": "one_to_many"
+          },
+          {
+            "relation_key": "section_contains_claim",
+            "preferred_label": "Section Contains Claim",
+            "scope_note": "Structural relation connecting a section to a claim surfaced from that section.",
+            "domain_entity_types": [
+              "section"
+            ],
+            "range_entity_types": [
+              "claim"
+            ],
+            "symmetric": false,
+            "allow_literal_object": false,
+            "cardinality_hint": "one_to_many"
+          }
+        ]
+      }
+    },
+    {
+      "layer_key": "domain_overlay_baseline",
+      "layer_kind": "domain_overlay",
+      "layer_version": "domain-overlay-baseline-v1",
+      "description": "Baseline domain overlay layer for corpus-specific mappings that must remain extensions of the shared core contract.",
+      "include_in_legacy_registry": false,
+      "registry_payload": {
+        "categories": [],
+        "concepts": [],
+        "entity_types": [
+          {
+            "entity_type": "domain_concept",
+            "preferred_label": "Domain Concept"
+          }
+        ],
+        "relations": [
+          {
+            "relation_key": "domain_concept_maps_to_concept",
+            "preferred_label": "Domain Concept Maps To Concept",
+            "scope_note": "Overlay relation mapping a corpus-specific domain concept back to the shared governed concept space.",
+            "domain_entity_types": [
+              "domain_concept"
+            ],
+            "range_entity_types": [
+              "concept"
+            ],
+            "symmetric": false,
+            "allow_literal_object": false,
+            "cardinality_hint": "many_to_one"
+          },
+          {
+            "relation_key": "document_anchors_domain_concept",
+            "preferred_label": "Document Anchors Domain Concept",
+            "scope_note": "Overlay relation linking a document to the corpus-specific domain concept it introduces or anchors.",
+            "domain_entity_types": [
+              "document"
+            ],
+            "range_entity_types": [
+              "domain_concept"
+            ],
+            "symmetric": false,
+            "allow_literal_object": false,
+            "cardinality_hint": "many_to_many"
+          }
+        ]
+      }
+    },
+    {
+      "layer_key": "report_semantics_baseline",
+      "layer_kind": "report_semantics",
+      "layer_version": "report-semantics-baseline-v1",
+      "description": "Baseline report-semantics layer for claims, evidence, provenance, measurements, obligations, and source linkage relations.",
+      "include_in_legacy_registry": false,
+      "registry_payload": {
+        "categories": [],
+        "concepts": [],
+        "entity_types": [],
+        "relations": [
+          {
+            "relation_key": "claim_supported_by_evidence",
+            "preferred_label": "Claim Supported By Evidence",
+            "scope_note": "Report-semantics relation linking a claim to the evidence that supports it.",
+            "domain_entity_types": [
+              "claim"
+            ],
+            "range_entity_types": [
+              "evidence"
+            ],
+            "symmetric": false,
+            "allow_literal_object": false,
+            "cardinality_hint": "many_to_many"
+          },
+          {
+            "relation_key": "evidence_cites_source",
+            "preferred_label": "Evidence Cites Source",
+            "scope_note": "Report-semantics relation linking an evidence item to its cited source artifact.",
+            "domain_entity_types": [
+              "evidence"
+            ],
+            "range_entity_types": [
+              "source"
+            ],
+            "symmetric": false,
+            "allow_literal_object": false,
+            "cardinality_hint": "many_to_many"
+          },
+          {
+            "relation_key": "document_cites_source",
+            "preferred_label": "Document Cites Source",
+            "scope_note": "Report-semantics relation linking a document to the source it cites or relies on.",
+            "domain_entity_types": [
+              "document"
+            ],
+            "range_entity_types": [
+              "source"
+            ],
+            "symmetric": false,
+            "allow_literal_object": false,
+            "cardinality_hint": "many_to_many"
+          },
+          {
+            "relation_key": "table_reports_measurement",
+            "preferred_label": "Table Reports Measurement",
+            "scope_note": "Report-semantics relation linking a table to the measurement it reports.",
+            "domain_entity_types": [
+              "table"
+            ],
+            "range_entity_types": [
+              "measurement"
+            ],
+            "symmetric": false,
+            "allow_literal_object": false,
+            "cardinality_hint": "many_to_many"
+          },
+          {
+            "relation_key": "measurement_has_unit",
+            "preferred_label": "Measurement Has Unit",
+            "scope_note": "Report-semantics relation linking a measurement to its unit.",
+            "domain_entity_types": [
+              "measurement"
+            ],
+            "range_entity_types": [
+              "unit"
+            ],
+            "symmetric": false,
+            "allow_literal_object": false,
+            "cardinality_hint": "many_to_one"
+          },
+          {
+            "relation_key": "obligation_applies_to_actor",
+            "preferred_label": "Obligation Applies To Actor",
+            "scope_note": "Report-semantics relation linking an obligation to the actor it governs.",
+            "domain_entity_types": [
+              "obligation"
+            ],
+            "range_entity_types": [
+              "actor"
+            ],
+            "symmetric": false,
+            "allow_literal_object": false,
+            "cardinality_hint": "many_to_many"
+          },
+          {
+            "relation_key": "event_occurs_before_event",
+            "preferred_label": "Event Occurs Before Event",
+            "scope_note": "Report-semantics relation linking an event to a later event in the same narrative or process.",
+            "domain_entity_types": [
+              "event"
+            ],
+            "range_entity_types": [
+              "event"
+            ],
+            "symmetric": false,
+            "allow_literal_object": false,
+            "cardinality_hint": "many_to_many"
+          }
+        ]
+      }
+    },
+    {
+      "layer_key": "evaluation_coverage_baseline",
+      "layer_kind": "evaluation_coverage",
+      "layer_version": "evaluation-coverage-baseline-v1",
+      "description": "Baseline ontology-evaluation layer for competency families and slice-specific coverage expectations.",
+      "include_in_legacy_registry": false,
+      "registry_payload": {
+        "categories": [],
+        "concepts": [],
+        "entity_types": [
+          {
+            "entity_type": "ontology_slice",
+            "preferred_label": "Ontology Slice"
+          },
+          {
+            "entity_type": "competency_family",
+            "preferred_label": "Competency Family"
+          },
+          {
+            "entity_type": "competency_question",
+            "preferred_label": "Competency Question"
+          },
+          {
+            "entity_type": "evaluation_expectation",
+            "preferred_label": "Evaluation Expectation"
+          }
+        ],
+        "relations": [
+          {
+            "relation_key": "competency_question_covers_slice",
+            "preferred_label": "Competency Question Covers Slice",
+            "scope_note": "Evaluation relation linking a competency question to the ontology slice it exercises.",
+            "domain_entity_types": [
+              "competency_question"
+            ],
+            "range_entity_types": [
+              "ontology_slice"
+            ],
+            "symmetric": false,
+            "allow_literal_object": false,
+            "cardinality_hint": "many_to_many"
+          },
+          {
+            "relation_key": "competency_question_validates_relation",
+            "preferred_label": "Competency Question Validates Relation",
+            "scope_note": "Evaluation relation linking a competency question to the relation key it validates.",
+            "domain_entity_types": [
+              "competency_question"
+            ],
+            "range_entity_types": [
+              "literal"
+            ],
+            "symmetric": false,
+            "allow_literal_object": true,
+            "cardinality_hint": "many_to_many"
+          },
+          {
+            "relation_key": "evaluation_expectation_targets_family",
+            "preferred_label": "Evaluation Expectation Targets Family",
+            "scope_note": "Evaluation relation linking an evaluation expectation to the competency family it proves.",
+            "domain_entity_types": [
+              "evaluation_expectation"
+            ],
+            "range_entity_types": [
+              "competency_family"
+            ],
+            "symmetric": false,
+            "allow_literal_object": false,
+            "cardinality_hint": "many_to_many"
+          }
+        ]
+      }
+    }
+  ],
+  "slices": [
+    {
+      "slice_key": "core",
+      "status": "active",
+      "layer_keys": [
+        "portable_upper_core"
+      ],
+      "description": "Current bootstrap slice for document, concept, and literal semantics.",
+      "entity_type_keys": [
+        "document",
+        "concept",
+        "literal"
+      ],
+      "relation_keys": [
+        "document_mentions_concept",
+        "concept_related_to_concept",
+        "concept_depends_on_concept",
+        "concept_enables_concept"
+      ]
+    },
+    {
+      "slice_key": "application_semantics",
+      "status": "active",
+      "layer_keys": [
+        "portable_upper_core",
+        "docling_application"
+      ],
+      "description": "Docling-native slice for structural runtime semantics across documents, sections, tables, figures, claims, evidence, actors, events, measurements, units, obligations, and sources.",
+      "entity_type_keys": [
+        "document",
+        "section",
+        "table",
+        "figure",
+        "claim",
+        "evidence",
+        "actor",
+        "event",
+        "measurement",
+        "unit",
+        "source",
+        "obligation"
+      ],
+      "relation_keys": [
+        "document_has_section",
+        "section_contains_table",
+        "section_contains_figure",
+        "section_contains_claim"
+      ]
+    },
+    {
+      "slice_key": "domain_overlays",
+      "status": "active",
+      "layer_keys": [
+        "portable_upper_core",
+        "domain_overlay_baseline"
+      ],
+      "description": "Overlay slice for corpus-specific extensions that must map back to the shared contract rather than forking it.",
+      "entity_type_keys": [
+        "document",
+        "concept",
+        "domain_concept"
+      ],
+      "relation_keys": [
+        "domain_concept_maps_to_concept",
+        "document_anchors_domain_concept"
+      ]
+    },
+    {
+      "slice_key": "report_semantics",
+      "status": "active",
+      "layer_keys": [
+        "portable_upper_core",
+        "docling_application",
+        "report_semantics_baseline"
+      ],
+      "description": "Report-generation slice for claim, evidence, provenance, obligation, event, source, and measurement relations.",
+      "entity_type_keys": [
+        "document",
+        "claim",
+        "evidence",
+        "table",
+        "measurement",
+        "unit",
+        "source",
+        "actor",
+        "obligation",
+        "event"
+      ],
+      "relation_keys": [
+        "claim_supported_by_evidence",
+        "evidence_cites_source",
+        "document_cites_source",
+        "table_reports_measurement",
+        "measurement_has_unit",
+        "obligation_applies_to_actor",
+        "event_occurs_before_event"
+      ]
+    },
+    {
+      "slice_key": "evaluation_coverage",
+      "status": "active",
+      "layer_keys": [
+        "evaluation_coverage_baseline"
+      ],
+      "description": "Ontology-evaluation slice for competency families, slice coverage thresholds, and contract gates.",
+      "entity_type_keys": [
+        "ontology_slice",
+        "competency_family",
+        "competency_question",
+        "evaluation_expectation"
+      ],
+      "relation_keys": [
+        "competency_question_covers_slice",
+        "competency_question_validates_relation",
+        "evaluation_expectation_targets_family"
+      ]
+    }
+  ],
+  "competency_families": [
+    {
+      "family_key": "claim_support",
+      "status": "active",
+      "slice_keys": [
+        "application_semantics",
+        "report_semantics",
+        "evaluation_coverage"
+      ],
+      "description": "Can the ontology represent claims, supporting evidence, and provenance for report statements?"
+    },
+    {
+      "family_key": "measurement_or_unit",
+      "status": "active",
+      "slice_keys": [
+        "application_semantics",
+        "report_semantics",
+        "evaluation_coverage"
+      ],
+      "description": "Can the ontology represent measurements, units, and source-qualified values?"
+    },
+    {
+      "family_key": "actor_or_obligation",
+      "status": "active",
+      "slice_keys": [
+        "application_semantics",
+        "report_semantics",
+        "evaluation_coverage"
+      ],
+      "description": "Can the ontology represent actors, obligations, and directed applicability?"
+    },
+    {
+      "family_key": "document_or_source_linkage",
+      "status": "active",
+      "slice_keys": [
+        "core",
+        "application_semantics",
+        "domain_overlays",
+        "report_semantics",
+        "evaluation_coverage"
+      ],
+      "description": "Can the ontology represent document, source, and evidence linkage without losing lineage?"
+    }
+  ],
+  "legacy_views": [
+    {
+      "view_key": "upper_ontology_yaml",
+      "path": "config/upper_ontology.yaml",
+      "source_layer_keys": [
+        "portable_upper_core"
+      ]
+    },
+    {
+      "view_key": "semantic_registry_yaml",
+      "path": "config/semantic_registry.yaml",
+      "source_layer_keys": [
+        "portable_upper_core"
+      ]
+    }
+  ]
+}

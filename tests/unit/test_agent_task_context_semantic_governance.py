@@ -95,3 +95,5 @@ def test_build_agent_task_context_for_initialize_workspace_ontology_snapshot_art
 
     assert context.summary.next_action.startswith("Ingest documents or create")
     assert context.refs[0].artifact_kind == "active_ontology_snapshot"
+    assert context.output["snapshot"]["ontology_slice_count"] == 5
+    assert context.output["snapshot"]["ontology_slices"][0]["slice_key"] == "core"

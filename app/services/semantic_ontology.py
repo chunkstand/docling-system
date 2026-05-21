@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.db.public.semantic_memory import SemanticOntologySourceKind
+from app.services.ontology_contract_runtime import load_ontology_contract_runtime_metadata
 from app.services.semantic_orchestration import (
     draft_semantic_registry_update,
     draft_semantic_registry_update_from_bootstrap_report,
@@ -42,6 +43,7 @@ def _snapshot_payload(snapshot) -> dict[str, Any]:
         ),
         "created_at": snapshot.created_at,
         "activated_at": snapshot.activated_at,
+        **load_ontology_contract_runtime_metadata(),
     }
 
 
@@ -73,11 +75,14 @@ def _ontology_snapshot_success_metrics(snapshot_payload: dict[str, Any]) -> list
             "metric_key": "agent_legibility",
             "stakeholder": "Lopopolo",
             "passed": bool(snapshot_payload.get("snapshot_id"))
-            and "relation_keys" in snapshot_payload,
+            and bool(snapshot_payload.get("ontology_slice_count"))
+            and bool(snapshot_payload.get("competency_family_count")),
             "summary": "Ontology state is available as typed snapshot context for agents.",
             "details": {
                 "relation_count": snapshot_payload.get("relation_count"),
                 "concept_count": snapshot_payload.get("concept_count"),
+                "ontology_slice_count": snapshot_payload.get("ontology_slice_count"),
+                "competency_family_count": snapshot_payload.get("competency_family_count"),
             },
         },
         {
@@ -137,6 +142,7 @@ def draft_ontology_extension(
     candidate_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     base_snapshot = get_active_semantic_ontology_snapshot(session)
+    contract_runtime = load_ontology_contract_runtime_metadata()
     draft = draft_semantic_registry_update(
         session,
         gap_report,
@@ -158,6 +164,7 @@ def draft_ontology_extension(
         "operations": draft.get("operations") or [],
         "effective_ontology": draft.get("effective_registry") or {},
         "success_metrics": draft.get("success_metrics") or [],
+        **contract_runtime,
     }
 
 
@@ -172,6 +179,7 @@ def draft_ontology_extension_from_bootstrap_report(
     candidate_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     base_snapshot = get_active_semantic_ontology_snapshot(session)
+    contract_runtime = load_ontology_contract_runtime_metadata()
     draft = draft_semantic_registry_update_from_bootstrap_report(
         session,
         bootstrap_report,
@@ -193,6 +201,7 @@ def draft_ontology_extension_from_bootstrap_report(
         "operations": draft.get("operations") or [],
         "effective_ontology": draft.get("effective_registry") or {},
         "success_metrics": draft.get("success_metrics") or [],
+        **contract_runtime,
     }
 
 
@@ -255,6 +264,7 @@ def apply_ontology_extension(
     reason: str | None,
 ) -> dict[str, Any]:
     base_snapshot_id = UUID(str(draft["base_snapshot_id"]))
+    contract_runtime = load_ontology_contract_runtime_metadata()
     snapshot = persist_semantic_ontology_snapshot(
         session,
         draft["effective_ontology"],
@@ -277,4 +287,5 @@ def apply_ontology_extension(
             applied_operations=draft.get("operations") or [],
             verification_outcome="passed",
         ),
+        **contract_runtime,
     }

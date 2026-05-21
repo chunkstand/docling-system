@@ -181,6 +181,7 @@ def active_ontology_snapshot_payload(*, snapshot_id=None) -> dict:
         "category_count": 0,
         "relation_count": 1,
         "relation_keys": ["document_mentions_concept"],
+        **ontology_contract_runtime_payload(),
         "created_at": now,
         "activated_at": now,
     }
@@ -235,6 +236,7 @@ def draft_ontology_output_payload(
                     }
                 ],
             },
+            **ontology_contract_runtime_payload(),
             "success_metrics": [],
         },
         "artifact_id": str(artifact_id or uuid4()),
@@ -289,6 +291,7 @@ def apply_ontology_output_payload(
         "applied_ontology_version": "portable-upper-ontology-v1.1",
         "applied_ontology_sha256": "applied-ontology-sha",
         "upper_ontology_version": "portable-upper-ontology-v1",
+        **ontology_contract_runtime_payload(),
         "reason": "Publish the verified ontology extension.",
         "applied_operations": [
             {
@@ -304,4 +307,55 @@ def apply_ontology_output_payload(
         "artifact_id": str(artifact_id or uuid4()),
         "artifact_kind": "applied_ontology_extension",
         "artifact_path": "/tmp/applied_ontology_extension.json",
+    }
+
+
+def ontology_contract_runtime_payload() -> dict:
+    return {
+        "contract_path": "config/ontology/docling_ontology_contract.json",
+        "contract_schema_name": "docling_ontology_contract",
+        "contract_schema_version": "1.0",
+        "contract_version": "portable-upper-ontology-v1",
+        "contract_upper_ontology_version": "portable-upper-ontology-v1",
+        "contract_sha256": "contract-sha",
+        "contract_layer_count": 5,
+        "layer_versions": {
+            "portable_upper_core": "portable-upper-ontology-v1",
+            "docling_application": "docling-application-ontology-v0",
+        },
+        "layer_kind_versions": {
+            "upper_ontology": "portable-upper-ontology-v1",
+            "application_ontology": "docling-application-ontology-v0",
+        },
+        "ontology_slice_count": 5,
+        "ontology_slices": [
+            {
+                "slice_key": "core",
+                "status": "active",
+                "layer_keys": ["portable_upper_core"],
+                "entity_type_keys": ["document", "concept", "literal"],
+                "relation_keys": ["document_mentions_concept"],
+                "entity_type_count": 3,
+                "relation_count": 1,
+                "slice_sha256": "core-slice-sha",
+            },
+            {
+                "slice_key": "report_semantics",
+                "status": "planned",
+                "layer_keys": ["report_semantics_baseline"],
+                "entity_type_keys": [],
+                "relation_keys": [],
+                "entity_type_count": 0,
+                "relation_count": 0,
+                "slice_sha256": "report-slice-sha",
+            },
+        ],
+        "competency_family_count": 4,
+        "competency_families": [
+            {
+                "family_key": "claim_support",
+                "status": "planned",
+                "slice_keys": ["report_semantics", "evaluation_coverage"],
+            }
+        ],
     }

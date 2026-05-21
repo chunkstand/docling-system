@@ -37,7 +37,40 @@ class LatestSemanticPassTaskOutput(BaseModel):
     success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
 
 
-class ActiveOntologySnapshotPayload(BaseModel):
+class OntologySlicePayload(BaseModel):
+    slice_key: str
+    status: str = "unspecified"
+    layer_keys: list[str] = Field(default_factory=list)
+    entity_type_keys: list[str] = Field(default_factory=list)
+    relation_keys: list[str] = Field(default_factory=list)
+    entity_type_count: int = 0
+    relation_count: int = 0
+    slice_sha256: str | None = None
+
+
+class OntologyCompetencyFamilyPayload(BaseModel):
+    family_key: str
+    status: str = "unspecified"
+    slice_keys: list[str] = Field(default_factory=list)
+
+
+class OntologyContractRuntimePayload(BaseModel):
+    contract_path: str | None = None
+    contract_schema_name: str | None = None
+    contract_schema_version: str | None = None
+    contract_version: str | None = None
+    contract_upper_ontology_version: str | None = None
+    contract_sha256: str | None = None
+    contract_layer_count: int = 0
+    layer_versions: dict[str, str] = Field(default_factory=dict)
+    layer_kind_versions: dict[str, str] = Field(default_factory=dict)
+    ontology_slice_count: int = 0
+    ontology_slices: list[OntologySlicePayload] = Field(default_factory=list)
+    competency_family_count: int = 0
+    competency_families: list[OntologyCompetencyFamilyPayload] = Field(default_factory=list)
+
+
+class ActiveOntologySnapshotPayload(OntologyContractRuntimePayload):
     snapshot_id: UUID
     ontology_name: str
     ontology_version: str
@@ -195,7 +228,7 @@ class DraftOntologyExtensionTaskInput(BaseModel):
     candidate_ids: list[str] = Field(default_factory=list, max_length=50)
 
 
-class OntologyExtensionDraftPayload(BaseModel):
+class OntologyExtensionDraftPayload(OntologyContractRuntimePayload):
     base_snapshot_id: UUID
     base_ontology_version: str
     proposed_ontology_version: str
@@ -296,7 +329,7 @@ class ApplyOntologyExtensionTaskInput(BaseModel):
     reason: str | None = None
 
 
-class ApplyOntologyExtensionTaskOutput(BaseModel):
+class ApplyOntologyExtensionTaskOutput(OntologyContractRuntimePayload):
     draft_task_id: UUID
     verification_task_id: UUID
     applied_snapshot_id: UUID
@@ -317,6 +350,9 @@ __all__ = [
     "SemanticSuccessMetricCheck",
     "LatestSemanticPassTaskInput",
     "LatestSemanticPassTaskOutput",
+    "OntologySlicePayload",
+    "OntologyCompetencyFamilyPayload",
+    "OntologyContractRuntimePayload",
     "ActiveOntologySnapshotPayload",
     "InitializeWorkspaceOntologyTaskInput",
     "InitializeWorkspaceOntologyTaskOutput",

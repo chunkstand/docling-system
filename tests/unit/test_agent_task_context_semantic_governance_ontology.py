@@ -106,6 +106,8 @@ def test_build_agent_task_context_for_draft_ontology_extension_includes_source_r
     )
     assert context.refs[0].ref_kind == "task_output"
     assert context.refs[1].artifact_kind == "ontology_extension_draft"
+    assert context.output["draft"]["ontology_slice_count"] == 5
+    assert context.output["draft"]["ontology_slices"][0]["slice_key"] == "core"
 
 
 def test_build_agent_task_context_for_apply_ontology_extension_includes_dependencies() -> None:
@@ -249,3 +251,5 @@ def test_build_agent_task_context_for_apply_ontology_extension_includes_dependen
     assert context.summary.approval_state == "approved"
     assert context.summary.metrics["operation_count"] == 1
     assert [ref.ref_kind for ref in context.refs[:2]] == ["task_output", "task_output"]
+    assert context.output["ontology_slice_count"] == 5
+    assert context.output["competency_families"][0]["family_key"] == "claim_support"
