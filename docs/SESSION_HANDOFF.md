@@ -35,7 +35,7 @@ empty, already-ready, or mixed advanced DB state.
 Focused verification for the readiness chain:
 - `uv run pytest tests/unit/test_cli_entrypoints.py tests/unit/test_cli_runtime.py -q`: `16 passed`
 - `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_regression_readiness_bootstrap.py tests/integration/test_court_grade_readiness_bootstrap.py -q`: `3 passed`
-- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `2159 passed`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `2166 passed`
 - `uv run docling-system-bootstrap-court-grade-readiness --compact` succeeded
   on the live regression-only local baseline and rewrote
   `storage/evaluation_data_readiness.latest.json`.
@@ -65,25 +65,31 @@ and `exceptions=0`;
 `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
 `hotspot_count=20`, `stale_facade_hotspot_count=20`,
 `max_hotspot_risk_score=466.06`, `top_routed_hotspot_paths=[]`,
-`broader_rebaseline_candidate_count=4`, and
-`top_broader_rebaseline_paths=[app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`;
+`broader_rebaseline_candidate_count=3`, and
+`top_broader_rebaseline_paths=[app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`;
 the routed queue is empty again, but the fresh broader-rebaseline output now
-points first at the search residual family rather than back at the already
-deployed facade traps. The current broader-rebaseline governance refresh is
+points first at the remaining search harness CLI/test family rather than back
+at the already deployed service facades. The current broader-rebaseline governance refresh is
 committed locally as `8b0ea812`; it keeps `app/architecture_quality.py` at
 `522` lines by moving the shared scoring and broader-rebaseline selection logic
 into `app/architecture_quality_support.py` at `202` lines, so the queue-empty
 refresh did not shift hygiene debt back into the governance entrypoint. The
-later search span retrieval follow-on is now committed locally as `0c007206`
-(`Split search span retrieval owner`); it reduces
-`app/services/search_retrieval_primitives.py` to `312` lines, moves the span
-keyword/semantic and late-interaction path into
-`app/services/search_span_retrieval.py` at `378` lines, keeps
-`app/services/search_harnesses.py` (`627`), `app/cli_commands/search_harness.py`
-(`604`), `tests/unit/test_cli_search_harness.py` (`714`), and
+later search-harness facade follow-on now reduces
+`app/services/search_harnesses.py` to `82` lines, moves the contracts,
+registry, and reranking owners into
+`app/services/search_harness_contracts.py` (`105`),
+`app/services/search_harness_registry.py` (`291`), and
+`app/services/search_harness_reranking.py` (`203`), keeps
+`app/cli_commands/search_harness.py` (`604`),
+`tests/unit/test_cli_search_harness.py` (`714`), and
 `tests/unit/test_search_api_harnesses.py` (`764`) unchanged, and drops the
-broader rebaseline residual count from `5` to `4` without shifting debt into
-the remaining search owners. The
+broader rebaseline residual count from `4` to `3` without shifting debt into
+the remaining search owners. The new hotspot-prevention facade rule now lives
+in `app/hotspot_prevention_classifier_search_rules.py` at `129` lines so the
+shared `app/hotspot_prevention_classifier_service_rules.py` closes at `291`
+lines; the central `app/hotspot_prevention_classifier.py` only grows to `362`
+lines for route-table maintenance instead of inheriting new search-harness
+behavior. The
 latest broader-reselect closeouts are now
 deployed locally through
 `docs/semantic_registry_owner_rebaseline_milestone_plan.md` and
@@ -120,7 +126,7 @@ owners, and the deployed owner cases are `IC-3F725D0A6C91` and
 `IC-86E1D4B72F0C`.
 Current full-suite closeout gate:
 `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` passed at
-`2159 passed`.
+`2166 passed`.
 Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
 Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
 Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`

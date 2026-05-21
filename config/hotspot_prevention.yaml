@@ -586,6 +586,31 @@ known_hotspots:
       - alias_forwarder
       - explicit_forwarding_function
       - deletion
+  app/services/search_harnesses.py:
+    target_role: search harness compatibility facade
+    preferred_owner_modules:
+      - app/services/search_harness_contracts.py
+      - app/services/search_harness_registry.py
+      - app/services/search_harness_reranking.py
+    routing:
+      status: compatibility_facade_trap
+      reason: The search-harness compatibility surface is already reduced and should not be treated as the next owner packet while the extracted harness contracts, registry, and reranking modules carry the real remaining debt.
+      route_to_case_ids:
+        - IC-1D03DBFE8492
+      route_to_paths:
+        - app/services/search_harness_contracts.py
+        - app/services/search_harness_registry.py
+        - app/services/search_harness_reranking.py
+      route_to_plan_paths:
+        - docs/search_harness_facade_boundary_milestone_plan.md
+        - docs/search_compatibility_facade_boundary_milestone_plan.md
+    block_new:
+      - harness_owner_logic
+    allow:
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
+      - deletion
   app/services/retrieval_learning_artifacts.py:
     target_role: retrieval-learning reranker artifact compatibility facade
     preferred_owner_modules:

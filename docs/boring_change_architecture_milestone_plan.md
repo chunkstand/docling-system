@@ -150,6 +150,22 @@ the search-harness and CLI/test residual owners unchanged at `627`, `604`,
 `714`, and `764` lines, and advances the live broader rebaseline summary to
 `broader_rebaseline_candidate_count=4` with
 `top_broader_rebaseline_paths=[app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`.
+The later 2026-05-20 search-harness facade follow-on then reduces
+`app/services/search_harnesses.py` to `82` lines, moves harness contracts,
+registry, and reranking ownership into
+`app/services/search_harness_contracts.py` at `105`,
+`app/services/search_harness_registry.py` at `291`, and
+`app/services/search_harness_reranking.py` at `203`, keeps the remaining
+search CLI/test residual owners unchanged at `604`, `714`, and `764` lines,
+and advances the live broader rebaseline summary to
+`broader_rebaseline_candidate_count=3` with
+`top_broader_rebaseline_paths=[app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`.
+The new search-harness hotspot-prevention facade rule now lives in
+`app/hotspot_prevention_classifier_search_rules.py` at `129` lines so the
+shared `app/hotspot_prevention_classifier_service_rules.py` closes at `291`
+lines; the dispatcher root only grows to `362` lines for route-map
+maintenance, which avoids shifting the real search-harness classifier logic
+back into the broader governance owners.
 
 ## Purpose
 

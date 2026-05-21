@@ -7,6 +7,7 @@ import app.hotspot_prevention_classifier_agent_task_runtime_rules as _agent_task
 import app.hotspot_prevention_classifier_boundary_rules as _boundary_rules
 import app.hotspot_prevention_classifier_owner_rules as _owner_rules
 import app.hotspot_prevention_classifier_schema_facades as _schema_facades
+import app.hotspot_prevention_classifier_search_rules as _search_rules
 import app.hotspot_prevention_classifier_service_rules as _service_rules
 from app.hotspot_prevention_claim_support_rules import (
     classify_claim_support_evaluations_addition,
@@ -328,7 +329,8 @@ def classify_hotspot_implementation(
         "app/services/agent_task_worker.py": (
             _agent_task_runtime_rules.classify_agent_task_worker_addition
         ),
-        "app/services/search.py": _service_rules.classify_search_addition,
+        "app/services/search_harnesses.py": _search_rules.classify_search_harness_facade_addition,
+        "app/services/search.py": _search_rules.classify_search_addition,
         "app/services/semantics.py": _service_rules.classify_semantics_addition,
         "app/services/claim_support_policy_impacts.py": (
             classify_claim_support_policy_impacts_addition

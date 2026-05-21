@@ -335,8 +335,8 @@ file_budgets:
       ratchet_max_private_helpers: 1
       owner_case_id: IC-6C1B516A3F92
     app/hotspot_prevention_classifier.py:
-      max_lines: 360
-      ratchet_max_lines: 360
+      max_lines: 362
+      ratchet_max_lines: 362
       max_private_helpers: 1
       ratchet_max_private_helpers: 1
       owner_case_id: IC-6C1B516A3F92
@@ -1175,9 +1175,29 @@ file_budgets:
       max_private_helpers: 2
       ratchet_max_private_helpers: 2
       owner_case_id: IC-1D03DBFE8492
-    app/services/search_harnesses.py:
-      max_lines: 627
+    app/services/search_harness_contracts.py:
+      max_lines: 105
+      ratchet_max_lines: 105
       max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-1D03DBFE8492
+    app/services/search_harness_registry.py:
+      max_lines: 291
+      ratchet_max_lines: 291
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-1D03DBFE8492
+    app/services/search_harness_reranking.py:
+      max_lines: 203
+      ratchet_max_lines: 203
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-1D03DBFE8492
+    app/services/search_harnesses.py:
+      max_lines: 83
+      ratchet_max_lines: 83
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
       owner_case_id: IC-1D03DBFE8492
     app/services/search_metadata_supplement.py:
       max_lines: 262

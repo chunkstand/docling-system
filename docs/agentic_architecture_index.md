@@ -5,6 +5,19 @@ chat history or scanning the whole repository.
 
 ## Current Milestone Briefs
 
+- `docs/search_harness_facade_boundary_milestone_plan.md`: resolved locally in
+  the current checkout on 2026-05-20. The packet reduces
+  `app/services/search_harnesses.py` to `82` lines, moves contracts,
+  registry, and reranking ownership into
+  `app/services/search_harness_contracts.py` at `105`,
+  `app/services/search_harness_registry.py` at `291`, and
+  `app/services/search_harness_reranking.py` at `203`, keeps the reduced
+  root test at `18` lines with direct owner coverage moved to
+  `tests/unit/test_search_harness_registry.py` at `44` and
+  `tests/unit/test_search_harness_reranking.py` at `69`, and drops the live
+  broader-rebaseline candidate count to `3` with unchanged adjacent residual
+  owners at `604`, `714`, and `764` lines, leaving
+  `app/cli_commands/search_harness.py` as the next honest search-family owner.
 - `docs/search_span_retrieval_boundary_milestone_plan.md`: resolved locally in
   committed but unpushed state on 2026-05-20 through closeout commit
   `0c007206`. The packet reduces
@@ -19,8 +32,8 @@ chat history or scanning the whole repository.
 - `docs/boring_change_architecture_milestone_plan.md`: refreshed locally in
   committed but unpushed state on 2026-05-20 through closeout commit
   `8b0ea812`. The architecture-quality report now surfaces
-  `broader_rebaseline_candidate_count=4` and
-  `top_broader_rebaseline_paths=[app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`,
+  `broader_rebaseline_candidate_count=3` and
+  `top_broader_rebaseline_paths=[app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`,
   the routed queue remains at `top_routed_hotspot_paths=[]`, and the support
   split keeps `app/architecture_quality.py=522` plus
   `app/architecture_quality_support.py=202` so the broader-rebaseline refresh
@@ -137,8 +150,8 @@ chat history or scanning the whole repository.
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
   `legibility_gap_count=0`, `hotspot_count=20`,
   `max_hotspot_risk_score=466.06`,
-  `broader_rebaseline_candidate_count=4`, and
-  `top_broader_rebaseline_paths=[app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`.
+  `broader_rebaseline_candidate_count=3`, and
+  `top_broader_rebaseline_paths=[app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`.
 - The later 2026-05-19 retrieval-learning artifact owner closeout, plus the
   2026-05-20 hygiene-gate registry alignment sweep, leave the live
   improvement-case summary at `status_counts={"deployed":65}`, keep hotspot
@@ -147,9 +160,9 @@ chat history or scanning the whole repository.
   the current live architecture-quality summary at
   `stale_facade_hotspot_count=20` with `top_routed_hotspot_paths=[]`, confirm
   the full `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` gate at
-  `2159 passed`, and now surface the next honest broader-reselect family
-  through the search residual owner paths led by
-  `app/services/search_harnesses.py` rather than reopening a reduced facade,
+  `2166 passed`, and now surface the next honest broader-reselect family
+  through the remaining search harness CLI/test owner paths led by
+  `app/cli_commands/search_harness.py` rather than reopening a reduced facade,
   while keeping
   `app/services/retrieval_learning_artifacts.py` recorded as a
   compatibility-facade trap without transferring debt into adjacent

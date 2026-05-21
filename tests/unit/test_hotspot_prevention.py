@@ -27,6 +27,11 @@ def test_analyzer_flags_obvious_implementation_growth_for_each_hotspot() -> None
         ),
         ("app/services/search.py", ["def _rank_new():", "    return 1"], "query_feature_helper"),
         (
+            "app/services/search_harnesses.py",
+            ["def build_review_harness_registry():", "    return {}"],
+            "harness_owner_logic",
+        ),
+        (
             "app/services/claim_support_policy_impacts.py",
             ["def _build_replay_alert_worklist():", "    return []"],
             "alert_projection_or_escalation_logic",
