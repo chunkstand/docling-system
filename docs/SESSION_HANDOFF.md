@@ -78,7 +78,12 @@ root under `IC-5C9B1A4D7E2F`, keeps
 `tests/unit/test_search_api_learning_audit.py` unchanged as the adjacent
 error-path owner at `228` lines, and leaves no active broader-rebaseline
 candidate in the current checkout. Future code-owning work now requires a
-fresh live rebaseline rather than reopening a queued harness packet. The later
+fresh live rebaseline rather than reopening a queued harness packet. A new
+standalone optional follow-on now exists in
+`docs/db_models_caller_migration_boundary_milestone_plan.md` for proactive
+`app.db.models` import-gravity reduction; it is not the live queued packet and
+should only be used when explicitly choosing fan-in paydown over queue-driven
+work. The later
 governance gap-close then adds
 `tests/unit/test_hotspot_prevention_search_api_harness_routes.py` plus the
 matching hotspot-governance classifier support and hotspot-policy contract

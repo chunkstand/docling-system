@@ -52,6 +52,11 @@ Current live routing state in the current checkout:
 `top_broader_rebaseline_paths=[]`,
 `status_counts={"deployed":67}`, and
 `architecture_probe.py --fail-on-cycles` reports `0` Python cycle components.
+The queue is therefore empty by the repo’s operational signals. A separate
+standalone optional follow-on now exists in
+`docs/db_models_caller_migration_boundary_milestone_plan.md` for proactive
+`app.db.models` caller-migration work, but it is not a queue-selected packet
+and should not override a future fresh live rebaseline.
 The later
 2026-05-19 registry-alignment sweep also deploys the stale reduced-root
 agent-task, claim-support, action-test, and UI bootstrap cases left behind by

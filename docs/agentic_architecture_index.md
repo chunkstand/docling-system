@@ -11,6 +11,14 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
 
 ## Current Milestone Briefs
 
+- `docs/db_models_caller_migration_boundary_milestone_plan.md`: proposed
+  locally in the current checkout on 2026-05-20 as a standalone optional
+  follow-on for proactive `app.db.models` import-gravity paydown. The live
+  queue remains empty, but the brief records the next deliberate contract
+  change if we choose to reduce the `337`-import fan-in by adding bounded
+  `app/db/public/*` caller facades, ratcheting direct `app.db.models` imports
+  downward, and migrating legacy callers off the monolithic shim without
+  reopening ORM ownership splits.
 - `docs/search_api_harness_route_surface_boundary_milestone_plan.md`:
   resolved locally in the current checkout on 2026-05-20. The packet reduces
   `tests/unit/test_search_api_harnesses.py` to a `40`-line route-registration
