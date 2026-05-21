@@ -56,9 +56,12 @@ prose, filenames, or manual seed-file edits.
 - `tests/unit/test_ontology_evolution_lifecycle_baseline.py`,
   `tests/unit/test_agent_task_actions_ontology.py`,
   `tests/unit/test_agent_task_context_semantic_governance_ontology.py`, and
-  `tests/integration/test_portable_ontology_roundtrip.py` now prove generic
-  lifecycle mutations and preview or apply adoption, but they do not yet prove
-  overlay-scoped authoring, overlay lineage, or per-corpus mapping safety.
+  the split portable ontology lifecycle family in
+  `tests/integration/test_portable_ontology_roundtrip_lifecycle_draft.py` and
+  `tests/integration/test_portable_ontology_roundtrip_lifecycle_apply.py` now
+  prove generic lifecycle mutations and preview or apply adoption, but they do
+  not yet prove overlay-scoped authoring, overlay lineage, or per-corpus
+  mapping safety.
 
 ## Goal
 

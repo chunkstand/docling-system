@@ -41,7 +41,7 @@ direct_import_budgets:
       - tests/integration/test_claim_support_policy_change_impacts_replay_alert_prevalidation.py
       - tests/integration/test_claim_support_policy_mined_failures_roundtrip.py
       - tests/integration/test_eval_workbench_roundtrip.py
-      - tests/integration/test_portable_ontology_roundtrip.py
+      - tests/integration/portable_ontology_roundtrip_support.py
       - tests/integration/test_semantic_bootstrap_roundtrip.py
       - tests/integration/test_semantic_candidate_roundtrip.py
       - tests/integration/test_semantic_generation_roundtrip.py

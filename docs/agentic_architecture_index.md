@@ -38,7 +38,7 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
   `document_mentions_concept` or the canonical report-semantics family. The
   negative-path minimal-registry gate now lives in
   `tests/integration/test_semantic_backfill_roundtrip.py`, while
-  `tests/integration/test_portable_ontology_roundtrip.py` now boots a richer
+  `tests/integration/test_portable_ontology_roundtrip_domain_flow.py` now boots a richer
   portable seed that proves `report_semantics_ready=true` under the same route.
   Focused ontology/backfill closeout coverage now passes at `25 passed`,
   full DB-backed verification remains green at `2203 passed` with `1` docling
@@ -61,9 +61,11 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
   apply unless every non-additive operation has explicit document-level
   preview evidence. The packet now supports structured
   split/merge/deprecate/replace/migrate ontology draft operations without a
-  parallel task family, focused verification is green at `21 passed` plus
-  `6 passed`, and Milestone 3 closes the packet by routing the remaining
-  overlay-specific work into
+  parallel task family, the former 972-line portable ontology integration root
+  is now split into focused domain-flow and lifecycle entrypoints over shared
+  support modules, focused verification is green at `21 passed` plus `6 passed`,
+  and Milestone 3 closes the packet by routing the remaining overlay-specific
+  work into
   `docs/domain_overlay_authoring_boundary_milestone_plan.md` instead of
   reopening the lifecycle lane.
 - `docs/production_trap_set_centrality_reduction_milestone_plan.md`:

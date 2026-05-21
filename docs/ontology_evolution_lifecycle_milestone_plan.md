@@ -78,9 +78,15 @@ can evolve without hidden manual rewrites or silent semantic drift.
   current draft/verify/apply ontology payload fields, while
   `tests/unit/test_agent_task_actions_ontology.py`,
   `tests/unit/test_agent_task_context_semantic_governance_ontology.py`, and
-  `tests/integration/test_portable_ontology_roundtrip.py` now prove the new
-  manual lifecycle draft path plus the document-preview verification and apply
-  adoption path through the real task worker stack.
+  the split portable ontology lifecycle family in
+  `tests/integration/test_portable_ontology_roundtrip_lifecycle_draft.py` and
+  `tests/integration/test_portable_ontology_roundtrip_lifecycle_apply.py` now
+  prove the new manual lifecycle draft path plus the document-preview
+  verification and apply adoption path through the real task worker stack.
+- `tests/integration/test_portable_ontology_roundtrip.py` no longer remains as
+  a 972-line mixed owner in the lifecycle packet. The roundtrip family now
+  closes under the packet placement rules through focused domain-flow and
+  lifecycle entrypoints over shared support modules.
 - `docs/domain_overlay_authoring_boundary_milestone_plan.md` now owns the
   remaining corpus-scoped overlay authoring gap. Current lifecycle owners stay
   closed because live repo searches across their task, schema, and mutation

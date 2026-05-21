@@ -7,7 +7,7 @@ readiness metadata in `app/schemas/semantic_backfill.py` and
 `app/services/semantic_backfill.py`, proves the negative-path minimal-registry
 gate in `tests/integration/test_semantic_backfill_roundtrip.py`, proves the
 positive-path richer portable seed in
-`tests/integration/test_portable_ontology_roundtrip.py`, and routes the
+`tests/integration/test_portable_ontology_roundtrip_domain_flow.py`, and routes the
 remaining non-additive ontology evolution work into
 `docs/ontology_evolution_lifecycle_milestone_plan.md`.
 Owner context: standalone semantic contract follow-on after
@@ -127,7 +127,7 @@ Current structural evidence:
   five slice expectations, four competency-family expectations, and eight
   competency questions, and `docs/ontology_evaluation_report.json` records the
   resulting dedicated ontology gate as a repo-owned artifact.
-- `tests/integration/test_portable_ontology_roundtrip.py` now boots a richer
+- `tests/integration/test_portable_ontology_roundtrip_domain_flow.py` now boots a richer
   portable upper-ontology seed that carries the full canonical
   report-semantics relation family, and the integration lane proves the same
   `/semantics/backfill/status` payload turns `report_semantics_ready=true`
@@ -260,7 +260,7 @@ Out of scope:
   `tests/unit/test_agent_task_context_semantic.py`,
   `tests/unit/test_agent_task_context_semantic_governance.py`,
   `tests/unit/test_agent_task_context_semantic_governance_ontology.py`,
-  `tests/integration/test_portable_ontology_roundtrip.py`,
+  `tests/integration/test_portable_ontology_roundtrip_domain_flow.py`,
   `tests/integration/test_semantic_bootstrap_roundtrip.py`,
   `tests/integration/test_semantic_backfill_roundtrip.py`,
   `tests/integration/test_semantic_graph_roundtrip.py`,
@@ -562,7 +562,7 @@ Closure signal:
 
 - `git diff --check`
 - `uv run pytest -q tests/unit/test_semantic_registry_contracts.py tests/unit/test_semantic_ontology_contract_exports.py tests/unit/test_semantic_orchestration.py tests/unit/test_semantic_backfill_api.py tests/unit/test_semantic_graph.py tests/unit/test_documents_api_semantics.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_context_semantic_analysis.py tests/unit/test_agent_task_context_semantic.py tests/unit/test_agent_task_context_semantic_governance.py tests/unit/test_agent_task_context_semantic_governance_ontology.py`
-- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_portable_ontology_roundtrip.py tests/integration/test_semantic_bootstrap_roundtrip.py tests/integration/test_semantic_backfill_roundtrip.py tests/integration/test_semantic_graph_roundtrip.py tests/integration/test_semantic_governance_ledger.py tests/integration/test_agent_task_semantic_orchestration_roundtrip.py`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_portable_ontology_roundtrip_domain_flow.py tests/integration/test_semantic_bootstrap_roundtrip.py tests/integration/test_semantic_backfill_roundtrip.py tests/integration/test_semantic_graph_roundtrip.py tests/integration/test_semantic_governance_ledger.py tests/integration/test_agent_task_semantic_orchestration_roundtrip.py`
 - `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
 - `uv run docling-system-ontology-contract-validate --strict`
 - `uv run docling-system-ontology-contract-report --output docs/ontology_contract_report.md`

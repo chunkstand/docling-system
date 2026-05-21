@@ -35,10 +35,12 @@ now carries structured `successor_concepts`, and
 lifecycle operations without forcing a source task. The ontology action owner
 uses the same `draft_ontology_extension` task family for both source-driven
 additive drafts and manual lifecycle drafts, and the updated
-`tests/unit/test_ontology_evolution_lifecycle_baseline.py` plus
-`tests/integration/test_portable_ontology_roundtrip.py` prove the new
-machine-readable split/merge/deprecate/replace/migrate surface through the
-real task worker path. Milestone 2 then adds
+`tests/unit/test_ontology_evolution_lifecycle_baseline.py` plus the split
+portable ontology lifecycle family in
+`tests/integration/test_portable_ontology_roundtrip_lifecycle_draft.py` and
+`tests/integration/test_portable_ontology_roundtrip_lifecycle_apply.py` prove
+the new machine-readable split/merge/deprecate/replace/migrate surface through
+the real task worker path. Milestone 2 then adds
 `app/services/semantic_ontology_lifecycle_previews.py` as the focused owner
 for per-operation document preview evidence, extends
 `VerifyDraftOntologyExtensionTaskOutput` and `ApplyOntologyExtensionTaskOutput`
@@ -47,12 +49,14 @@ record details, and blocks lifecycle apply unless every non-additive
 operation has explicit document-level preview evidence from verification.
 
 Milestone 3 now closes the packet by refreshing the plan, handoff, and index
-surfaces and by routing the remaining overlay-specific follow-on into
-`docs/domain_overlay_authoring_boundary_milestone_plan.md`. Focused
-verification for the closed lifecycle preview/apply slice:
-- `uv run ruff check app/schemas/agent_task_semantics.py app/services/semantic_ontology.py app/services/semantic_ontology_lifecycle_previews.py app/services/agent_actions/semantic_governance_ontology_actions.py app/services/agent_task_context_semantic_governance_ontology.py tests/unit/agent_task_context_semantic_governance_support.py tests/unit/test_ontology_evolution_lifecycle_baseline.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_context_semantic_governance_ontology.py tests/integration/test_portable_ontology_roundtrip.py`: pass
+surfaces, routing the remaining overlay-specific follow-on into
+`docs/domain_overlay_authoring_boundary_milestone_plan.md`, and removing the
+former 972-line portable ontology integration owner by splitting it into
+focused domain-flow and lifecycle entrypoints over shared support modules.
+Focused verification for the closed lifecycle preview/apply slice:
+- `uv run ruff check app/schemas/agent_task_semantics.py app/services/semantic_ontology.py app/services/semantic_ontology_lifecycle_previews.py app/services/agent_actions/semantic_governance_ontology_actions.py app/services/agent_task_context_semantic_governance_ontology.py tests/unit/agent_task_context_semantic_governance_support.py tests/unit/test_ontology_evolution_lifecycle_baseline.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_context_semantic_governance_ontology.py tests/integration/test_portable_ontology_roundtrip_lifecycle_draft.py tests/integration/test_portable_ontology_roundtrip_lifecycle_apply.py`: pass
 - `uv run pytest -q tests/unit/test_ontology_evolution_lifecycle_baseline.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_context_semantic_governance_ontology.py tests/unit/test_semantic_orchestration.py`: `21 passed`
-- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_portable_ontology_roundtrip.py tests/integration/test_semantic_bootstrap_roundtrip.py tests/integration/test_agent_task_semantic_orchestration_roundtrip.py`: `6 passed`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_portable_ontology_roundtrip_lifecycle_draft.py tests/integration/test_portable_ontology_roundtrip_lifecycle_apply.py tests/integration/test_semantic_bootstrap_roundtrip.py tests/integration/test_agent_task_semantic_orchestration_roundtrip.py`: `6 passed`
 - `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `2214 passed`, `1` docling deprecation warning
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
 - `uv run docling-system-hotspot-prevention-check --strict`: `blocked=0`, `allowed=0`, `exceptions=0`
@@ -72,7 +76,7 @@ family, which means the default minimal compatibility views are reported
 honestly as not report-ready instead of looking green on generic concept
 presence alone. The negative-path minimal-registry behavior is now covered by
 `tests/integration/test_semantic_backfill_roundtrip.py`, while
-`tests/integration/test_portable_ontology_roundtrip.py` now boots a richer
+`tests/integration/test_portable_ontology_roundtrip_domain_flow.py` now boots a richer
 portable upper-ontology seed with the full canonical report-semantics relation
 family and proves the same status route turns `report_semantics_ready=true`
 with an empty missing-relation list under that richer seed.
@@ -95,8 +99,8 @@ which in turn routes the remaining corpus-scoped overlay authoring gap into
 `docs/domain_overlay_authoring_boundary_milestone_plan.md`.
 
 Focused verification for the current ontology-contract closeout:
-- `uv run ruff check app/services/semantic_backfill.py app/schemas/semantic_backfill.py tests/unit/test_semantic_backfill_api.py tests/integration/test_semantic_backfill_roundtrip.py tests/integration/test_portable_ontology_roundtrip.py`: pass
-- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/unit/test_semantic_backfill_api.py tests/unit/test_ontology_contracts.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_context_semantic_governance_ontology.py tests/integration/test_semantic_backfill_roundtrip.py tests/integration/test_portable_ontology_roundtrip.py tests/integration/test_semantic_bootstrap_roundtrip.py tests/integration/test_semantic_graph_roundtrip.py tests/integration/test_semantic_governance_ledger.py tests/integration/test_agent_task_semantic_orchestration_roundtrip.py`: `25 passed`
+- `uv run ruff check app/services/semantic_backfill.py app/schemas/semantic_backfill.py tests/unit/test_semantic_backfill_api.py tests/integration/test_semantic_backfill_roundtrip.py tests/integration/test_portable_ontology_roundtrip_domain_flow.py`: pass
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/unit/test_semantic_backfill_api.py tests/unit/test_ontology_contracts.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_context_semantic_governance_ontology.py tests/integration/test_semantic_backfill_roundtrip.py tests/integration/test_portable_ontology_roundtrip_domain_flow.py tests/integration/test_semantic_bootstrap_roundtrip.py tests/integration/test_semantic_graph_roundtrip.py tests/integration/test_semantic_governance_ledger.py tests/integration/test_agent_task_semantic_orchestration_roundtrip.py`: `25 passed`
 - `git diff --check`: pass
 - `uv run docling-system-ontology-contract-validate --strict`: pass
 - `uv run docling-system-ontology-contract-report --strict --output docs/ontology_contract_report.md`: pass
