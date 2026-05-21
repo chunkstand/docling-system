@@ -32,7 +32,7 @@ from app.services.claim_support_policy_impact_views import (
     get_impact_row,
     uuid_list,
 )
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 from app.services.semantic_governance import (
     active_semantic_basis,
     record_semantic_governance_event,

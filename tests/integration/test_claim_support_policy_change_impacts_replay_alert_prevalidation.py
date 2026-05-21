@@ -10,12 +10,10 @@ from app.core.time import utcnow
 from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact
 from app.db.public.claim_support import ClaimSupportPolicyChangeImpact
 from app.db.public.semantic_memory import SemanticGovernanceEvent
-from app.schemas.agent_tasks import AgentTaskCreateRequest
+from app.schemas.agent_task_core import AgentTaskCreateRequest
 from app.services.agent_tasks import create_agent_task
-from app.services.evidence import (
-    get_agent_task_audit_bundle,
-    get_agent_task_evidence_manifest,
-)
+from app.services.evidence_audit_views_bundle import get_agent_task_audit_bundle
+from app.services.evidence_manifests import get_agent_task_evidence_manifest
 from tests.integration.claim_support_policy_change_impacts_replay_alert_support import (
     _seed_replay_alert_change_impact_state,
 )

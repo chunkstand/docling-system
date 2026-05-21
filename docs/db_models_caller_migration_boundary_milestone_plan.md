@@ -6,9 +6,10 @@ completed the `app.db.models` caller migration by adding bounded
 `app/db/public/*` facades, moving ordinary production and routine test callers
 onto the narrow public modules, and leaving the legacy shim behind an explicit
 machine-checked allowlist. The newer
-`docs/production_trap_set_centrality_reduction_milestone_plan.md` remains the
-broader optional follow-on for the remaining governed production trap set, but
-this DB-only fan-in lane is no longer an open subpacket underneath it.
+`docs/production_trap_set_centrality_reduction_milestone_plan.md` is now also
+resolved locally; this DB-only fan-in lane closed first and now remains the
+bounded `app.db.models` sublane inside the broader production trap-set
+closeout rather than an open packet underneath it.
 Owner context: [app/db/models.py](/Users/chunkstand/Documents/docling-system/app/db/models.py:1)
 is already the governed public compatibility facade under
 `IC-F2A8110185EB`; the remaining debt is importer gravity, not remaining ORM
@@ -75,7 +76,7 @@ rebuild the current `337`-import gravity.
   `app/services/semantic*`.
 - The latest architecture probe no longer lists `app.db.models` in the top
   import fan-in table. The new bounded public roots now absorb that caller
-  gravity with `app.db.public.agent_tasks=173`,
+  gravity with `app.db.public.agent_tasks=172`,
   `app.db.public.retrieval=80`, `app.db.public.ingest=69`,
   `app.db.public.semantic_memory=68`,
   `app.db.public.audit_and_evidence=55`,
@@ -103,8 +104,9 @@ rebuild the current `337`-import gravity.
 ## Alignment And Debt-Shift Review
 
 - The active packet docs, handoff, architecture index, and broader trap-set
-  brief now agree that this DB caller-migration lane is resolved locally and
-  is no longer an open queued subpacket.
+  brief now agree that both this DB caller-migration lane and the umbrella
+  production trap-set packet are resolved locally rather than remaining open
+  queued subpackets.
 - The packet-local debt-shift audit over closeout commit `4284cd5d` stayed
   bounded: `app/db/public/*` closes at `5` to `75` lines, direct
   `app.db.models` imports fell from `337` to `9`, and no ordinary caller now

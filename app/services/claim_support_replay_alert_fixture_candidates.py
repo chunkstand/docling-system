@@ -22,7 +22,7 @@ from app.services.claim_support_policy_impact_alerts import (
 from app.services.claim_support_replay_alert_promotions import (
     fixture_promotion_events_by_candidate,
 )
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 
 
 def _looks_like_technical_report_draft(payload: Any) -> bool:

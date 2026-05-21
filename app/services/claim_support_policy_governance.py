@@ -5,7 +5,7 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.core.hashes import hmac_sha256_hex as _signature_value
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 
 CLAIM_SUPPORT_POLICY_CHANGE_IMPACT_HASH_FIELD = (
     "activation_change_impact_payload_sha256"

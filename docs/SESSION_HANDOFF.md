@@ -35,7 +35,7 @@ empty, already-ready, or mixed advanced DB state.
 Focused verification for the readiness chain:
 - `uv run pytest tests/unit/test_cli_entrypoints.py tests/unit/test_cli_runtime.py -q`: `16 passed`
 - `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_regression_readiness_bootstrap.py tests/integration/test_court_grade_readiness_bootstrap.py -q`: `3 passed`
-- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `2169 passed`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `2195 passed`
 - `uv run docling-system-bootstrap-court-grade-readiness --compact` succeeded
   on the live regression-only local baseline and rewrote
   `storage/evaluation_data_readiness.latest.json`.
@@ -58,13 +58,13 @@ Current architecture control snapshot from the live 2026-05-20 checkout:
 `uv run docling-system-hygiene-check` reports `inherited budget debt: none`
 and `new hygiene regressions: none`;
 `uv run docling-system-hotspot-prevention-check --strict` reports `blocked=0`,
-`allowed=1`, and `exceptions=0`;
+`allowed=25`, and `exceptions=1`;
 `uv run docling-system-architecture-inspect` remains `valid=true` with
 `violation_count=0`;
 `uv run docling-system-architecture-quality-report --summary` reports
 `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
-`hotspot_count=20`, `stale_facade_hotspot_count=20`,
-`max_hotspot_risk_score=466.06`, `top_routed_hotspot_paths=[]`,
+`hotspot_count=20`, `stale_facade_hotspot_count=12`,
+`max_hotspot_risk_score=461.06`, `top_routed_hotspot_paths=[]`,
 `broader_rebaseline_candidate_count=0`, and
 `top_broader_rebaseline_paths=[]`; the latest search API harness route-surface
 follow-on is committed locally as `e16f2b6c`. It reduces
@@ -78,41 +78,34 @@ root under `IC-5C9B1A4D7E2F`, keeps
 `tests/unit/test_search_api_learning_audit.py` unchanged as the adjacent
 error-path owner at `228` lines, and leaves no active broader-rebaseline
 candidate in the current checkout. Future code-owning work now requires a
-fresh live rebaseline rather than reopening a queued harness packet. A newer
-standalone optional follow-on now exists in
-`docs/production_trap_set_centrality_reduction_milestone_plan.md` for
-proactive reduction of the remaining governed production trap set:
-`app/db/models.py`, `app/services/evidence.py`,
-`app/schemas/agent_tasks.py`, `app/services/agent_tasks.py`,
-`app/services/agent_task_actions.py`, `app/services/audit_bundles.py`,
-`app/services/search.py`, and `app/cli.py`. The packet is deliberately
-gate-first and not queue-selected: it starts with a live selected-root census,
-adds importer and fan-out ratchets, absorbs the narrower
-`docs/db_models_caller_migration_boundary_milestone_plan.md` as the DB
-caller-migration lane, and requires an accepted-legacy closeout for any root
-that intentionally remains in `routing_trap_paths`. That narrower DB-only
-lane is now also resolved locally: bounded `app/db/public/*` facades exist for
-the nine model families, the repo-owned
-`config/db_model_import_policy.yaml` plus
-`tests/unit/test_db_model_public_import_routes.py` gate now owns the exact
-allowlist and import-count ratchet, and the direct `app.db.models` census is
-down from the Milestone 0 `337`-import gravity to the explicit `9`-file
-compatibility and metadata allowlist (`0` under `app/`). The latest
-architecture probe shows the caller gravity now absorbed by the bounded public
-roots instead of the monolithic shim:
-`app.db.public.agent_tasks=173`, `app.db.public.retrieval=80`,
+fresh live rebaseline rather than reopening a queued harness packet. The later
+production trap-set centrality packet is now also resolved locally in the
+current checkout. It adds the repo-owned
+`config/production_trap_set_centrality_budget.yaml` plus
+`tests/unit/test_trap_set_caller_routes.py` and
+`tests/unit/test_trap_set_centrality_budget.py`, absorbs the narrower
+`docs/db_models_caller_migration_boundary_milestone_plan.md` lane, reduces the
+selected direct-import roots to `app.db.models 337 -> 9`,
+`app.services.evidence 42 -> 2`, `app.services.agent_tasks 26 -> 24`, and
+`app.schemas.agent_tasks 37 -> 1`, and reduces the selected fan-out roots to
+`app/services/agent_task_actions.py 18 -> 15`,
+`app/services/search.py 12 -> 9`,
+`app/services/audit_bundles.py 15 -> 8`, and `app/cli.py 4 -> 1`. The latest
+architecture probe shows the DB caller gravity now absorbed by the bounded
+public roots instead of the monolithic shim:
+`app.db.public.agent_tasks=172`, `app.db.public.retrieval=80`,
 `app.db.public.ingest=69`, `app.db.public.semantic_memory=68`,
 `app.db.public.audit_and_evidence=55`, `app.db.public.claim_support=40`, and
-`app.db.public.document_artifacts=38`. Use the broader trap-set packet only
-when explicitly choosing centrality paydown for the remaining roots over
-queue-driven work. A packet-local debt-shift audit over closeout commit
-`4284cd5d` stayed bounded: the new public DB facades close at `5` to `75`
-lines, no ordinary caller now imports `app.db.model_domains.*`, no Python
-cycles or architecture findings reopened, no changed Python file crossed
-upward through the `600` or `800` line thresholds, and the only selected-root
-fan-out increase was the intentional `app/services/audit_bundles.py`
-`14 -> 15` tradeoff caused by replacing one monolithic DB facade import with
-bounded retrieval plus audit-and-evidence public-module imports. The later
+`app.db.public.document_artifacts=38`. `config/hotspot_prevention.yaml` now
+records the remaining production trap roots as explicit `accepted_residual`
+surfaces with named successor owners, and the only retained exception is the
+bounded `audit-bundle-owner-coordination-runtime-routing` seam under
+`IC-7C9A4E2B1D55` for
+`app/services/audit_bundle_release_imports.py`. A packet-local debt-shift
+audit stayed bounded: no ordinary caller now imports `app.db.model_domains.*`,
+no Python cycle or architecture finding reopened, no new hygiene regression
+appeared, and no changed Python file crossed upward through the `600` or
+`800` thresholds. The later
 governance gap-close then adds
 `tests/unit/test_hotspot_prevention_search_api_harness_routes.py` plus the
 matching hotspot-governance classifier support and hotspot-policy contract
@@ -155,6 +148,19 @@ Latest DB caller-migration packet verification:
 - `uv run docling-system-improvement-case-summary`: `status_counts={"deployed":67}`
 - `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
 - `uv run docling-system-architecture-quality-report --summary`: `top_routed_hotspot_paths=[]`, `broader_rebaseline_candidate_count=0`, `max_hotspot_risk_score=466.06`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles`: pass, `Python cycles: none detected`
+Latest production trap-set centrality packet verification:
+- `uv run ruff check $(git diff --name-only -- '*.py')`: pass
+- `uv run pytest -q tests/unit/test_trap_set_caller_routes.py tests/unit/test_trap_set_centrality_budget.py tests/unit/test_hotspot_prevention_policy_validation.py tests/unit/test_cli_ingest.py tests/unit/test_cli_entrypoints.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py tests/unit/test_agent_task_context_freshness.py tests/unit/test_agent_task_verifications_semantics.py tests/unit/test_agent_task_actions_search_harness_drafting.py tests/unit/test_agent_task_actions_search_harness_apply.py tests/unit/test_agent_task_actions_semantic_documents.py tests/unit/test_agent_task_triage.py tests/unit/test_agent_tasks_creation.py tests/unit/test_agent_tasks_lifecycle.py tests/unit/test_agent_task_actions_semantic_registry.py tests/unit/test_agent_task_verifications_search_harness.py tests/unit/test_claim_support_policy_impact_views.py tests/unit/test_agent_task_actions_semantic_graph.py tests/unit/test_technical_report_verification.py tests/unit/test_technical_reports.py tests/unit/test_agent_tasks_analytics.py tests/unit/test_agent_task_schema_facade_contract.py tests/unit/test_evidence_facade_contract.py tests/unit/test_evidence_provenance.py`: `144 passed`
+- `uv run pytest -q tests/unit/test_audit_bundles_facade_contract.py tests/unit/test_cli_search_harness_audit.py tests/unit/test_search_api_harness_audits.py`: `10 passed`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `2195 passed`, `1` docling deprecation warning
+- `uv run docling-system-hotspot-prevention-check --strict`: `blocked=0`, `allowed=25`, `exceptions=1`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-improvement-case-validate`: `valid=true`
+- `uv run docling-system-improvement-case-summary`: `status_counts={"deployed":67}`
+- `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
+- `uv run docling-system-architecture-quality-report --summary`: `top_routed_hotspot_paths=[]`, `broader_rebaseline_candidate_count=0`, `stale_facade_hotspot_count=12`, `max_hotspot_risk_score=461.06`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 25`: `app/services/search.py=229`, `app/services/audit_bundles.py=513`, `app/cli.py=146`, `app/services/agent_task_actions.py=146`; `Python cycles: none detected`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles`: pass, `Python cycles: none detected`
 `docs/search_harness_cli_facade_boundary_milestone_plan.md` follow-on then
 reduces `app/cli_commands/search_harness.py` to `23` lines, moves shared parser support into

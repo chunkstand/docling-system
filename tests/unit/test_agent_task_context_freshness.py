@@ -8,7 +8,7 @@ from fastapi import HTTPException
 
 from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact, AgentTaskDependency
 from app.db.public.retrieval import SearchReplayRun
-from app.schemas.agent_tasks import ContextFreshnessStatus, ContextRef, TaskContextEnvelope
+from app.schemas.agent_task_core import ContextFreshnessStatus, ContextRef, TaskContextEnvelope
 from app.services.agent_task_context import (
     refresh_task_context_freshness,
     resolve_required_dependency_task_output_context,

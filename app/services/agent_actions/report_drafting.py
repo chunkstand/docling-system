@@ -17,14 +17,14 @@ from app.services.agent_task_context import (
 from app.services.agent_task_verifications import (
     create_agent_task_verification_record,
 )
-from app.services.evidence import (
+from app.services.evidence_manifests import persist_technical_report_evidence_manifest
+from app.services.evidence_operator_runs import record_knowledge_operator_run
+from app.services.evidence_search_closure import technical_report_search_evidence_closure_payload
+from app.services.evidence_technical_report_export_lifecycle import (
     attach_artifact_to_evidence_export,
     attach_operator_run_to_evidence_export,
     persist_technical_report_evidence_export,
-    persist_technical_report_evidence_manifest,
-    technical_report_search_evidence_closure_payload,
 )
-from app.services.evidence_operator_runs import record_knowledge_operator_run
 from app.services.storage import StorageService
 from app.services.technical_reports import (
     apply_technical_report_claim_support_judgments,

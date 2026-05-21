@@ -15,7 +15,7 @@ from app.services.claim_support_policy_governance import (
     CLAIM_SUPPORT_POLICY_CHANGE_IMPACT_HASH_FIELD,
     claim_support_policy_change_impact_payload_sha256,
 )
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 
 
 def _seed_impacted_technical_report_records(session) -> dict[str, UUID | str]:

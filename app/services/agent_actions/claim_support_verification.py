@@ -39,9 +39,7 @@ from app.services.claim_support_policy_impacts import (
 from app.services.claim_support_replay_alert_waivers import (
     record_replay_alert_fixture_coverage_waiver_ledger,
 )
-from app.services.evidence import (
-    payload_sha256,
-)
+from app.services.evidence_common import payload_sha256
 from app.services.evidence_operator_runs import record_knowledge_operator_run
 from app.services.storage import StorageService
 

@@ -14,9 +14,7 @@ from app.schemas.agent_task_reports import (
     TechnicalReportPlanPayload,
 )
 from app.services import technical_report_planning
-from app.services.evidence import (
-    apply_technical_report_derivation_links,
-)
+from app.services.evidence_technical_report_exports import apply_technical_report_derivation_links
 from app.services.report_shared import source_evidence_match_status as _source_evidence_match_status
 from app.services.semantic_generation import prepare_semantic_generation_brief
 from app.services.technical_report_claim_support import (

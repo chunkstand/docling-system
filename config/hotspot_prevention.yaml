@@ -77,8 +77,8 @@ known_hotspots:
     preferred_owner_modules:
       - app/db/model_domains/
     routing:
-      status: compatibility_facade_trap
-      reason: The public app.db.models facade is intentionally high fan-in, but the routed owner-family work now lives in the extracted domain modules and shared compatibility tests rather than back in app/db/models.py itself.
+      status: accepted_residual
+      reason: The legacy ORM shim now has a repo-owned import allowlist and zero ordinary app callers, so future work should route to the extracted domain owners or the dedicated DB import policy instead of reopening app/db/models.py.
       route_to_case_ids:
         - IC-46C5B38A1D2E
         - IC-7D8AE7C83B8F
@@ -92,6 +92,7 @@ known_hotspots:
       route_to_plan_paths:
         - docs/db_models_compatibility_facade_milestone_plan.md
         - docs/db_models_residual_owner_family_milestone_plan.md
+        - docs/production_trap_set_centrality_reduction_milestone_plan.md
     block_new:
       - orm_class
       - enum
@@ -163,8 +164,8 @@ known_hotspots:
       - app/schemas/agent_task_semantic_graph.py
       - app/schemas/agent_task_semantics.py
     routing:
-      status: deferred_reduced_facade
-      reason: The schema facade is already reduced to a narrow re-export surface, so future routing should target the focused schema owners or broader residual backlog work instead of reopening app/schemas/agent_tasks.py by default.
+      status: accepted_residual
+      reason: The schema facade now has an exact caller allowlist and no production app importers, so future routing should target the focused schema owners instead of reopening app/schemas/agent_tasks.py.
       route_to_case_ids:
         - IC-24F3558D6091
       route_to_paths:
@@ -178,6 +179,7 @@ known_hotspots:
       route_to_plan_paths:
         - docs/agent_task_schema_aggregation_boundary_milestone_plan.md
         - docs/residual_large_file_backlog_milestone_plan.md
+        - docs/production_trap_set_centrality_reduction_milestone_plan.md
     block_new:
       - schema_definition
       - broad_reexport_batch
@@ -225,8 +227,8 @@ known_hotspots:
     preferred_owner_modules:
       - app/services/evidence_*.py
     routing:
-      status: compatibility_facade_trap
-      reason: The evidence facade is already a narrow compatibility seam; routed follow-on work belongs in the extracted evidence owner-family modules and packets, not in app/services/evidence.py itself.
+      status: accepted_residual
+      reason: The evidence facade now closes under an exact compatibility-test allowlist, so future work belongs in the extracted evidence owners instead of reopening app/services/evidence.py.
       route_to_case_ids:
         - IC-65AF4A6D8B1E
       route_to_paths:
@@ -237,6 +239,7 @@ known_hotspots:
       route_to_plan_paths:
         - docs/evidence_hotspot_owner_milestone_plan.md
         - docs/evidence_residual_owner_family_milestone_plan.md
+        - docs/production_trap_set_centrality_reduction_milestone_plan.md
     block_new:
       - private_helper
       - payload_builder
@@ -296,11 +299,11 @@ known_hotspots:
       - app/services/audit_bundle_release_payload_prov.py
       - app/services/audit_bundle_release_payloads.py
     routing:
-      status: compatibility_facade_trap
-      reason: The audit-bundles root is already a narrow compatibility facade,
-        so routed ownership belongs in the extracted validation-receipt,
+      status: accepted_residual
+      reason: The audit-bundles facade now has a ratcheted owner-import budget,
+        so future work belongs in the extracted validation-receipt,
         training-run, and release-payload owners instead of reopening
-        app/services/audit_bundles.py by default.
+        app/services/audit_bundles.py.
       route_to_case_ids:
         - IC-2112B1ADC5E8
       route_to_paths:
@@ -313,6 +316,7 @@ known_hotspots:
       route_to_plan_paths:
         - docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md
         - docs/boring_change_architecture_milestone_plan.md
+        - docs/production_trap_set_centrality_reduction_milestone_plan.md
     block_new:
       - validation_receipt_logic
       - training_run_logic
@@ -324,13 +328,24 @@ known_hotspots:
       - alias_forwarder
       - explicit_forwarding_function
       - deletion
+    exceptions:
+      - exception_id: audit-bundle-owner-coordination-runtime-routing
+        case_id: IC-7C9A4E2B1D55
+        owner_module: app/services/audit_bundle_release_imports.py
+        follow_up_condition: Keep app/services/audit_bundles.py limited to compatibility entrypoints plus owner-coordination calls that bind runtime dependencies for the extracted audit-bundle owners.
+        match_tokens:
+          - linked_training_bundles = ensure_retrieval_training_run_audit_bundles_for_release(
+          - ensure_audit_bundle_validation_receipts(
+          - canonical_json_bytes=canonical_json_bytes
+          - payload_sha256=_payload_sha256
+          - sign_bundle=_signed_bundle
   app/cli.py:
     target_role: console script compatibility and dispatch surface
     preferred_owner_modules:
       - app/cli_commands/
     routing:
-      status: deferred_reduced_facade
-      reason: app/cli.py is now a forwarding facade under budget, so routed follow-on work should prefer the command-owner modules and residual CLI test families rather than treating app/cli.py as the next implementation root.
+      status: accepted_residual
+      reason: app/cli.py now closes as a one-import dispatch facade with the command wiring owned by app/cli_commands/*, so future work should route to the command owners instead of reopening app/cli.py.
       route_to_case_ids:
         - IC-9812A0B138D9
         - IC-FD18EE2D3309
@@ -346,6 +361,7 @@ known_hotspots:
       route_to_plan_paths:
         - docs/cli_command_dispatch_boundary_milestone_plan.md
         - docs/residual_large_file_backlog_milestone_plan.md
+        - docs/production_trap_set_centrality_reduction_milestone_plan.md
     block_new:
       - command_implementation
       - broad_parser_logic
@@ -390,8 +406,8 @@ known_hotspots:
     preferred_owner_modules:
       - app/services/agent_actions/
     routing:
-      status: compatibility_facade_trap
-      reason: The public action registry is now a narrow execution facade; routed follow-on work belongs in the extracted search-harness and semantic-governance action owners, not back in app/services/agent_task_actions.py.
+      status: accepted_residual
+      reason: The public action registry now closes under a lower owner-import budget, so future work belongs in the extracted action owners instead of reopening app/services/agent_task_actions.py.
       route_to_case_ids:
         - IC-A1E186A34097
       route_to_paths:
@@ -400,6 +416,7 @@ known_hotspots:
       route_to_plan_paths:
         - docs/agent_task_orchestration_boundary_milestone_plan.md
         - docs/agent_task_residual_owner_family_milestone_plan.md
+        - docs/production_trap_set_centrality_reduction_milestone_plan.md
     block_new:
       - executor_implementation
       - action_family_helper
@@ -496,8 +513,8 @@ known_hotspots:
       - app/services/agent_task_reads.py
       - app/services/agent_task_lifecycle.py
     routing:
-      status: deferred_reduced_facade
-      reason: The root agent-task service is already reduced in the local checkout, so routed follow-on work belongs in the focused dependency, read, and lifecycle owners rather than reopening app/services/agent_tasks.py by default.
+      status: accepted_residual
+      reason: The public agent-task service now has an exact direct-import allowlist, so future work belongs in the focused dependency, read, and lifecycle owners instead of reopening app/services/agent_tasks.py.
       route_to_case_ids:
         - IC-4098E8370B88
       route_to_paths:
@@ -507,6 +524,7 @@ known_hotspots:
       route_to_plan_paths:
         - docs/agent_task_residual_owner_family_milestone_plan.md
         - docs/residual_large_file_backlog_milestone_plan.md
+        - docs/production_trap_set_centrality_reduction_milestone_plan.md
     block_new:
       - dependency_validation_logic
       - lifecycle_mutation_logic
@@ -587,8 +605,8 @@ known_hotspots:
     preferred_owner_modules:
       - app/services/search_*.py
     routing:
-      status: compatibility_facade_trap
-      reason: The search compatibility surface is already reduced and should not be treated as the next owner packet while the extracted search owners carry the real remaining debt.
+      status: accepted_residual
+      reason: The search facade now closes under a lower owner-import budget, so future work should route to the extracted search owners instead of reopening app/services/search.py.
       route_to_case_ids:
         - IC-1D03DBFE8492
       route_to_paths:
@@ -601,6 +619,7 @@ known_hotspots:
         - docs/search_execution_orchestration_boundary_milestone_plan.md
         - docs/search_span_retrieval_boundary_milestone_plan.md
         - docs/search_compatibility_facade_boundary_milestone_plan.md
+        - docs/production_trap_set_centrality_reduction_milestone_plan.md
     block_new:
       - harness_registry_logic
       - retrieval_primitive_logic

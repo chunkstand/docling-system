@@ -23,7 +23,7 @@ from app.services.claim_support_policy_governance import (
     signature_payload,
     value_sha256,
 )
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 from app.services.semantic_governance import (
     active_semantic_basis,
     record_semantic_governance_event,

@@ -7,7 +7,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.db.public.retrieval import SearchHarnessRelease, SearchReplayRun
-from app.schemas.agent_tasks import VerifySearchHarnessEvaluationTaskInput
+from app.schemas.agent_task_search_workflows import VerifySearchHarnessEvaluationTaskInput
 from app.schemas.search import (
     SearchHarnessEvaluationResponse,
     SearchHarnessEvaluationSourceResponse,

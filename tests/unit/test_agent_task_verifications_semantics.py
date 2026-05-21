@@ -6,10 +6,8 @@ from uuid import uuid4
 from fastapi import HTTPException
 
 from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact, AgentTaskDependency
-from app.schemas.agent_tasks import (
-    VerifyDraftSemanticRegistryUpdateTaskInput,
-    VerifySemanticGroundedDocumentTaskInput,
-)
+from app.schemas.agent_task_semantic_generation import VerifySemanticGroundedDocumentTaskInput
+from app.schemas.agent_task_semantics import VerifyDraftSemanticRegistryUpdateTaskInput
 from app.services.agent_task_verifications import (
     verify_draft_semantic_registry_update_task,
     verify_semantic_grounded_document_task,

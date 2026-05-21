@@ -29,7 +29,7 @@ from app.services.claim_support_policy_governance import (
 from app.services.claim_support_replay_alert_waivers import (
     record_replay_alert_fixture_coverage_waiver_ledger,
 )
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 from tests.integration.claim_support_policy_activation_governance_triggers import (
     _drop_claim_support_governance_immutability_trigger,
     _install_claim_support_governance_immutability_trigger,

@@ -9,13 +9,13 @@ from app.core.time import utcnow
 from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact, AgentTaskStatus
 from app.db.public.claim_support import ClaimSupportPolicyChangeImpact
 from app.db.public.semantic_memory import SemanticGovernanceEvent
-from app.schemas.agent_tasks import AgentTaskCreateRequest
+from app.schemas.agent_task_core import AgentTaskCreateRequest
 from app.services.agent_tasks import create_agent_task
 from app.services.claim_support_evaluations import (
     build_claim_support_calibration_policy_payload,
     ensure_claim_support_calibration_policy,
 )
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 from tests.integration.claim_support_policy_change_impact_support import (
     _seed_impacted_technical_report_records,
 )

@@ -8,7 +8,7 @@ import pytest
 
 from app.db.public.agent_tasks import AgentTask, AgentTaskStatus
 from app.db.public.ingest import Document
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_core import (
     AgentTaskApprovalRequest,
     AgentTaskCreateRequest,
     AgentTaskRejectionRequest,

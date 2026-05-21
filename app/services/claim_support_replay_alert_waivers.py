@@ -17,7 +17,7 @@ from app.db.public.claim_support import (
     ClaimSupportReplayAlertFixtureCoverageWaiverLedger,
 )
 from app.db.public.semantic_memory import SemanticGovernanceEvent
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 
 
 def replay_alert_escalation_set_sha256(escalation_event_ids: list[str]) -> str:

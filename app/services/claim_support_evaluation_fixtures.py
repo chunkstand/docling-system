@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
 from app.db.public import claim_support as cm
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 
 CLAIM_SUPPORT_JUDGE_NAME = "technical_report_claim_support_judge"
 CLAIM_SUPPORT_JUDGE_VERSION = "deterministic_claim_support_v1"

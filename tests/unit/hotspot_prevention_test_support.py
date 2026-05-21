@@ -63,7 +63,6 @@ EXPECTED_KNOWN_HOTSPOT_PATHS = [
 ]
 
 DEFERRED_REDUCED_FACADE_PATHS = [
-    "app/cli.py",
     "app/api/routers/agent_tasks.py",
     "app/hotspot_prevention_classifier.py",
     "tests/integration/test_retrieval_learning_ledger.py",

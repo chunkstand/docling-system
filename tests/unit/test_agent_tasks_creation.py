@@ -10,7 +10,7 @@ from app.db.public.agent_tasks import (
     AgentTaskDependencyKind,
     AgentTaskStatus,
 )
-from app.schemas.agent_tasks import AgentTaskCreateRequest
+from app.schemas.agent_task_core import AgentTaskCreateRequest
 from app.services.agent_tasks import _initial_task_status, create_agent_task
 from tests.unit.agent_task_service_support import FakeSession
 

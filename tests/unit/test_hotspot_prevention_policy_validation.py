@@ -13,14 +13,24 @@ def test_loaded_policy_routes_expected_reduced_and_trapped_surfaces() -> None:
     policy = load_hotspot_policy()
 
     assert policy.known_hotspots["app/db/models.py"].routing is not None
-    assert policy.known_hotspots["app/db/models.py"].routing.status == "compatibility_facade_trap"
+    assert policy.known_hotspots["app/db/models.py"].routing.status == "accepted_residual"
     assert policy.known_hotspots["app/api/main.py"].routing is not None
     assert policy.known_hotspots["app/api/main.py"].routing.status == "accepted_residual"
     assert policy.known_hotspots["app/services/audit_bundles.py"].routing is not None
     assert (
         policy.known_hotspots["app/services/audit_bundles.py"].routing.status
-        == "compatibility_facade_trap"
+        == "accepted_residual"
     )
+    for path in [
+        "app/cli.py",
+        "app/schemas/agent_tasks.py",
+        "app/services/agent_task_actions.py",
+        "app/services/agent_tasks.py",
+        "app/services/evidence.py",
+        "app/services/search.py",
+    ]:
+        assert policy.known_hotspots[path].routing is not None
+        assert policy.known_hotspots[path].routing.status == "accepted_residual"
     assert policy.known_hotspots["app/services/semantic_registry.py"].routing is not None
     assert (
         policy.known_hotspots["app/services/semantic_registry.py"].routing.status

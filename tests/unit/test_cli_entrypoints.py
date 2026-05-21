@@ -38,54 +38,17 @@ def test_runtime_entrypoint_forwarders_delegate_to_runtime_owner(monkeypatch) ->
 def test_search_harness_entrypoint_forwarders_delegate_to_search_harness_owner(monkeypatch) -> None:
     forwarded: list[tuple[str, list[str]]] = []
     search_harness_forwarders = {
-        "run_materialize_retrieval_learning_dataset": [
-            "session_factory_func",
-            "materialize_retrieval_learning_dataset_func",
-        ],
-        "run_evaluate_retrieval_learning_candidate": [
-            "session_factory_func",
-            "evaluate_retrieval_learning_candidate_func",
-        ],
-        "run_create_retrieval_reranker_artifact": [
-            "session_factory_func",
-            "create_retrieval_reranker_artifact_func",
-        ],
-        "run_eval_reranker": [
-            "session_factory_func",
-            "evaluate_search_harness_func",
-        ],
-        "run_search_harness_evaluation_list": [
-            "session_factory_func",
-            "list_search_harness_evaluations_func",
-        ],
-        "run_search_harness_evaluation_show": [
-            "session_factory_func",
-            "get_search_harness_evaluation_detail_func",
-        ],
-        "run_gate_search_harness_release": [
-            "session_factory_func",
-            "evaluate_search_harness_func",
-            "record_search_harness_release_gate_func",
-        ],
-        "run_search_harness_release_audit_bundle": [
-            "session_factory_func",
-            "storage_service_factory",
-            "create_search_harness_release_audit_bundle_func",
-        ],
-        "run_retrieval_training_run_audit_bundle": [
-            "session_factory_func",
-            "storage_service_factory",
-            "create_retrieval_training_run_audit_bundle_func",
-        ],
-        "run_audit_bundle_validation_receipt": [
-            "session_factory_func",
-            "storage_service_factory",
-            "create_audit_bundle_validation_receipt_func",
-        ],
-        "run_optimize_search_harness": [
-            "session_factory_func",
-            "run_search_harness_optimization_loop_func",
-        ],
+        "run_materialize_retrieval_learning_dataset": [],
+        "run_evaluate_retrieval_learning_candidate": [],
+        "run_create_retrieval_reranker_artifact": [],
+        "run_eval_reranker": [],
+        "run_search_harness_evaluation_list": [],
+        "run_search_harness_evaluation_show": [],
+        "run_gate_search_harness_release": [],
+        "run_search_harness_release_audit_bundle": [],
+        "run_retrieval_training_run_audit_bundle": [],
+        "run_audit_bundle_validation_receipt": [],
+        "run_optimize_search_harness": [],
     }
 
     for name in search_harness_forwarders:

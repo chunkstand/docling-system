@@ -18,8 +18,8 @@ from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.claim_support_evaluations import (
     default_claim_support_evaluation_fixtures,
 )
-from app.services.evidence import (
-    get_agent_task_audit_bundle,
+from app.services.evidence_audit_views_bundle import get_agent_task_audit_bundle
+from app.services.evidence_manifests import (
     get_agent_task_evidence_manifest,
     get_agent_task_evidence_trace,
 )

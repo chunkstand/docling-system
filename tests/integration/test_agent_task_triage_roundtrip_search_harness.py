@@ -16,7 +16,7 @@ from app.db.public.agent_tasks import (
 )
 from app.db.public.ingest import Document
 from app.db.public.retrieval import SearchHarnessEvaluation, SearchHarnessRelease
-from app.schemas.agent_tasks import AgentTaskCreateRequest
+from app.schemas.agent_task_core import AgentTaskCreateRequest
 from app.services.agent_task_worker import claim_next_agent_task, process_agent_task
 from app.services.agent_tasks import create_agent_task
 from tests.integration.agent_task_triage_roundtrip_support import _create_processed_document

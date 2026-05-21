@@ -13,7 +13,7 @@ from app.schemas.agent_task_claim_support import (
     ClaimSupportPolicyChangeImpactReplayTaskResponse,
 )
 from app.services.claim_support_policy_impact_views import impact_response, uuid_list
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 
 CLAIM_SUPPORT_IMPACT_REPLAY_WORKFLOW_VERSION = "claim_support_policy_change_impact_replay_v1"
 CLAIM_SUPPORT_IMPACT_REPLAY_PLAN_SCHEMA = "claim_support_policy_change_impact_replay_plan"

@@ -4,9 +4,7 @@ from datetime import UTC, datetime
 
 from app.db.public.claim_support import ClaimSupportCalibrationPolicy
 from app.schemas.agent_task_claim_support import DraftClaimSupportCalibrationPolicyTaskOutput
-from app.services.evidence import (
-    payload_sha256,
-)
+from app.services.evidence_common import payload_sha256
 
 CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_ARTIFACT_KIND = (
     "claim_support_replay_alert_fixture_coverage_waiver"

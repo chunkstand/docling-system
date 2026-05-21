@@ -13,7 +13,7 @@ from app.db.public.agent_tasks import (
     AgentTaskStatus,
 )
 from app.db.public.claim_support import ClaimSupportCalibrationPolicy
-from app.schemas.agent_tasks import AgentTaskApprovalRequest, AgentTaskCreateRequest
+from app.schemas.agent_task_core import AgentTaskApprovalRequest, AgentTaskCreateRequest
 from app.services.agent_tasks import approve_agent_task, create_agent_task
 from app.services.claim_support_evaluations import (
     build_claim_support_calibration_policy_payload,

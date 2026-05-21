@@ -24,7 +24,7 @@ from app.services.claim_support_evaluation_fixtures import (
 from app.services.claim_support_evaluation_fixtures import (
     fixture_set_payload as build_fixture_set_payload,
 )
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 from app.services.technical_reports import judge_technical_report_claim_support
 
 CLAIM_SUPPORT_EVALUATION_SCHEMA_NAME = "claim_support_judge_evaluation"

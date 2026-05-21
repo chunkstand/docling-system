@@ -17,7 +17,7 @@ from app.services.claim_support_policy_impact_replay import (
     verify_replay_plan_integrity,
 )
 from app.services.claim_support_policy_impact_views import get_impact_row
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 
 
 def _recommended_source_task(

@@ -15,7 +15,7 @@ from app.services.claim_support_evaluation_fixtures import (
     CLAIM_SUPPORT_VERDICTS,
     normalize_string_list,
 )
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 
 CLAIM_SUPPORT_CALIBRATION_POLICY_SCHEMA_NAME = "claim_support_calibration_policy"
 CLAIM_SUPPORT_CALIBRATION_POLICY_SCHEMA_VERSION = "1.0"

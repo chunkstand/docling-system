@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from fastapi.encoders import jsonable_encoder
+from importlib import import_module
+
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.public.agent_tasks import AgentTask
-from app.schemas.agent_task_search_workflows import EnqueueDocumentReprocessTaskInput
 from app.services.agent_actions.claim_support_actions import (
     build_claim_support_action_definitions,
 )
@@ -47,26 +47,11 @@ from app.services.agent_actions.semantic_verification_actions import (
     build_semantic_verification_action_definitions,
 )
 from app.services.agent_actions.types import AgentTaskActionDefinition
-from app.services.documents import reprocess_document
 
 _replay_alert_fixture_coverage_waiver_sha256 = replay_alert_fixture_coverage_waiver_sha256
 _require_active_replay_alert_fixture_coverage_waiver = (
     require_active_replay_alert_fixture_coverage_waiver
 )
-
-
-def _enqueue_document_reprocess_executor(
-    session: Session,
-    _task: AgentTask,
-    payload: EnqueueDocumentReprocessTaskInput,
-) -> dict:
-    response = reprocess_document(session, payload.document_id)
-    return {
-        "document_id": str(payload.document_id),
-        "source_task_id": str(payload.source_task_id) if payload.source_task_id else None,
-        "reason": payload.reason,
-        "reprocess": jsonable_encoder(response),
-    }
 
 
 _SEARCH_HARNESS_ACTION_REGISTRY = build_search_harness_action_definitions()
@@ -77,9 +62,7 @@ _CLAIM_SUPPORT_ACTION_REGISTRY = build_claim_support_action_definitions()
 _SEMANTIC_DRAFTING_ACTION_REGISTRY = build_semantic_drafting_action_definitions()
 _SEMANTIC_GOVERNANCE_ACTION_REGISTRY = build_semantic_governance_action_definitions()
 _SEMANTIC_VERIFICATION_ACTION_REGISTRY = build_semantic_verification_action_definitions()
-_DOCUMENT_LIFECYCLE_ACTION_REGISTRY = build_document_lifecycle_action_definitions(
-    enqueue_document_reprocess_executor=_enqueue_document_reprocess_executor
-)
+_DOCUMENT_LIFECYCLE_ACTION_REGISTRY = build_document_lifecycle_action_definitions()
 
 _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = compose_action_registries(
     _EVALUATION_ACTION_REGISTRY,
@@ -107,12 +90,12 @@ def build_agent_task_action_index() -> dict[str, object]:
 
 
 def validate_agent_task_action_contracts() -> list[AgentActionContractIssue]:
-    from app.services.agent_task_context import list_agent_task_context_builder_names
-
     issues = validate_agent_action_contracts(
         list_agent_task_actions(),
         registry_keys=set(_ACTION_REGISTRY),
-        context_builder_names=list_agent_task_context_builder_names(),
+        context_builder_names=import_module(
+            "app.services.agent_task_context"
+        ).list_agent_task_context_builder_names(),
     )
     for registry_key, action in _ACTION_REGISTRY.items():
         if registry_key != action.task_type:

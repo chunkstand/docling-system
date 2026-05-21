@@ -12,7 +12,7 @@ from app.db.public.agent_tasks import (
     AgentTaskVerification,
 )
 from app.db.public.retrieval import SearchReplayRun
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_search_workflows import (
     VerifyDraftHarnessConfigTaskInput,
     VerifySearchHarnessEvaluationTaskInput,
 )

@@ -6,13 +6,15 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 from app.db.public.agent_tasks import AgentTask
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_semantic_generation import (
     DraftSemanticGroundedDocumentTaskInput,
+    PrepareSemanticGenerationBriefTaskInput,
+    VerifySemanticGroundedDocumentTaskInput,
+)
+from app.schemas.agent_task_semantic_graph import (
     EvaluateSemanticCandidateExtractorTaskInput,
     ExportSemanticSupervisionCorpusTaskInput,
-    PrepareSemanticGenerationBriefTaskInput,
     TriageSemanticCandidateDisagreementsTaskInput,
-    VerifySemanticGroundedDocumentTaskInput,
 )
 from app.services.agent_actions.semantic_analysis_actions import (
     _evaluate_semantic_candidate_extractor_executor,

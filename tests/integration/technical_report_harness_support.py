@@ -15,10 +15,10 @@ from app.db.public.retrieval import (
     SearchHarnessEvaluationSource,
     SearchReplayRun,
 )
-from app.schemas.agent_tasks import AgentTaskCreateRequest
+from app.schemas.agent_task_core import AgentTaskCreateRequest
 from app.services.agent_task_worker import claim_next_agent_task, process_agent_task
 from app.services.agent_tasks import create_agent_task
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 from app.services.semantic_registry import clear_semantic_registry_cache
 from tests.integration.pdf_fixtures import valid_test_pdf_bytes
 from tests.integration.test_semantic_generation_roundtrip import (

@@ -20,7 +20,7 @@ from app.services.claim_support_replay_alert_fixture_corpus import (
     CLAIM_SUPPORT_IMPACT_FIXTURE_PROMOTION_ARTIFACT_KIND,
     CLAIM_SUPPORT_IMPACT_FIXTURE_PROMOTION_EVENT_KIND,
 )
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 
 
 @dataclass(frozen=True)

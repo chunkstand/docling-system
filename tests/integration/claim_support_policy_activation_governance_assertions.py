@@ -11,7 +11,7 @@ from app.db.public.agent_tasks import (
 )
 from app.db.public.claim_support import ClaimSupportPolicyChangeImpact
 from app.db.public.semantic_memory import SemanticGovernanceEvent
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 
 
 def _assert_claim_support_activation_governance(

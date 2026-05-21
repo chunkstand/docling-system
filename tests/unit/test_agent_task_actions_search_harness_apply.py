@@ -9,7 +9,7 @@ from uuid import uuid4
 from fastapi import HTTPException
 
 from app.db.public.agent_tasks import AgentTask
-from app.schemas.agent_tasks import ApplyHarnessConfigUpdateTaskInput
+from app.schemas.agent_task_search_workflows import ApplyHarnessConfigUpdateTaskInput
 from app.services.agent_actions.search_harness import _apply_harness_config_update_executor
 from tests.unit.agent_task_actions_support import (
     _draft_output_payload,

@@ -3,8 +3,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from app.schemas.agent_tasks import ContextFreshnessStatus, ContextRef
-from app.services.evidence import apply_technical_report_derivation_links, payload_sha256
+from app.schemas.agent_task_core import ContextFreshnessStatus, ContextRef
+from app.services.evidence_common import payload_sha256
+from app.services.evidence_technical_report_exports import apply_technical_report_derivation_links
 from app.services.technical_reports import (
     apply_technical_report_claim_support_judgments,
     build_document_generation_context_pack,

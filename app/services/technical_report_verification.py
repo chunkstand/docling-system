@@ -5,7 +5,7 @@ from typing import Any
 from app.core.hashes import payload_sha256 as _payload_sha256
 from app.schemas.agent_task_core import ContextFreshnessStatus
 from app.schemas.agent_task_reports import TechnicalReportDraftPayload
-from app.services.evidence import build_technical_report_derivation_package
+from app.services.evidence_technical_report_exports import build_technical_report_derivation_package
 from app.services.technical_report_claim_support import (
     CLAIM_SUPPORT_VERDICTS,
     claim_support_judgment_contract_mismatches,

@@ -18,7 +18,7 @@ from app.db.public.claim_support import (
     ClaimSupportPolicyChangeImpact,
 )
 from app.db.public.semantic_memory import SemanticGovernanceEvent
-from app.schemas.agent_tasks import AgentTaskApprovalRequest, AgentTaskCreateRequest
+from app.schemas.agent_task_core import AgentTaskApprovalRequest, AgentTaskCreateRequest
 from app.services.agent_task_worker import finalize_agent_task_success
 from app.services.agent_tasks import approve_agent_task, create_agent_task
 from app.services.claim_support_evaluations import (
@@ -26,7 +26,8 @@ from app.services.claim_support_evaluations import (
     default_claim_support_evaluation_fixtures,
     ensure_claim_support_calibration_policy,
 )
-from app.services.evidence import get_agent_task_audit_bundle, payload_sha256
+from app.services.evidence_audit_views_bundle import get_agent_task_audit_bundle
+from app.services.evidence_common import payload_sha256
 from tests.integration.claim_support_policy_activation_governance_assertions import (
     _assert_claim_support_activation_governance,
 )

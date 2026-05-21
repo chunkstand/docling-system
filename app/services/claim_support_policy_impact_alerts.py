@@ -27,7 +27,7 @@ from app.services.claim_support_policy_impact_views import (
 from app.services.claim_support_policy_impact_worklist import (
     claim_support_policy_change_impact_worklist,
 )
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 from app.services.semantic_governance import (
     active_semantic_basis,
     record_semantic_governance_event,
@@ -407,7 +407,7 @@ def _refresh_existing_evidence_manifests_for_alert_item(
     )
     if not existing_manifest_task_ids:
         return
-    from app.services.evidence import refresh_technical_report_evidence_manifest
+    from app.services.evidence_manifests import refresh_technical_report_evidence_manifest
 
     for task_id in dict.fromkeys(existing_manifest_task_ids):
         refresh_technical_report_evidence_manifest(session, task_id=task_id)

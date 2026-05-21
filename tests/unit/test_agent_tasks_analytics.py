@@ -4,14 +4,18 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from app.db.public.agent_tasks import AgentTask, AgentTaskAttempt, AgentTaskOutcome, AgentTaskStatus
-from app.services.agent_tasks import (
+from app.services.agent_task_analytics_summary import (
     get_agent_approval_trends,
+    get_agent_task_trends,
+    get_agent_verification_trends,
+)
+from app.services.agent_task_cost_performance import (
     get_agent_task_cost_summary,
     get_agent_task_performance_summary,
+)
+from app.services.agent_task_recommendation_metrics import (
     get_agent_task_recommendation_summary,
-    get_agent_task_trends,
     get_agent_task_value_density,
-    get_agent_verification_trends,
 )
 from tests.unit.agent_task_service_support import FakeSession
 

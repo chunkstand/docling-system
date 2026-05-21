@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from app.services.evidence import apply_technical_report_derivation_links, payload_sha256
+from app.services.evidence_common import payload_sha256
+from app.services.evidence_technical_report_exports import apply_technical_report_derivation_links
 from app.services.technical_reports import verify_technical_report
 from tests.unit.test_technical_reports import _draft_from_semantic_brief, _semantic_brief_payload
 

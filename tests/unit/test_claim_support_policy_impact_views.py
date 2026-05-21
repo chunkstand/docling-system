@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import UUID, uuid4
 
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_claim_support import (
     ClaimSupportPolicyChangeImpactAlertItemResponse,
     ClaimSupportPolicyChangeImpactAlertResponse,
     ClaimSupportPolicyChangeImpactResponse,

@@ -29,9 +29,7 @@ from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.agent_task_context import (
     resolve_required_dependency_task_output_context,
 )
-from app.services.evidence import (
-    persist_search_evidence_package_export,
-)
+from app.services.evidence_search_packages import persist_search_evidence_package_export
 from app.services.report_shared import (
     source_evidence_match_status as _aggregate_source_match_status,
 )

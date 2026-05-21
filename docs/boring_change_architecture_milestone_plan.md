@@ -53,27 +53,26 @@ Current live routing state in the current checkout:
 `status_counts={"deployed":67}`, and
 `architecture_probe.py --fail-on-cycles` reports `0` Python cycle components.
 The queue is therefore empty by the repo’s operational signals. A separate
-standalone optional follow-on now exists in
+standalone production trap-set centrality follow-on was then implemented and
+is now resolved locally in
 `docs/production_trap_set_centrality_reduction_milestone_plan.md` for
 proactive reduction of the remaining governed production trap set after the
-queue and broader-rebaseline backlog both closed. That newer packet targets
-the selected caller-gravity and orchestration-gravity roots named by the live
-`routing_trap_paths`, starts with a fresh selected-root census, and absorbs
-`docs/db_models_caller_migration_boundary_milestone_plan.md` as its narrower
-`app.db.models` caller-migration lane. That DB-only sublane is now resolved
-locally through bounded `app/db/public/*` facades plus the explicit
-`config/db_model_import_policy.yaml` route gate, so the umbrella packet now
-remains relevant only for the other centrality roots. The resolved sublane now
-holds the legacy shim at an explicit `9`-file allowlist with `0` `app/`
-direct importers, and the current probe’s top replacement fan-in is
-`app.db.public.agent_tasks=173` instead of `app.db.models`. The later
-packet-local debt-shift audit on closeout commit `4284cd5d` stayed bounded as
-well: no external `app.db.model_domains.*` callers leaked in, no new cycle or
-upward `600`/`800` threshold crossing appeared, and the only selected-root
-fan-out increase was the intentional `app/services/audit_bundles.py`
-`14 -> 15` split tradeoff. It is not a
-queue-selected packet and should not override a future fresh live rebaseline
-unless we explicitly choose centrality paydown over queue-driven work.
+queue and broader-rebaseline backlog both closed. The packet adds the
+repo-owned `config/production_trap_set_centrality_budget.yaml`, reduces the
+remaining direct-import and fan-out trap roots, absorbs the narrower
+`docs/db_models_caller_migration_boundary_milestone_plan.md` lane, and closes
+the residual compatibility facades as explicit `accepted_residual` routes in
+`config/hotspot_prevention.yaml`. The resolved DB sublane now holds the legacy
+shim at an explicit `9`-file allowlist with `0` `app/` direct importers, and
+the current probe’s top replacement fan-in is
+`app.db.public.agent_tasks=172` instead of `app.db.models`. The packet-local
+debt-shift audit stayed bounded as well: no external
+`app.db.model_domains.*` callers leaked in, no new cycle or upward
+`600`/`800` threshold crossing appeared, and the only retained hotspot-policy
+exception is the bounded audit-bundle owner-coordination seam under
+`IC-7C9A4E2B1D55`. Future code-owning work from this broader brief still
+requires a fresh broader rebaseline rather than reopening the now-closed
+production trap-set packet by default.
 The later
 2026-05-19 registry-alignment sweep also deploys the stale reduced-root
 agent-task, claim-support, action-test, and UI bootstrap cases left behind by

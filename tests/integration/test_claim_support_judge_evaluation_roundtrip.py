@@ -19,14 +19,14 @@ from app.db.public.claim_support import (
     ClaimSupportEvaluationCase,
     ClaimSupportFixtureSet,
 )
-from app.schemas.agent_tasks import AgentTaskCreateRequest
+from app.schemas.agent_task_core import AgentTaskCreateRequest
 from app.services.agent_tasks import create_agent_task
 from app.services.claim_support_evaluations import (
     build_claim_support_calibration_policy_payload,
     default_claim_support_evaluation_fixtures,
     ensure_claim_support_calibration_policy,
 )
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 from tests.integration.claim_support_policy_integration_task_support import (
     _process_next_task,
 )

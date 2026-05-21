@@ -27,10 +27,13 @@ def test_ingest_file_cli_prints_ingest_result(monkeypatch, capsys) -> None:
             return False
 
     monkeypatch.setattr(sys, "argv", ["docling-system-ingest-file", "/tmp/example.pdf"])
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
-    monkeypatch.setattr("app.cli.StorageService", lambda: object())
     monkeypatch.setattr(
-        "app.cli.ingest_local_file",
+        "app.cli.ingest_commands.get_session_factory",
+        lambda: lambda: FakeSession(),
+    )
+    monkeypatch.setattr("app.cli.ingest_commands.StorageService", lambda: object())
+    monkeypatch.setattr(
+        "app.cli.ingest_commands.ingest_local_file",
         lambda session, file_path, storage_service: (
             SimpleNamespace(
                 document_id=document_id,
@@ -64,10 +67,13 @@ def test_ingest_dir_cli_prints_batch_summary(monkeypatch, capsys) -> None:
             return False
 
     monkeypatch.setattr(sys, "argv", ["docling-system-ingest-dir", "/tmp/corpus", "--recursive"])
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
-    monkeypatch.setattr("app.cli.StorageService", lambda: object())
     monkeypatch.setattr(
-        "app.cli.queue_local_ingest_directory",
+        "app.cli.ingest_commands.get_session_factory",
+        lambda: lambda: FakeSession(),
+    )
+    monkeypatch.setattr("app.cli.ingest_commands.StorageService", lambda: object())
+    monkeypatch.setattr(
+        "app.cli.ingest_commands.queue_local_ingest_directory",
         lambda session, directory_path, storage_service, recursive: SimpleNamespace(
             model_dump=lambda mode="json", exclude=None: {
                 "batch_id": str(batch_id),
@@ -107,9 +113,12 @@ def test_ingest_batch_list_cli_prints_batches(monkeypatch, capsys) -> None:
             return False
 
     monkeypatch.setattr(sys, "argv", ["docling-system-ingest-batch-list", "--limit", "5"])
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.list_ingest_batches",
+        "app.cli.ingest_commands.get_session_factory",
+        lambda: lambda: FakeSession(),
+    )
+    monkeypatch.setattr(
+        "app.cli.ingest_commands.list_ingest_batches",
         lambda session, limit: [
             SimpleNamespace(
                 model_dump=lambda mode="json": {
@@ -139,9 +148,12 @@ def test_ingest_batch_show_cli_prints_detail(monkeypatch, capsys) -> None:
             return False
 
     monkeypatch.setattr(sys, "argv", ["docling-system-ingest-batch-show", str(batch_id)])
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.get_ingest_batch_detail",
+        "app.cli.ingest_commands.get_session_factory",
+        lambda: lambda: FakeSession(),
+    )
+    monkeypatch.setattr(
+        "app.cli.ingest_commands.get_ingest_batch_detail",
         lambda session, requested_batch_id: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "batch_id": str(requested_batch_id),

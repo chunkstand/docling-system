@@ -9,7 +9,7 @@ from sqlalchemy import select
 
 from app.db.public.agent_tasks import AgentTask, AgentTaskStatus
 from app.db.public.evaluation_feedback import EvalFailureCase, EvalObservation
-from app.schemas.agent_tasks import AgentTaskApprovalRequest, AgentTaskCreateRequest
+from app.schemas.agent_task_core import AgentTaskApprovalRequest, AgentTaskCreateRequest
 from app.services.agent_task_worker import claim_next_agent_task, process_agent_task
 from app.services.agent_tasks import approve_agent_task, create_agent_task
 from tests.integration.test_agent_task_triage_roundtrip import _create_processed_document

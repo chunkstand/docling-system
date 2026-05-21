@@ -12,25 +12,22 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
 ## Current Milestone Briefs
 
 - `docs/production_trap_set_centrality_reduction_milestone_plan.md`:
-  proposed locally in the current checkout on 2026-05-20 as the new
-  top-level optional follow-on for the remaining governed production trap set
-  after the live routed queue, broader-rebaseline queue, and Python-cycle
-  backlog all closed. The packet targets the still-central compatibility or
-  dispatch roots named by the live `routing_trap_paths` and quality summary.
-  The narrower `app.db.models` caller-gravity lane is already resolved
-  locally through `docs/db_models_caller_migration_boundary_milestone_plan.md`,
-  so the remaining umbrella targets are:
-  `app/services/evidence.py` (`42` importer fan-in),
-  `app/schemas/agent_tasks.py` (`37` importer fan-in),
-  `app/services/agent_tasks.py` (`26` importer fan-in),
-  `app/services/agent_task_actions.py` (`18` fan-out),
-  `app/services/audit_bundles.py` (`14` fan-out),
-  `app/services/search.py` (`12` fan-out), and `app/cli.py` as the remaining
-  CLI dispatch choke point. The brief is gate-first: it requires a Milestone 0
-  freshness lock, machine-checked importer and fan-out ratchets, caller
-  migration on the high-fan-in roots, dispatch contraction on the high-fan-out
-  roots, and an accepted-legacy closeout if any selected shim remains in the
-  trap set intentionally.
+  resolved locally in the current checkout on 2026-05-20. The packet adds
+  `config/production_trap_set_centrality_budget.yaml` plus
+  `tests/unit/test_trap_set_caller_routes.py` and
+  `tests/unit/test_trap_set_centrality_budget.py`, absorbs the already-resolved
+  `app.db.models` sublane from
+  `docs/db_models_caller_migration_boundary_milestone_plan.md`, reduces the
+  remaining direct-import trap roots to
+  `app.services.evidence 42 -> 2`,
+  `app.services.agent_tasks 26 -> 24`, and
+  `app.schemas.agent_tasks 37 -> 1`, and reduces the selected fan-out roots to
+  `app/services/agent_task_actions.py 18 -> 15`,
+  `app/services/search.py 12 -> 9`,
+  `app/services/audit_bundles.py 15 -> 8`, and `app/cli.py 4 -> 1`. The
+  remaining raw trap roots are explicitly governed as `accepted_residual`
+  surfaces in `config/hotspot_prevention.yaml` instead of ambiguous queued
+  debt.
 - `docs/db_models_caller_migration_boundary_milestone_plan.md`: resolved
   locally in the current checkout on 2026-05-20. The packet adds bounded
   `app/db/public/*` caller facades, installs the repo-owned
@@ -40,7 +37,7 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
   from the Milestone 0 `337`-import gravity to the explicit `9`-file
   compatibility and metadata allowlist (`0` under `app/`). The latest probe
   no longer lists `app.db.models`; caller fan-in now lands on
-  `app.db.public.agent_tasks=173`, `app.db.public.retrieval=80`,
+  `app.db.public.agent_tasks=172`, `app.db.public.retrieval=80`,
   `app.db.public.ingest=69`, `app.db.public.semantic_memory=68`,
   `app.db.public.audit_and_evidence=55`,
   `app.db.public.claim_support=40`, and
@@ -50,9 +47,10 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
   appeared, no changed Python file crossed upward through the `600` or `800`
   line thresholds, and the only selected-root fan-out increase was the bounded
   `app/services/audit_bundles.py` `14 -> 15` import tradeoff. The broader
-  `docs/production_trap_set_centrality_reduction_milestone_plan.md` remains
-  the umbrella optional follow-on for other trap-set roots, but this DB-only
-  sublane is now closed rather than merely proposed.
+  `docs/production_trap_set_centrality_reduction_milestone_plan.md` is now
+  also resolved locally, so this DB-only sublane remains a closed bounded
+  reference inside the broader trap-set closeout rather than a future umbrella
+  follow-on.
 - `docs/search_api_harness_route_surface_boundary_milestone_plan.md`:
   resolved locally in the current checkout on 2026-05-20. The packet reduces
   `tests/unit/test_search_api_harnesses.py` to a `40`-line route-registration
@@ -260,7 +258,7 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
 architecture quality summary now reports
 `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
 `legibility_gap_count=0`, `hotspot_count=20`,
-`max_hotspot_risk_score=466.06`,
+`max_hotspot_risk_score=461.06`,
 `broader_rebaseline_candidate_count=0`, and
 `top_broader_rebaseline_paths=[]`.
 - The earlier docs-only broader rerun is now superseded by the search API

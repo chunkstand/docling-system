@@ -1,24 +1,32 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from importlib import import_module
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+import app.services.embeddings as _embeddings
+import app.services.retrieval_spans as _retrieval_spans
 import app.services.search_execution_orchestration as _search_execution_orchestration
 import app.services.search_execution_persistence as _search_execution_persistence
 import app.services.search_harnesses as _search_harnesses
-import app.services.search_hydration as _search_hydration
-import app.services.search_metadata_supplement as _search_metadata_supplement
 import app.services.search_query_features as _query_features
 import app.services.search_ranking as _search_ranking
-import app.services.search_retrieval_primitives as _search_retrieval_primitives
+import app.services.telemetry as _telemetry
 from app.schemas.search import SearchRequest, SearchResult
-from app.services.embeddings import EmbeddingProvider, get_embedding_provider  # noqa: F401
-from app.services.retrieval_spans import (  # noqa: F401
-    ensure_retrieval_evidence_spans_for_search,
+
+_search_hydration = import_module("app.services.search_hydration")
+_search_metadata_supplement = import_module("app.services.search_metadata_supplement")
+_search_retrieval_primitives = import_module("app.services.search_retrieval_primitives")
+
+EmbeddingProvider = Any
+get_embedding_provider = _embeddings.get_embedding_provider
+ensure_retrieval_evidence_spans_for_search = (
+    _retrieval_spans.ensure_retrieval_evidence_spans_for_search
 )
-from app.services.telemetry import observe_search_results  # noqa: F401
+observe_search_results = _telemetry.observe_search_results
 
 DEFAULT_SEARCH_HARNESS_NAME = _search_harnesses.DEFAULT_SEARCH_HARNESS_NAME
 QUERY_INTENT_TABULAR = _query_features.QUERY_INTENT_TABULAR
@@ -29,15 +37,11 @@ PROSE_SUPPLEMENTARY_CANDIDATE_LIMIT = (
 )
 PROSE_ADJACENT_EXPANSION_LIMIT = _search_metadata_supplement.PROSE_ADJACENT_EXPANSION_LIMIT
 PROSE_ADJACENT_SEED_LIMIT = _search_metadata_supplement.PROSE_ADJACENT_SEED_LIMIT
-LATE_INTERACTION_QUERY_WORD_WINDOW = (
-    _search_retrieval_primitives.LATE_INTERACTION_QUERY_WORD_WINDOW
-)
+LATE_INTERACTION_QUERY_WORD_WINDOW = _search_retrieval_primitives.LATE_INTERACTION_QUERY_WORD_WINDOW
 LATE_INTERACTION_QUERY_WORD_OVERLAP = (
     _search_retrieval_primitives.LATE_INTERACTION_QUERY_WORD_OVERLAP
 )
-LATE_INTERACTION_FETCH_MULTIPLIER = (
-    _search_retrieval_primitives.LATE_INTERACTION_FETCH_MULTIPLIER
-)
+LATE_INTERACTION_FETCH_MULTIPLIER = _search_retrieval_primitives.LATE_INTERACTION_FETCH_MULTIPLIER
 METADATA_SUPPLEMENT_DIRECT_CHUNK_MULTIPLIER = (
     _search_metadata_supplement.METADATA_SUPPLEMENT_DIRECT_CHUNK_MULTIPLIER
 )
@@ -59,9 +63,7 @@ MULTIVECTOR_RETRIEVAL_PROFILE = _search_harnesses.MULTIVECTOR_RETRIEVAL_PROFILE
 SEARCH_HARNESS_RETRIEVAL_OVERRIDE_FIELDS = (
     _search_harnesses.SEARCH_HARNESS_RETRIEVAL_OVERRIDE_FIELDS
 )
-SEARCH_HARNESS_RERANKER_OVERRIDE_FIELDS = (
-    _search_harnesses.SEARCH_HARNESS_RERANKER_OVERRIDE_FIELDS
-)
+SEARCH_HARNESS_RERANKER_OVERRIDE_FIELDS = _search_harnesses.SEARCH_HARNESS_RERANKER_OVERRIDE_FIELDS
 LinearFeatureSearchReranker = _search_harnesses.LinearFeatureSearchReranker
 _build_derived_search_harness = _search_harnesses._build_derived_search_harness
 _build_search_harness_registry = _search_harnesses._build_search_harness_registry
@@ -126,12 +128,8 @@ _ranked_result_evidence_payload = (
 _reranked_result_evidence_payload = (
     _search_execution_persistence._reranked_result_evidence_payload
 )
-_persist_search_operator_runs = (
-    _search_execution_persistence._persist_search_operator_runs
-)
-_persist_search_result_spans = (
-    _search_execution_persistence._persist_search_result_spans
-)
+_persist_search_operator_runs = _search_execution_persistence._persist_search_operator_runs
+_persist_search_result_spans = _search_execution_persistence._persist_search_result_spans
 _persist_search_execution = _search_execution_persistence._persist_search_execution
 record_knowledge_operator_run = _search_execution_persistence.record_knowledge_operator_run
 _chunk_query = _search_retrieval_primitives._chunk_query

@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import app.services.agent_task_context as agent_task_context_module
 from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact, AgentTaskDependency
-from app.schemas.agent_tasks import ContextFreshnessStatus
+from app.schemas.agent_task_core import ContextFreshnessStatus
 from app.services.agent_task_context import (
     build_agent_task_context,
     get_agent_task_context_builder,

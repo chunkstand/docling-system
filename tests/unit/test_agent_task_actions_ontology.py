@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 from app.db.public.agent_tasks import AgentTask
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_semantics import (
     ApplyOntologyExtensionTaskInput,
     DraftOntologyExtensionTaskInput,
     GetActiveOntologySnapshotTaskInput,

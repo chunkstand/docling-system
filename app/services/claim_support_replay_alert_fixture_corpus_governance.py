@@ -27,7 +27,7 @@ from app.services.claim_support_replay_alert_fixture_corpus import (
 from app.services.claim_support_replay_alert_fixture_corpus_build import (
     build_replay_alert_fixture_corpus,
 )
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 from app.services.semantic_governance import (
     active_semantic_basis,
     record_semantic_governance_event,

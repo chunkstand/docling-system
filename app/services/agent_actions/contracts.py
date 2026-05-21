@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
-
-from app.db.public.agent_tasks import AgentTask
 from app.services.agent_actions.claim_support_actions import (
     build_claim_support_action_definitions,
 )
@@ -36,16 +32,6 @@ from app.services.agent_actions.semantic_verification_actions import (
 from app.services.agent_actions.types import AgentTaskActionDefinition
 
 
-def _unsupported_contract_only_executor(
-    _session: Session,
-    _task: AgentTask,
-    _payload: BaseModel,
-) -> dict:
-    raise NotImplementedError(
-        "Contract-only action metadata does not execute agent-task actions."
-    )
-
-
 def list_agent_action_contract_definitions() -> list[AgentTaskActionDefinition]:
     registry = compose_action_registries(
         build_evaluation_action_definitions(),
@@ -56,9 +42,7 @@ def list_agent_action_contract_definitions() -> list[AgentTaskActionDefinition]:
         build_semantic_drafting_action_definitions(),
         build_semantic_governance_action_definitions(),
         build_semantic_verification_action_definitions(),
-        build_document_lifecycle_action_definitions(
-            enqueue_document_reprocess_executor=_unsupported_contract_only_executor
-        ),
+        build_document_lifecycle_action_definitions(),
     )
     return list(registry.values())
 

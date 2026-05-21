@@ -37,13 +37,17 @@ def get_ingest_batch_detail(*args, **kwargs):
 
 def run_ingest_file(
     *,
-    ingest_local_file_func=ingest_local_file,
-    session_factory_func=get_session_factory,
-    storage_service_factory=StorageService,
+    ingest_local_file_func=None,
+    session_factory_func=None,
+    storage_service_factory=None,
 ) -> None:
     parser = argparse.ArgumentParser(description="Queue one or more local PDFs for ingestion.")
     parser.add_argument("pdf_paths", nargs="+", help="One or more PDF file paths.")
     args = parser.parse_args()
+
+    ingest_local_file_func = ingest_local_file_func or ingest_local_file
+    session_factory_func = session_factory_func or get_session_factory
+    storage_service_factory = storage_service_factory or StorageService
 
     storage_service = storage_service_factory()
     session_factory = session_factory_func()
@@ -77,9 +81,9 @@ def run_ingest_file(
 
 def run_ingest_dir(
     *,
-    queue_local_ingest_directory_func=queue_local_ingest_directory,
-    session_factory_func=get_session_factory,
-    storage_service_factory=StorageService,
+    queue_local_ingest_directory_func=None,
+    session_factory_func=None,
+    storage_service_factory=None,
 ) -> None:
     parser = argparse.ArgumentParser(
         description="Queue all PDF files under one local directory for ingestion."
@@ -91,6 +95,12 @@ def run_ingest_dir(
         help="Recurse into nested directories while collecting PDFs.",
     )
     args = parser.parse_args()
+
+    queue_local_ingest_directory_func = (
+        queue_local_ingest_directory_func or queue_local_ingest_directory
+    )
+    session_factory_func = session_factory_func or get_session_factory
+    storage_service_factory = storage_service_factory or StorageService
 
     storage_service = storage_service_factory()
     session_factory = session_factory_func()
@@ -107,12 +117,15 @@ def run_ingest_dir(
 
 def run_ingest_batch_list(
     *,
-    list_ingest_batches_func=list_ingest_batches,
-    session_factory_func=get_session_factory,
+    list_ingest_batches_func=None,
+    session_factory_func=None,
 ) -> None:
     parser = argparse.ArgumentParser(description="List recent local ingest batches.")
     parser.add_argument("--limit", type=int, default=20, help="Maximum number of batches.")
     args = parser.parse_args()
+
+    list_ingest_batches_func = list_ingest_batches_func or list_ingest_batches
+    session_factory_func = session_factory_func or get_session_factory
 
     session_factory = session_factory_func()
     with session_factory() as session:
@@ -122,12 +135,15 @@ def run_ingest_batch_list(
 
 def run_ingest_batch_show(
     *,
-    get_ingest_batch_detail_func=get_ingest_batch_detail,
-    session_factory_func=get_session_factory,
+    get_ingest_batch_detail_func=None,
+    session_factory_func=None,
 ) -> None:
     parser = argparse.ArgumentParser(description="Show one local ingest batch and its items.")
     parser.add_argument("batch_id", help="Ingest batch UUID.")
     args = parser.parse_args()
+
+    get_ingest_batch_detail_func = get_ingest_batch_detail_func or get_ingest_batch_detail
+    session_factory_func = session_factory_func or get_session_factory
 
     session_factory = session_factory_func()
     with session_factory() as session:

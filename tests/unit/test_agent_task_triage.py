@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from app.db.public.agent_tasks import AgentTask, AgentTaskArtifact, AgentTaskVerification
-from app.schemas.agent_tasks import TriageReplayRegressionTaskInput
+from app.schemas.agent_task_search_workflows import TriageReplayRegressionTaskInput
 from app.schemas.search import (
     SearchHarnessEvaluationResponse,
     SearchHarnessEvaluationSourceResponse,

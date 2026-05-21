@@ -6,17 +6,29 @@ from uuid import uuid4
 from fastapi import HTTPException
 
 from app.db.public.agent_tasks import AgentTask, AgentTaskStatus
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_core import (
     AgentTaskApprovalRequest,
     AgentTaskOutcomeCreateRequest,
     AgentTaskRejectionRequest,
 )
-from app.services.agent_tasks import (
+from app.services.agent_task_lifecycle import (
     approve_agent_task,
     create_agent_task_outcome,
     reject_agent_task,
 )
 from tests.unit.agent_task_service_support import FakeSession
+
+
+def _unexpected_not_found(_task_id):
+    raise AssertionError("Did not expect a not-found error")
+
+
+def _identity_task(_session, task):
+    return task
+
+
+def _identity_outcome(outcome):
+    return outcome
 
 
 def test_approve_agent_task_moves_ready_task_to_queue(monkeypatch) -> None:
@@ -37,16 +49,13 @@ def test_approve_agent_task_moves_ready_task_to_queue(monkeypatch) -> None:
     )
     session = FakeSession(task=task)
 
-    monkeypatch.setattr(
-        "app.services.agent_tasks._task_has_incomplete_dependencies",
-        lambda *args: False,
-    )
-    monkeypatch.setattr("app.services.agent_tasks._build_detail", lambda session, task: task)
-
     approved = approve_agent_task(
         session,
         task.id,
         AgentTaskApprovalRequest(approved_by="operator@example.com", approval_note="ship it"),
+        build_detail_func=_identity_task,
+        has_incomplete_dependencies_func=lambda *_args: False,
+        not_found_error_func=_unexpected_not_found,
     )
 
     assert approved.status == AgentTaskStatus.QUEUED.value
@@ -79,6 +88,9 @@ def test_approve_agent_task_rejects_non_approval_task() -> None:
             session,
             task.id,
             AgentTaskApprovalRequest(approved_by="operator@example.com"),
+            build_detail_func=_identity_task,
+            has_incomplete_dependencies_func=lambda *_args: False,
+            not_found_error_func=_unexpected_not_found,
         )
     except HTTPException as exc:
         assert exc.status_code == 409
@@ -88,7 +100,7 @@ def test_approve_agent_task_rejects_non_approval_task() -> None:
         raise AssertionError("Expected non-approval task to reject approval")
 
 
-def test_reject_agent_task_marks_pending_task_as_rejected(monkeypatch) -> None:
+def test_reject_agent_task_marks_pending_task_as_rejected() -> None:
     now = datetime.now(UTC)
     task = AgentTask(
         id=uuid4(),
@@ -106,8 +118,6 @@ def test_reject_agent_task_marks_pending_task_as_rejected(monkeypatch) -> None:
     )
     session = FakeSession(task=task)
 
-    monkeypatch.setattr("app.services.agent_tasks._build_detail", lambda session, task: task)
-
     rejected = reject_agent_task(
         session,
         task.id,
@@ -115,6 +125,8 @@ def test_reject_agent_task_marks_pending_task_as_rejected(monkeypatch) -> None:
             rejected_by="operator@example.com",
             rejection_note="not enough evidence",
         ),
+        build_detail_func=_identity_task,
+        not_found_error_func=_unexpected_not_found,
     )
 
     assert rejected.status == AgentTaskStatus.REJECTED.value
@@ -150,6 +162,8 @@ def test_reject_agent_task_rejects_already_approved_task() -> None:
             session,
             task.id,
             AgentTaskRejectionRequest(rejected_by="reviewer@example.com"),
+            build_detail_func=_identity_task,
+            not_found_error_func=_unexpected_not_found,
         )
     except HTTPException as exc:
         assert exc.status_code == 409
@@ -185,6 +199,8 @@ def test_create_agent_task_outcome_records_label_for_terminal_task() -> None:
             created_by="operator@example.com",
             note="recommendation matched operator judgment",
         ),
+        not_found_error_func=_unexpected_not_found,
+        to_outcome_response_func=_identity_outcome,
     )
 
     assert outcome.task_id == task.id
@@ -220,6 +236,8 @@ def test_create_agent_task_outcome_rejects_non_terminal_task() -> None:
                 outcome_label="useful",
                 created_by="operator@example.com",
             ),
+            not_found_error_func=_unexpected_not_found,
+            to_outcome_response_func=_identity_outcome,
         )
     except HTTPException as exc:
         assert exc.status_code == 409
@@ -267,6 +285,8 @@ def test_create_agent_task_outcome_rejects_duplicate_label_from_same_actor() -> 
                 outcome_label="useful",
                 created_by="operator@example.com",
             ),
+            not_found_error_func=_unexpected_not_found,
+            to_outcome_response_func=_identity_outcome,
         )
     except HTTPException as exc:
         assert exc.status_code == 409

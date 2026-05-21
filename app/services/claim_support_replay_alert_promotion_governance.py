@@ -38,7 +38,7 @@ from app.services.claim_support_replay_alert_waivers import (
     stale_unconverted_escalation_event_ids_from_waiver,
     waiver_artifact_ids_with_coverage_ledgers,
 )
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 from app.services.semantic_governance import (
     active_semantic_basis,
     record_semantic_governance_event,

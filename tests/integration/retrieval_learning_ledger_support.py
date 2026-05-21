@@ -50,7 +50,7 @@ from app.schemas.search import (  # noqa: F401
 from app.services.claim_support_replay_alert_fixture_corpus import (
     ensure_active_replay_alert_fixture_corpus_snapshot,
 )
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 from app.services.retrieval_learning import (  # noqa: F401
     create_retrieval_reranker_artifact,
     evaluate_retrieval_learning_candidate,

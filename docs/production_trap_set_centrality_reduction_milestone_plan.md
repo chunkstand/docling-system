@@ -1,20 +1,22 @@
 # Production Trap-Set Centrality Reduction Milestone Plan
 
 Date: 2026-05-20 local / 2026-05-20 UTC
-Status: proposed in the current checkout as a standalone technical-paydown
-packet after the routed queue, broader-rebaseline queue, and Python-cycle
-backlog all closed locally.
-Owner context: the live architecture-quality summary now reports
+Status: resolved locally in the current checkout on 2026-05-20. The packet
+added repo-owned centrality budgets, migrated remaining high-fan-in callers
+off the broad production facades, reduced the selected orchestration roots,
+and closed the remaining trap-set roots as accepted residual shims with
+explicit ceilings and owner routing.
+Owner context: the routed queue and broader-rebaseline queue both remain empty
+after closeout, while the live architecture-quality summary now reports
 `top_routed_hotspot_paths=[]`, `broader_rebaseline_candidate_count=0`,
-`top_broader_rebaseline_paths=[]`, `broad_facade_count=2`, and
-`stale_facade_hotspot_count=20`. The queue is empty, but the repo still carries
-an intentionally governed production trap set centered on
+`top_broader_rebaseline_paths=[]`, `broad_facade_count=2`,
+`stale_facade_hotspot_count=12`, and `max_hotspot_risk_score=461.06`. The raw
+top-hotspot list still begins with the intentionally governed compatibility or
+dispatch roots
 `app/db/models.py`, `app/services/agent_task_actions.py`,
-`app/services/evidence.py`, `app/cli.py`, `app/services/agent_tasks.py`,
-`app/services/search.py`, `app/services/audit_bundles.py`, and the adjacent
-schema facade `app/schemas/agent_tasks.py`. Most of those roots are already
-small compatibility or dispatch facades; the remaining debt is structural
-centrality, not unsplit line count.
+`app/services/evidence.py`, `app/cli.py`, and
+`app/schemas/agent_tasks.py`, but they are now governed by exact import or
+fan-out ceilings instead of remaining ambiguous open debt.
 
 ## Purpose
 
@@ -35,41 +37,45 @@ splits. What remains is a cross-cutting centrality problem:
 
 - `uv run docling-system-architecture-quality-report --summary` currently
   reports `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
-  `hotspot_count=20`, `stale_facade_hotspot_count=20`,
-  `max_hotspot_risk_score=466.06`, `top_routed_hotspot_paths=[]`,
+  `hotspot_count=20`, `stale_facade_hotspot_count=12`,
+  `max_hotspot_risk_score=461.06`, `top_routed_hotspot_paths=[]`,
   `broader_rebaseline_candidate_count=0`, and
   `top_broader_rebaseline_paths=[]`.
-- The same live summary keeps the production trap set visible through
-  `routing_trap_paths`, including
+- The same live summary now leaves the routed queue empty and keeps the raw
+  production trap roots visible through `top_hotspot_paths` rather than
+  through a queued follow-on list:
   `app/db/models.py`, `app/services/agent_task_actions.py`,
-  `app/services/evidence.py`, `app/cli.py`, `app/schemas/agent_tasks.py`,
-  `app/services/agent_tasks.py`, `app/services/search.py`, and
-  `app/services/audit_bundles.py`.
+  `app/services/evidence.py`, `app/cli.py`, and
+  `app/schemas/agent_tasks.py`.
 - The narrower DB caller-migration lane is already resolved locally:
   `app.db.models` direct imports are down from the Milestone 0 `337`-import
   gravity to the explicit `9`-file compatibility and metadata allowlist
   (`0` under `app/`), and the replacement caller fan-in now lands on the
   bounded public roots
-  `app.db.public.agent_tasks=173`, `app.db.public.retrieval=80`,
+  `app.db.public.agent_tasks=172`, `app.db.public.retrieval=80`,
   `app.db.public.ingest=69`, `app.db.public.semantic_memory=68`,
   `app.db.public.audit_and_evidence=55`,
   `app.db.public.claim_support=40`, and
   `app.db.public.document_artifacts=38`.
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 25`
-  currently reports the strongest remaining production fan-in on
-  `app.services.evidence` (`42`), `app.schemas.agent_tasks` (`37`), and
-  `app.services.agent_tasks` (`26`); the older `app.db.models` caller gravity
-  is now handled by the resolved child packet above rather than by the
-  remaining umbrella targets.
-- The same live probe reports the strongest remaining production fan-out on
-  `app.services.agent_task_actions` (`18` imports),
-  `app.services.evidence` (`17`), `app.services.audit_bundles` (`15`),
-  `app.services.agent_tasks` (`13`), and `app.services.search` (`12`).
-- Current line counts confirm that this is no longer a pure file-size problem:
-  `app/db/models.py=159`, `app/services/agent_task_actions.py=163`,
-  `app/services/evidence.py=141`, `app/cli.py=213`,
-  `app/services/agent_tasks.py=324`, `app/services/search.py=231`,
-  `app/services/audit_bundles.py=596`, and
+  now reports the post-closeout raw hotspot set with
+  `app/db/models.py`, `app/services/agent_tasks.py`,
+  `app/services/agent_task_actions.py`, `app/services/audit_bundles.py`,
+  `app/cli.py`, `app/services/search.py`, and `app/services/evidence.py` still
+  visible as intentionally governed shims rather than active queued owners.
+- The repo-owned centrality budgets now record the reduced direct-import
+  ceilings at `app.services.evidence=2`,
+  `app.services.agent_tasks=24`, and `app.schemas.agent_tasks=1`, plus the
+  reduced unique internal import ceilings at
+  `app/services/agent_task_actions.py=15`,
+  `app/services/search.py=9`, `app/services/audit_bundles.py=8`, and
+  `app/cli.py=1`.
+- Current line counts confirm that this is still centrality work rather than a
+  pure file-size problem: `app/db/models.py=159`,
+  `app/services/agent_task_actions.py=146`,
+  `app/services/evidence.py=141`, `app/cli.py=146`,
+  `app/services/agent_tasks.py=324`, `app/services/search.py=229`,
+  `app/services/audit_bundles.py=513`, and
   `app/schemas/agent_tasks.py=38`.
 - The child packet’s closeout audit on `4284cd5d` stayed bounded: no ordinary
   caller now imports `app.db.model_domains.*`, no Python cycle or routed
@@ -82,10 +88,88 @@ splits. What remains is a cross-cutting centrality problem:
   `broad_facade_count` remain measurement signals. That mechanical interpretation
   debt is already closed; this packet is about the remaining centrality behind
   the trap set itself.
-- `docs/db_models_caller_migration_boundary_milestone_plan.md` already exists
-  as a narrower optional follow-on for `app.db.models` importer gravity. That
-  brief remains useful, but it is too narrow for the current selected debt and
-  should be treated as the DB caller-migration lane inside this broader packet.
+- `docs/db_models_caller_migration_boundary_milestone_plan.md` remains the
+  narrower resolved reference for `app.db.models` importer gravity. That brief
+  is now the bounded DB caller-migration sublane inside this broader resolved
+  packet rather than a parallel optional follow-on.
+
+## Closeout Summary
+
+- Added the repo-owned centrality budget artifact
+  `config/production_trap_set_centrality_budget.yaml` plus
+  `tests/unit/test_trap_set_caller_routes.py` and
+  `tests/unit/test_trap_set_centrality_budget.py` so the selected direct-import
+  allowlists, replacement caller counts, and lower fan-out ceilings are
+  machine-checked.
+- Absorbed the already-resolved DB caller lane under
+  `config/db_model_import_policy.yaml`: `app.db.models` remains at
+  `337 -> 9` direct imports with `0` ordinary `app/` callers, and the
+  replacement gravity now lands on bounded `app.db.public.*` roots led by
+  `app.db.public.agent_tasks=172`, `app.db.public.retrieval=80`,
+  `app.db.public.ingest=69`, `app.db.public.semantic_memory=68`,
+  `app.db.public.audit_and_evidence=55`,
+  `app.db.public.claim_support=40`, and
+  `app.db.public.document_artifacts=38`.
+- Reduced the remaining high-fan-in production roots to exact governed
+  ceilings: `app.services.evidence 42 -> 2`,
+  `app.services.agent_tasks 26 -> 24`, and
+  `app.schemas.agent_tasks 37 -> 1`.
+- Reduced the selected orchestration roots to lower sibling-owner budgets:
+  `app/services/agent_task_actions.py 18 -> 15`,
+  `app/services/search.py 12 -> 9`,
+  `app/services/audit_bundles.py 15 -> 8`, and `app/cli.py 4 -> 1`.
+- Moved document reprocess execution into
+  `app/services/agent_actions/document_lifecycle_actions.py`, tightened
+  `app/cli.py` to dispatch-only wiring over `app/cli_commands/*`, and added
+  `app/services/audit_bundle_release_imports.py` as the bounded owner
+  coordination seam for audit-bundle release and validation runtime imports.
+- Recorded the remaining trap roots as machine-checked `accepted_residual`
+  entries in `config/hotspot_prevention.yaml` so future work routes to the
+  focused owners instead of reopening the compatibility facades.
+
+## Verification Snapshot
+
+- `uv run ruff check $(git diff --name-only -- '*.py')`: pass
+- `uv run pytest -q tests/unit/test_trap_set_caller_routes.py tests/unit/test_trap_set_centrality_budget.py tests/unit/test_hotspot_prevention_policy_validation.py tests/unit/test_cli_ingest.py tests/unit/test_cli_entrypoints.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py tests/unit/test_agent_task_context_freshness.py tests/unit/test_agent_task_verifications_semantics.py tests/unit/test_agent_task_actions_search_harness_drafting.py tests/unit/test_agent_task_actions_search_harness_apply.py tests/unit/test_agent_task_actions_semantic_documents.py tests/unit/test_agent_task_triage.py tests/unit/test_agent_tasks_creation.py tests/unit/test_agent_tasks_lifecycle.py tests/unit/test_agent_task_actions_semantic_registry.py tests/unit/test_agent_task_verifications_search_harness.py tests/unit/test_claim_support_policy_impact_views.py tests/unit/test_agent_task_actions_semantic_graph.py tests/unit/test_technical_report_verification.py tests/unit/test_technical_reports.py tests/unit/test_agent_tasks_analytics.py tests/unit/test_agent_task_schema_facade_contract.py tests/unit/test_evidence_facade_contract.py tests/unit/test_evidence_provenance.py`: `144 passed`
+- `uv run pytest -q tests/unit/test_audit_bundles_facade_contract.py tests/unit/test_cli_search_harness_audit.py tests/unit/test_search_api_harness_audits.py`: `10 passed`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `2195 passed`, `1` docling deprecation warning
+- `uv run docling-system-hotspot-prevention-check --strict`: `blocked=0`, `allowed=25`, `exceptions=1`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-improvement-case-validate`: `valid=true`
+- `uv run docling-system-improvement-case-summary`: `status_counts={"deployed":67}`
+- `uv run docling-system-architecture-inspect`: `valid=true`,
+  `violation_count=0`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `top_routed_hotspot_paths=[]`, `broader_rebaseline_candidate_count=0`,
+  `stale_facade_hotspot_count=12`, `max_hotspot_risk_score=461.06`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 25`:
+  `app/services/search.py=229`, `app/services/audit_bundles.py=513`,
+  `app/cli.py=146`, `app/services/agent_task_actions.py=146`, and
+  `Python cycles: none detected`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles`:
+  pass
+
+## Alignment And Debt-Shift Review
+
+- The active packet, the narrower DB caller lane, the handoff, the architecture
+  index, and the broader coordination brief now agree that this umbrella
+  centrality packet is resolved locally instead of remaining an optional
+  follow-on.
+- Every selected root now closes at or below a repo-owned budget artifact:
+  `config/db_model_import_policy.yaml` owns the legacy DB shim, and
+  `config/production_trap_set_centrality_budget.yaml` owns the remaining
+  production trap-set importer and fan-out ceilings.
+- The only retained hotspot-prevention exception is
+  `audit-bundle-owner-coordination-runtime-routing` under `IC-7C9A4E2B1D55`;
+  it is limited to compatibility entrypoints plus runtime-binding calls now
+  owned by `app/services/audit_bundle_release_imports.py`, so the exception did
+  not recreate a second broad facade.
+- No ordinary caller now imports `app.db.model_domains.*`, no Python cycle or
+  architecture violation reopened, and no new hygiene regression appeared while
+  the selected roots were reduced.
+- No changed Python file crossed upward through the `600` or `800` line
+  thresholds; the only threshold crossing in the packet diff was downward, with
+  `app/services/claim_support_replay_alert_promotions.py` moving `600 -> 597`.
 
 ## Goal
 

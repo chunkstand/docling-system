@@ -8,26 +8,26 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-import app.services.agent_task_actions as agent_task_actions_module
 from app.db.public.agent_tasks import AgentTask
-from app.schemas.agent_tasks import (
+from app.schemas.agent_task_claim_support import (
     ApplyClaimSupportCalibrationPolicyTaskInput,
     ApplyClaimSupportCalibrationPolicyTaskOutput,
     DraftClaimSupportCalibrationPolicyTaskInput,
     DraftClaimSupportCalibrationPolicyTaskOutput,
-    EnqueueDocumentReprocessTaskInput,
     EvaluateClaimSupportJudgeTaskInput,
-    EvaluateDocumentGenerationContextPackTaskInput,
     QueueClaimSupportPolicyChangeImpactReplayTaskInput,
     QueueClaimSupportPolicyChangeImpactReplayTaskOutput,
     VerifyClaimSupportCalibrationPolicyTaskInput,
     VerifyClaimSupportCalibrationPolicyTaskOutput,
 )
+from app.schemas.agent_task_reports import EvaluateDocumentGenerationContextPackTaskInput
+from app.schemas.agent_task_search_workflows import EnqueueDocumentReprocessTaskInput
 from app.schemas.documents import DocumentUploadResponse
 from app.services.agent_actions.claim_support_actions import (
     build_claim_support_action_definitions,
 )
 from app.services.agent_actions.document_lifecycle_actions import (
+    _enqueue_document_reprocess_executor,
     build_document_lifecycle_action_definitions,
 )
 from app.services.agent_actions.evaluation_actions import (
@@ -51,7 +51,6 @@ from app.services.agent_actions.semantic_verification_actions import (
     build_semantic_verification_action_definitions,
 )
 from app.services.agent_task_actions import (
-    _enqueue_document_reprocess_executor,
     _replay_alert_fixture_coverage_waiver_sha256,
     _require_active_replay_alert_fixture_coverage_waiver,
     execute_agent_task_action,
@@ -80,7 +79,7 @@ def test_enqueue_document_reprocess_executor_queues_reprocess(monkeypatch) -> No
     )
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.reprocess_document",
+        "app.services.agent_actions.document_lifecycle_actions.reprocess_document",
         lambda session, requested_document_id: DocumentUploadResponse(
             document_id=requested_document_id,
             run_id=uuid4(),
@@ -440,11 +439,7 @@ def test_action_registry_is_composed_from_owner_modules() -> None:
         build_semantic_drafting_action_definitions(),
         build_semantic_governance_action_definitions(),
         build_semantic_verification_action_definitions(),
-        build_document_lifecycle_action_definitions(
-            enqueue_document_reprocess_executor=(
-                agent_task_actions_module._enqueue_document_reprocess_executor
-            )
-        ),
+        build_document_lifecycle_action_definitions(),
     )
 
     assert set(owner_actions) == {action.task_type for action in list_agent_task_actions()}

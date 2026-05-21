@@ -20,7 +20,7 @@ from app.db.public.audit_and_evidence import ClaimEvidenceDerivation, EvidencePa
 from app.db.public.claim_support import ClaimSupportCalibrationPolicy
 from app.db.public.semantic_memory import SemanticGovernanceEvent
 from app.services.claim_support_policy_governance import value_sha256
-from app.services.evidence import payload_sha256
+from app.services.evidence_common import payload_sha256
 from app.services.semantic_governance import active_semantic_basis
 
 CLAIM_SUPPORT_POLICY_CHANGE_IMPACT_SCHEMA = "claim_support_policy_change_impact"

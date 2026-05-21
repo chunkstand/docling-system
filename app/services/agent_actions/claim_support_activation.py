@@ -39,9 +39,7 @@ from app.services.claim_support_policy_governance import (
     persist_claim_support_policy_change_impact,
     record_claim_support_policy_activation_governance_event,
 )
-from app.services.evidence import (
-    payload_sha256,
-)
+from app.services.evidence_common import payload_sha256
 from app.services.evidence_operator_runs import record_knowledge_operator_run
 from app.services.storage import StorageService
 

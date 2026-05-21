@@ -1,0 +1,73 @@
+schema_name: production_trap_set_centrality_budget
+schema_version: "1.0"
+resolved_sublanes:
+  app.db.models:
+    linked_policy_path: config/db_model_import_policy.yaml
+    baseline_direct_import_count: 337
+    max_direct_import_count: 9
+    note: Legacy DB caller gravity is already governed by the dedicated DB model import policy.
+direct_import_budgets:
+  app.services.evidence:
+    baseline_direct_import_count: 42
+    max_direct_import_count: 2
+    expected_direct_import_counts:
+      total: 2
+      app: 0
+      tests: 2
+    allowlist:
+      - tests/unit/test_evidence_facade_contract.py
+      - tests/unit/test_evidence_provenance.py
+  app.services.agent_tasks:
+    baseline_direct_import_count: 26
+    max_direct_import_count: 24
+    expected_direct_import_counts:
+      total: 24
+      app: 2
+      tests: 22
+    allowlist:
+      - app/agent_task_cli.py
+      - app/services/claim_support_policy_impact_replay_queue.py
+      - tests/integration/claim_support_policy_change_impacts_replay_alert_support.py
+      - tests/integration/technical_report_harness_support.py
+      - tests/integration/test_agent_task_semantic_orchestration_roundtrip.py
+      - tests/integration/test_agent_task_triage_roundtrip.py
+      - tests/integration/test_agent_task_triage_roundtrip_search_harness.py
+      - tests/integration/test_agent_task_triage_roundtrip_search_harness_review.py
+      - tests/integration/test_claim_support_judge_evaluation_roundtrip.py
+      - tests/integration/test_claim_support_policy_activation_change_impacts_roundtrip.py
+      - tests/integration/test_claim_support_policy_activation_roundtrip.py
+      - tests/integration/test_claim_support_policy_activation_waivers.py
+      - tests/integration/test_claim_support_policy_change_impacts_replay_alert_governance.py
+      - tests/integration/test_claim_support_policy_change_impacts_replay_alert_prevalidation.py
+      - tests/integration/test_claim_support_policy_mined_failures_roundtrip.py
+      - tests/integration/test_eval_workbench_roundtrip.py
+      - tests/integration/test_portable_ontology_roundtrip.py
+      - tests/integration/test_semantic_bootstrap_roundtrip.py
+      - tests/integration/test_semantic_candidate_roundtrip.py
+      - tests/integration/test_semantic_generation_roundtrip.py
+      - tests/integration/test_semantic_graph_roundtrip.py
+      - tests/unit/test_agent_task_migration_audit.py
+      - tests/unit/test_agent_tasks.py
+      - tests/unit/test_agent_tasks_creation.py
+  app.schemas.agent_tasks:
+    baseline_direct_import_count: 37
+    max_direct_import_count: 1
+    expected_direct_import_counts:
+      total: 1
+      app: 0
+      tests: 1
+    allowlist:
+      - tests/unit/test_agent_task_schema_facade_contract.py
+unique_internal_import_budgets:
+  app/services/agent_task_actions.py:
+    baseline_unique_internal_import_count: 18
+    max_unique_internal_import_count: 15
+  app/services/search.py:
+    baseline_unique_internal_import_count: 12
+    max_unique_internal_import_count: 9
+  app/services/audit_bundles.py:
+    baseline_unique_internal_import_count: 15
+    max_unique_internal_import_count: 8
+  app/cli.py:
+    baseline_unique_internal_import_count: 4
+    max_unique_internal_import_count: 1

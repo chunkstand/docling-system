@@ -15,7 +15,7 @@ from app.db.public.agent_tasks import (
     AgentTaskDependencyKind,
     AgentTaskStatus,
 )
-from app.schemas.agent_tasks import AgentTaskApprovalRequest, AgentTaskCreateRequest
+from app.schemas.agent_task_core import AgentTaskApprovalRequest, AgentTaskCreateRequest
 from app.services.agent_task_worker import claim_next_agent_task, process_agent_task
 from app.services.agent_tasks import approve_agent_task, create_agent_task
 from tests.integration.agent_task_triage_roundtrip_support import _create_processed_document

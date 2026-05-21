@@ -204,29 +204,27 @@ artifact to
 `build/architecture-governance/architecture_quality_report.json` when importing
 its improvement-case candidates.
 
-Current 2026-05-18 summary: architecture inspection is valid with zero
+Current 2026-05-20 summary: architecture inspection is valid with zero
 violations, the capability map is valid across 6 facades and 111 functions, and
-the raw quality summary still identifies 10 top hotspots. The raw measurement
-list still begins with `app/db/models.py`, `app/cli.py`,
-`app/services/agent_task_actions.py`, `app/services/evidence.py`, and
-`app/schemas/agent_tasks.py`, but the routed queue now separates those reduced
-facades from the true next owner surfaces: `top_routed_hotspot_paths` now begin
-with `tests/unit/test_hotspot_prevention.py`, while `routing_trap_paths` plus
-`stale_facade_hotspot_count=9` preserve the compact stale-facade evidence
-explicitly. The default 20-hotspot report artifact extends that routed-trap
-list to `10` paths by also capturing
-`tests/integration/test_claim_support_judge_evaluation_roundtrip.py`,
-`tests/integration/test_technical_report_harness_roundtrip.py`, and
-`app/services/agent_tasks.py`. The full report also preserves
-`raw_improvement_case_candidates` for auditability while
-`improvement_case_candidates` now reflects the routed owner queue used by the
-improvement-case import surface. `broad_facade_count` remains a raw measure of
-capability breadth, while `legibility_gap_count` identifies the broad facades
-that still fail the explicit tests/examples/trace/decision stop condition and
-therefore remain active debt. The routed-hotspot interpretation closeout and
-the later open-owner closeout are now both resolved locally, so future
-reselection should start from `top_routed_hotspot_paths` rather than from the
-raw facade list.
+the raw quality summary still identifies 20 top hotspots. The raw measurement
+list still begins with `app/db/models.py`,
+`app/services/agent_task_actions.py`, `app/services/evidence.py`,
+`app/cli.py`, and `app/schemas/agent_tasks.py`, but the routed queue remains
+empty at `top_routed_hotspot_paths=[]` while
+`routing_trap_paths` plus `stale_facade_hotspot_count=12` preserve the compact
+accepted-residual evidence explicitly. The later production trap-set
+centrality closeout now governs the remaining production trap roots through
+`config/production_trap_set_centrality_budget.yaml` and the matching
+`accepted_residual` routes in `config/hotspot_prevention.yaml`, so the raw
+facade list is now a measurement signal rather than an ambiguous queued
+backlog. The full report still preserves `raw_improvement_case_candidates` for
+auditability while `improvement_case_candidates` reflects the routed owner
+queue used by the improvement-case import surface. `broad_facade_count`
+remains a raw measure of capability breadth, while `legibility_gap_count`
+identifies the broad facades that still fail the explicit
+tests/examples/trace/decision stop condition and therefore remain active debt.
+Future reselection should continue to start from `top_routed_hotspot_paths`
+rather than from the raw facade list.
 
 Trace-first agent review is owned by `app.agent_trace_review`. It emits the
 `agent_trace_review_report` contract for failed agent tasks, failed
