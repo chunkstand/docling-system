@@ -134,7 +134,7 @@ routers, CLI entrypoints, or integration support, and the live routed queue
 remains honestly empty again. Future code-owning work from this broader brief
 therefore requires another fresh broader rebaseline rather than a queued child
 packet. The later 2026-05-20 hygiene-gate registry alignment sweep then
-deploys `IC-20260424-hygiene-gate`, advances the live summary to
+deploys `IC-20260424-hygiene-gate`, advances the then-live summary to
 `status_counts={"deployed":66}`, keeps
 `max_hotspot_risk_score=466.06`, and leaves
 `top_routed_hotspot_paths=[]` so this coordination brief still points to a
@@ -192,7 +192,7 @@ test-family owner surface without reopening the broader queue: it reduces
 `tests/unit/test_hotspot_prevention_policy_contracts.py` to `21` lines, moves
 validation, report and CLI, diff collector, and packaging coverage into new
 `164`, `123`, `40`, and `10` line siblings, grows shared support to `133`
-lines, routes the reduced root under `IC-B1FD75CDA84F`, advances the live
+lines, routes the reduced root under `IC-B1FD75CDA84F`, advances the then-live
 summary to `status_counts={"deployed":66}`, and still leaves
 `top_routed_hotspot_paths=[]` with
 `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`.
@@ -222,6 +222,11 @@ summary to `status_counts={"deployed":67}`,
 `broader_rebaseline_candidate_count=0`, and
 `top_broader_rebaseline_paths=[]` without reopening the routed queue or
 regrowing the reduced search-harness service or CLI facades.
+The later governance gap-close then adds
+`tests/unit/test_hotspot_prevention_search_api_harness_routes.py` plus the
+matching hotspot-governance classifier support and hotspot-policy contract
+fixture entries so the reduced harness root is protected by explicit
+hotspot-regression coverage as well as the broader queue metrics.
 
 ## Purpose
 

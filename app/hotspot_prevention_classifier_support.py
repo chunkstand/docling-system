@@ -17,6 +17,7 @@ RESIDUAL_TEST_COMPATIBILITY_PATHS = {
     "tests/unit/test_agent_tasks_api.py",
     "tests/unit/test_documents_api.py",
     "tests/unit/test_evaluation_service.py",
+    "tests/unit/test_search_api_harnesses.py",
     "tests/unit/test_search_service.py",
     "tests/integration/test_retrieval_learning_ledger.py",
     "tests/integration/test_technical_report_harness_roundtrip.py",
@@ -29,14 +30,7 @@ LOCAL_TEST_SUPPORT_PATHS = {
     "tests/unit/agent_task_context_semantic_graph_promotions_support.py",
 }
 
-_COMPATIBILITY_TEST_TOKENS = (
-    "compat",
-    "contract",
-    "facade",
-    "smoke",
-    "roundtrip",
-    "registry",
-)
+_COMPATIBILITY_TEST_TOKENS = ("compat", "contract", "facade", "smoke", "roundtrip", "registry")
 
 @dataclass(frozen=True)
 class SurfaceClassification:

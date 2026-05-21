@@ -58,6 +58,7 @@ EXPECTED_KNOWN_HOTSPOT_PATHS = [
     "tests/unit/test_hotspot_prevention.py",
     "tests/unit/test_hotspot_prevention_policy_contracts.py",
     "tests/unit/test_search_api.py",
+    "tests/unit/test_search_api_harnesses.py",
     "tests/unit/test_search_service.py",
 ]
 
@@ -69,6 +70,7 @@ DEFERRED_REDUCED_FACADE_PATHS = [
     "tests/unit/test_agent_tasks_api.py",
     "tests/unit/test_architecture_inspection.py",
     "tests/unit/test_search_api.py",
+    "tests/unit/test_search_api_harnesses.py",
     "tests/unit/test_search_service.py",
     "tests/unit/test_documents_api.py",
     "tests/unit/test_agent_task_context_reports_claim_support.py",

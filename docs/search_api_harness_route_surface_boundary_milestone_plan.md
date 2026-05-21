@@ -73,6 +73,9 @@ changes do not reconcentrate in one `764`-line owner.
 - `tests/unit/test_search_api_harness_evaluations.py`
 - `tests/unit/test_search_api_harness_learning.py`
 - `tests/unit/test_search_api_harness_audits.py`
+- `app/hotspot_prevention_classifier_support.py`
+- `tests/unit/hotspot_prevention_test_support.py`
+- `tests/unit/test_hotspot_prevention_search_api_harness_routes.py`
 - `config/hotspot_prevention.yaml`
 - `config/hygiene_policy.yaml`
 - `config/improvement_cases.yaml`
@@ -190,6 +193,46 @@ uv run docling-system-architecture-quality-report --summary
 - `tests/unit/test_search_api.py` and
   `tests/unit/test_search_api_learning_audit.py` remain narrow existing owners
   instead of absorbing moved harness-route coverage.
+
+## Debt-Shift Audit
+
+- Adjacent search API owners stayed flat in the live checkout:
+  `tests/unit/test_search_api.py` at `161` lines,
+  `tests/unit/test_search_api_replays.py` at `248`, and
+  `tests/unit/test_search_api_learning_audit.py` at `228`.
+- No new focused sibling created by this packet crossed the default `600`-line
+  budget; the largest new owner remains
+  `tests/unit/test_search_api_harness_learning.py` at `335` lines.
+- `uv run docling-system-architecture-quality-report --summary` now reports
+  `broader_rebaseline_candidate_count=0` and
+  `top_broader_rebaseline_paths=[]`, so the packet clears the broader queue
+  instead of shifting the same family into a replacement sink.
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles`
+  still reports no Python cycles, so the test-family split did not create a
+  new import knot while moving the route coverage.
+- Application-side search import gravity is unchanged because the gap-close
+  only extends hotspot-governance classification support; no search router,
+  search service, or harness implementation module was expanded.
+- Focused hotspot-prevention regression coverage now lives in
+  `tests/unit/test_hotspot_prevention_search_api_harness_routes.py`, and the
+  hotspot-governance classifier support plus the hotspot-policy contract
+  fixtures now register
+  `tests/unit/test_search_api_harnesses.py` as a first-class deferred reduced
+  facade. The reduced root is therefore self-defending in governance tests
+  rather than relying only on packet notes.
+
+Gap-close verification for the governance follow-on:
+
+- `git diff --check`: pass
+- `uv run ruff check app/hotspot_prevention_classifier_support.py tests/unit/hotspot_prevention_test_support.py tests/unit/test_hotspot_prevention_policy_contracts.py tests/unit/test_hotspot_prevention_policy_validation.py tests/unit/test_hotspot_prevention_search_api_harness_routes.py`: pass
+- `uv run pytest -q tests/unit/test_search_api.py tests/unit/test_search_api_harnesses.py tests/unit/test_search_api_harness_definitions.py tests/unit/test_search_api_harness_evaluations.py tests/unit/test_search_api_harness_learning.py tests/unit/test_search_api_harness_audits.py tests/unit/test_search_api_learning_audit.py tests/unit/test_hotspot_prevention_policy_contracts.py tests/unit/test_hotspot_prevention_policy_validation.py tests/unit/test_hotspot_prevention_search_api_harness_routes.py`: `35 passed`
+- `uv run docling-system-hotspot-prevention-check --strict`: `known_hotspots=57`, `changed_hotspots=1`, `added_lines=2`, `deleted_lines=8`, `blocked=0`, `allowed=0`, `exceptions=0`
+- `uv run docling-system-hygiene-check`: `inherited budget debt: none`; `new hygiene regressions: none`
+- `uv run docling-system-improvement-case-validate`: `valid=true`
+- `uv run docling-system-improvement-case-summary`: `status_counts={"deployed":67}`
+- `uv run docling-system-architecture-inspect`: `valid=true`; `violation_count=0`
+- `uv run docling-system-architecture-quality-report --summary`: `top_routed_hotspot_paths=[]`; `broader_rebaseline_candidate_count=0`; `top_broader_rebaseline_paths=[]`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles`: `Python cycles: none detected`
 
 ## Residual Risks And Next Routing
 

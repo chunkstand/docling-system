@@ -79,6 +79,11 @@ root under `IC-5C9B1A4D7E2F`, keeps
 error-path owner at `228` lines, and leaves no active broader-rebaseline
 candidate in the current checkout. Future code-owning work now requires a
 fresh live rebaseline rather than reopening a queued harness packet. The later
+governance gap-close then adds
+`tests/unit/test_hotspot_prevention_search_api_harness_routes.py` plus the
+matching hotspot-governance classifier support and hotspot-policy contract
+fixture entries so the reduced harness root is covered by explicit
+hotspot-regression tests as well as the broader queue metrics. The later
 `docs/hotspot_prevention_policy_contracts_boundary_milestone_plan.md`
 follow-on now closes the briefly reopened hotspot-prevention policy-contract
 owner surface: `tests/unit/test_hotspot_prevention_policy_contracts.py`
@@ -132,9 +137,12 @@ at `20 / 0`, `181 / 4`, `228 / 2`, `59 / 0`, `232 / 0`, and `122 / 0`;
 hotspot prevention now routes both roots as compatibility-facade traps, and
 `IC-0E4F1B9A2D73` plus `IC-5F4E8C2B1A90` are recorded as the current deployed
 owner cases. The later docs-only registry alignment sweep also deploys
-`IC-20260424-hygiene-gate`, so the live improvement-case registry is fully
-closed at `status_counts={"deployed":66}` without reopening the routed queue
-or introducing a new governed hotspot. A debt-shift
+`IC-20260424-hygiene-gate`, which closed the then-live improvement-case
+registry at `status_counts={"deployed":66}` without reopening the routed queue
+or introducing a new governed hotspot. The later 2026-05-20 search API
+harness route-surface closeout then advanced the current live registry to
+`status_counts={"deployed":67}` while clearing the final broader-rebaseline
+candidate. A debt-shift
 audit over the adjacent semantic owners and focused semantic test roots stayed
 empty after the split, so no semantic-registry logic was pushed into preview,
 ontology, candidate, graph, generation, or semantic-pass owners. The latest
@@ -165,6 +173,14 @@ Latest hotspot-prevention policy-contract packet verification:
 - `uv run docling-system-improvement-case-validate`: `valid=true`
 - `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
 - `uv run docling-system-architecture-quality-report --summary`: `top_routed_hotspot_paths=[]`, `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`
+That packet-level broader snapshot is now historical: the later search API
+harness route-surface closeout cleared
+`top_broader_rebaseline_paths` back to `[]`, and the follow-up governance
+gap-close added
+`tests/unit/test_hotspot_prevention_search_api_harness_routes.py` plus the
+matching hotspot-governance classifier support and hotspot-policy contract
+fixture entries so the reduced harness root is now self-defending in the
+hotspot suite.
 
 Latest search-harness cycle-removal packet verification:
 - `git diff --check`: pass
@@ -183,6 +199,10 @@ Latest broader-rebaseline rerun verification:
 - `uv run docling-system-improvement-case-summary`: `status_counts={"deployed":66}`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 25`: `Python cycles: none detected`; `tests/unit/test_search_api_harnesses.py` remains `764` lines and is still the selected search-family broader candidate
 - `docs/search_api_harness_route_surface_boundary_milestone_plan.md` now records the selected next packet from the fresh rerun so the queue-empty state does not fall back to raw metrics alone
+This rerun is also historical now: the later harness packet reduced that root
+to `40` lines, moved the focused coverage into routed siblings, advanced the
+live registry to `status_counts={"deployed":67}`, and returned
+`broader_rebaseline_candidate_count=0`.
 Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
 Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
 Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`
