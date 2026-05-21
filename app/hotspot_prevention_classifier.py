@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import app.hotspot_prevention_classifier_agent_task_runtime_rules as _agent_task_runtime_rules
+import app.hotspot_prevention_classifier_agent_task_runtime_rules as _rt_rules
 import app.hotspot_prevention_classifier_boundary_rules as _boundary_rules
 import app.hotspot_prevention_classifier_owner_rules as _owner_rules
 import app.hotspot_prevention_classifier_schema_facades as _schema_facades
@@ -324,11 +324,10 @@ def classify_hotspot_implementation(
         "app/services/agent_task_actions.py": _boundary_rules.classify_agent_action_addition,
         "app/services/agent_task_context.py": _boundary_rules.classify_agent_task_context_addition,
         "app/services/agent_task_verifications.py": (
-            _agent_task_runtime_rules.classify_agent_task_verifications_addition
+            _rt_rules.classify_agent_task_verifications_addition
         ),
-        "app/services/agent_task_worker.py": (
-            _agent_task_runtime_rules.classify_agent_task_worker_addition
-        ),
+        "app/services/agent_task_worker.py": _rt_rules.classify_agent_task_worker_addition,
+        "app/cli_commands/search_harness.py": _search_rules.classify_search_harness_cli_addition,
         "app/services/search_harnesses.py": _search_rules.classify_search_harness_facade_addition,
         "app/services/search.py": _search_rules.classify_search_addition,
         "app/services/semantics.py": _service_rules.classify_semantics_addition,
@@ -357,6 +356,7 @@ def classify_hotspot_implementation(
         "app/hotspot_prevention_classifier.py": lambda *, stripped, line: _owner_rules.classify_hotspot_prevention_classifier_addition(stripped=stripped, line=line, rule=rule),  # noqa: E501
         "app/hotspot_prevention_classifier_support.py": lambda *, stripped, line: _owner_rules.classify_hotspot_prevention_classifier_support_addition(stripped=stripped, line=line, rule=rule),  # noqa: E501
         "tests/unit/test_cli.py": _boundary_rules.classify_cli_test_addition,
+        "tests/unit/test_cli_search_harness.py": _boundary_rules.classify_cli_test_addition,
     }
     classifier = classifiers.get(path)
     return classifier(stripped=stripped, line=line) if classifier else None

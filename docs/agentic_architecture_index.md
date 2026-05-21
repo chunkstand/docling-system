@@ -5,6 +5,19 @@ chat history or scanning the whole repository.
 
 ## Current Milestone Briefs
 
+- `docs/search_harness_cli_facade_boundary_milestone_plan.md`: resolved
+  locally in the current checkout on 2026-05-20. The packet reduces
+  `app/cli_commands/search_harness.py` to `23` lines, moves shared parser
+  support plus retrieval-learning, evaluation/gate, and audit ownership into
+  `app/cli_commands/search_harness_support.py` at `84`,
+  `app/cli_commands/search_harness_learning.py` at `268`,
+  `app/cli_commands/search_harness_evaluations.py` at `176`, and
+  `app/cli_commands/search_harness_audit.py` at `111`, keeps the reduced root
+  CLI smoke test at `18` lines with direct owner coverage moved to focused
+  `303`, `275`, and `152` line siblings, and drops the live broader-rebaseline
+  candidate count to `1` while leaving
+  `tests/unit/test_search_api_harnesses.py` unchanged at `764` lines as the
+  next honest search-family owner.
 - `docs/search_harness_facade_boundary_milestone_plan.md`: resolved locally in
   the current checkout on 2026-05-20. The packet reduces
   `app/services/search_harnesses.py` to `82` lines, moves contracts,
@@ -14,10 +27,9 @@ chat history or scanning the whole repository.
   `app/services/search_harness_reranking.py` at `203`, keeps the reduced
   root test at `18` lines with direct owner coverage moved to
   `tests/unit/test_search_harness_registry.py` at `44` and
-  `tests/unit/test_search_harness_reranking.py` at `69`, and drops the live
-  broader-rebaseline candidate count to `3` with unchanged adjacent residual
-  owners at `604`, `714`, and `764` lines, leaving
-  `app/cli_commands/search_harness.py` as the next honest search-family owner.
+  `tests/unit/test_search_harness_reranking.py` at `69`; at that checkpoint,
+  it dropped the live broader-rebaseline candidate count to `3` and handed the
+  queue to the CLI/test search-harness family.
 - `docs/search_span_retrieval_boundary_milestone_plan.md`: resolved locally in
   committed but unpushed state on 2026-05-20 through closeout commit
   `0c007206`. The packet reduces
@@ -30,10 +42,11 @@ chat history or scanning the whole repository.
   owners at `627`, `604`, `714`, and `764` lines, leaving
   `app/services/search_harnesses.py` as the next honest search-family owner.
 - `docs/boring_change_architecture_milestone_plan.md`: refreshed locally in
-  committed but unpushed state on 2026-05-20 through closeout commit
-  `8b0ea812`. The architecture-quality report now surfaces
-  `broader_rebaseline_candidate_count=3` and
-  `top_broader_rebaseline_paths=[app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`,
+  committed but unpushed state on 2026-05-20 with the later broader-reselect
+  follow-ons recorded underneath the original `8b0ea812` refresh. The current
+  architecture-quality report now surfaces
+  `broader_rebaseline_candidate_count=1` and
+  `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`,
   the routed queue remains at `top_routed_hotspot_paths=[]`, and the support
   split keeps `app/architecture_quality.py=522` plus
   `app/architecture_quality_support.py=202` so the broader-rebaseline refresh
@@ -117,7 +130,15 @@ chat history or scanning the whole repository.
 - `docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md`: resolved through the 2026-05-19 verified-to-deployed registry closeout. The packet keeps `app/services/semantic_pass_lifecycle.py` at `529` lines / `3` private helpers, `app/services/semantic_pass_reads.py` at `372` lines / `3`, and the supporting artifact/review/source-record siblings at `150`, `369`, and `415`, and the later open-owner closeout plus Packet B now deploy `IC-9E6B8F5D62A1`, `IC-8304248AB64C`, and `IC-ADCFFF108626`.
 - `docs/hotspot_prevention_family_boundary_milestone_plan.md`: resolved locally through closeout commit `463d3fc`, and the later classifier-owner rebaseline keeps the current companion-test family aligned without reopening the packet. `app/hotspot_prevention_classifier.py` remains `360` lines / `1` private helper, the companion analyzer root now closes at `341 / 0`, policy and report contract coverage now lives in `tests/unit/test_hotspot_prevention_policy_contracts.py` at `376 / 0`, blocked-family coverage remains at `356 / 0`, wrapper coverage remains at `296 / 0`, and shared support remains at `50 / 2`. `IC-6C1B516A3F92` and `IC-15F6E41A9C77` are now recorded as deployed locally, `config/hotspot_prevention.yaml` routes the residual root test as a deferred reduced facade, the focused family gate passed at `41 passed`, and the later classifier-owner control-plane refresh returns the routed queue to `top_routed_hotspot_paths=[]`.
 - `docs/semantic_residual_owner_family_milestone_plan.md`: superseded historical draft. It predates the app large owner modules closeout that reduced `app/services/semantic_governance.py` to `39` lines, so the active lifecycle/read follow-on now routes through `docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md` instead of reviving the older three-owner draft unchanged.
-- `docs/cli_command_dispatch_boundary_milestone_plan.md`: resolved locally through closeout commit `4a79a82` for `IC-9812A0B138D9`; runtime and maintenance command ownership remains in `app/cli_commands/runtime.py` at `463` lines, retrieval-learning and search-harness ownership now lives in `app/cli_commands/search_harness.py` at `604` lines, `app/cli.py` is reduced to `375` lines, and the later hotspot-interpretation closeout now records the facade case as deployed rather than leaving it open because of raw hotspot ordering alone.
+- `docs/cli_command_dispatch_boundary_milestone_plan.md`: resolved locally
+  through closeout commit `4a79a82` for `IC-9812A0B138D9`; runtime and
+  maintenance command ownership remains in `app/cli_commands/runtime.py` at
+  `463` lines, `app/cli.py` is reduced to `375` lines, and the later
+  search-harness CLI facade follow-on further reduces the old
+  `app/cli_commands/search_harness.py` owner to a `23` line compatibility
+  surface over focused `268`, `176`, and `111` line command owners while the
+  reduced facade case remains deployed rather than being reopened by raw
+  hotspot ordering alone.
 - `docs/agent_task_schema_aggregation_boundary_milestone_plan.md`: resolved locally through closeout commit `efe6d4e` for `IC-24F3558D6091`; `app/schemas/agent_tasks.py` is now a `38` line compatibility facade, production `app/` import fan-in is `0`, local test and integration import fan-in is `30`, and the live architecture-quality measurement is `risk_score 363.75` with `58` changes over 90 days. The broader owner case remains reduced/open because the architecture-quality summary still routes the facade even though the scoped aggregation issue is closed.
 - `docs/oversized_test_hotspots_boundary_milestone_plan.md`: resolved locally through closeout commit `65c0c67` in the 2026-05-14 oversized-test closeout window, with the later 2026-05-18 technical-report harness residual closeout now deployed through the 2026-05-19 verified-to-deployed registry closeout for `IC-D49E037D5657`, the later 2026-05-18 agent-tasks API lifecycle closeout now deploying `IC-D9A84C20546B` through implementation commit `790fa2d` plus durable docs-and-registry closeout commit `8ce05b7`, the later Packet C residual-successor split now deploying `IC-3B4C9F2A76E1`, and the later Packet D residual-ranking split now deploying `IC-25C1F7B9E4DA`. The seven selected residual files remain `159`, `328`, `92`, `389`, `117`, `428`, and `93` lines respectively for `tests/db_model_contract.py`, `tests/unit/test_agent_task_context.py`, `tests/unit/test_agent_tasks_api.py`, `tests/unit/test_evaluation_service.py`, `tests/unit/test_search_service.py`, `tests/integration/test_retrieval_learning_ledger.py`, and `tests/integration/test_technical_report_harness_roundtrip.py`; the agent-task context family now also closes the former `636`- and `653`-line successors at `358` and `236` over `294`- and `426`-line support modules, the search-service family now also closes the former `621`-line ranking owner at `532` over a new `158`-line source-filename sibling, the agent-tasks API family closes at `360`, `360`, `566`, `419`, and `93`, the harness family closes at `315`, `398`, `313`, `162`, `402`, and `206`, and the architecture probe no longer lists any of those residual files in the top 20 hotspots.
 - `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`: resolved locally through closeout commit `9876f67` after the claim-support, evaluations, evidence provenance-export, semantics, CLI, agent-task schema, and oversized-test packets. Milestone 0 is resolved locally through baseline commit `08a1a75`, Milestone 1 owner-case bootstrap is resolved locally through checkpoint `d4f082c`, Milestone 2 owner-case binding conversion is committed locally as `7ef99cd`, and Milestone 3 owner-case-only hygiene-contract enforcement is committed locally as `0dbd4c7`: `IC-08C078FD4F45` anchors the architecture-governance residual family, `IC-7C73737C689F` anchors the claim-support support residual family, `IC-81C531769EB3` anchors the semantic-governance residual owner, `config/hygiene_policy.yaml` still contains zero `owner_milestone` entries, and `app/hygiene.py`, `app/hygiene_types.py`, `tests/unit/test_hygiene.py`, and `docs/improvement_loop.md` now reject `owner_milestone` as a live ratchet owner reference. Milestone 4 routing-packet closeout is now resolved locally through closeout commit `9876f67`, and the next active stacked follow-on is `docs/architecture_governance_cycle_boundary_milestone_plan.md`.
@@ -150,8 +171,8 @@ chat history or scanning the whole repository.
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
   `legibility_gap_count=0`, `hotspot_count=20`,
   `max_hotspot_risk_score=466.06`,
-  `broader_rebaseline_candidate_count=3`, and
-  `top_broader_rebaseline_paths=[app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`.
+  `broader_rebaseline_candidate_count=1`, and
+  `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`.
 - The later 2026-05-19 retrieval-learning artifact owner closeout, plus the
   2026-05-20 hygiene-gate registry alignment sweep, leave the live
   improvement-case summary at `status_counts={"deployed":65}`, keep hotspot
@@ -160,10 +181,9 @@ chat history or scanning the whole repository.
   the current live architecture-quality summary at
   `stale_facade_hotspot_count=20` with `top_routed_hotspot_paths=[]`, confirm
   the full `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` gate at
-  `2166 passed`, and now surface the next honest broader-reselect family
-  through the remaining search harness CLI/test owner paths led by
-  `app/cli_commands/search_harness.py` rather than reopening a reduced facade,
-  while keeping
+  `2169 passed`, and now surface the next honest broader-reselect family
+  through the remaining `tests/unit/test_search_api_harnesses.py` owner rather
+  than reopening a reduced service or CLI facade, while keeping
   `app/services/retrieval_learning_artifacts.py` recorded as a
   compatibility-facade trap without transferring debt into adjacent
   retrieval-learning consumers.

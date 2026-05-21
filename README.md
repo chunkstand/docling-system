@@ -30,8 +30,8 @@ Current repo-level signals:
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
   `hotspot_count=20`, `stale_facade_hotspot_count=20`,
   `max_hotspot_risk_score=466.06`, `top_routed_hotspot_paths=[]`,
-  `broader_rebaseline_candidate_count=3`, and
-  `top_broader_rebaseline_paths=[app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`.
+  `broader_rebaseline_candidate_count=1`, and
+  `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`.
 - `uv run docling-system-hygiene-check` is green when there are no new
   regressions and now reports `inherited budget debt: none`.
 - `uv run docling-system-hotspot-prevention-check --strict` passes on the
@@ -40,9 +40,9 @@ Current repo-level signals:
   and closeout surface for architecture debt. The live summary now reports
   `status_counts={"deployed":65}` with no actionable routed backlog.
 - The routed queue is still intentionally empty, but the new broader-rebaseline
-  output now points first at the search residual family, led by
-  `app/services/search_harnesses.py`, before the inherited CLI/test harness
-  siblings.
+  output now points directly at the remaining search API harness test root
+  `tests/unit/test_search_api_harnesses.py` after the service and CLI search
+  harness packets were reduced.
 - The 2026-05-20 broader-rebaseline refresh is committed locally as
   `8b0ea812`; it keeps `app/architecture_quality.py` at `522` lines by moving
   the shared broader-rebaseline ranking logic into
@@ -53,9 +53,19 @@ Current repo-level signals:
   contracts, registry, and reranking ownership into
   `app/services/search_harness_contracts.py` at `105` lines,
   `app/services/search_harness_registry.py` at `291` lines, and
-  `app/services/search_harness_reranking.py` at `203` lines; the broader
-  rebaseline count dropped from `4` to `3`, and the next real owner is now
-  `app/cli_commands/search_harness.py`.
+  `app/services/search_harness_reranking.py` at `203` lines; that pass
+  dropped the broader rebaseline count from `4` to `3`.
+- The later 2026-05-20 search-harness CLI facade follow-on now keeps
+  `app/cli_commands/search_harness.py` at `23` lines by moving retrieval-learning,
+  evaluation/gate, and audit ownership into
+  `app/cli_commands/search_harness_learning.py` at `268` lines,
+  `app/cli_commands/search_harness_evaluations.py` at `176` lines, and
+  `app/cli_commands/search_harness_audit.py` at `111` lines; it also keeps
+  `tests/unit/test_cli_search_harness.py` at `18` lines by moving direct
+  coverage into focused `303`, `275`, and `152` line siblings, leaves
+  `tests/unit/test_search_api_harnesses.py` unchanged at `764` lines, and
+  drops the broader rebaseline count from `3` to `1` without shifting debt
+  into adjacent search owners.
 - The canonical local release gate is `uv run docling-system-release-gate-parity`;
   the checked-in `Release Gate Parity` workflow runs that same command on pull
   requests and pushes to `main`, uploads

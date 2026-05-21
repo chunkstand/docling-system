@@ -160,6 +160,19 @@ search CLI/test residual owners unchanged at `604`, `714`, and `764` lines,
 and advances the live broader rebaseline summary to
 `broader_rebaseline_candidate_count=3` with
 `top_broader_rebaseline_paths=[app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`.
+The later 2026-05-20 search-harness CLI facade follow-on then reduces
+`app/cli_commands/search_harness.py` to `23` lines, moves shared parser
+support plus retrieval-learning, evaluation/gate, and audit ownership into
+`app/cli_commands/search_harness_support.py` at `84`,
+`app/cli_commands/search_harness_learning.py` at `268`,
+`app/cli_commands/search_harness_evaluations.py` at `176`, and
+`app/cli_commands/search_harness_audit.py` at `111`, reduces
+`tests/unit/test_cli_search_harness.py` to `18` lines with direct owner
+coverage moved to focused `303`, `275`, and `152` line siblings, keeps
+`tests/unit/test_search_api_harnesses.py` unchanged at `764` lines, and
+advances the live broader rebaseline summary to
+`broader_rebaseline_candidate_count=1` with
+`top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`.
 The new search-harness hotspot-prevention facade rule now lives in
 `app/hotspot_prevention_classifier_search_rules.py` at `129` lines so the
 shared `app/hotspot_prevention_classifier_service_rules.py` closes at `291`

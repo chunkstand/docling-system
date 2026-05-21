@@ -28,6 +28,7 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "app/api/main.py",
         "app/api/routers/agent_tasks.py",
         "app/cli.py",
+        "app/cli_commands/search_harness.py",
         "app/db/models.py",
         "app/hotspot_prevention_classifier.py",
         "app/hotspot_prevention_classifier_support.py",
@@ -72,6 +73,7 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "tests/unit/test_agent_tasks_api.py",
         "tests/unit/test_architecture_inspection.py",
         "tests/unit/test_cli.py",
+        "tests/unit/test_cli_search_harness.py",
         "tests/unit/test_db_model_import_compatibility.py",
         "tests/unit/test_documents_api.py",
         "tests/unit/test_evaluation_service.py",
@@ -109,6 +111,11 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         policy.known_hotspots["app/services/search_harnesses.py"].routing.status
         == "compatibility_facade_trap"
     )
+    assert policy.known_hotspots["app/cli_commands/search_harness.py"].routing is not None
+    assert (
+        policy.known_hotspots["app/cli_commands/search_harness.py"].routing.status
+        == "compatibility_facade_trap"
+    )
     for path in [
         "app/cli.py",
         "app/api/routers/agent_tasks.py",
@@ -125,6 +132,7 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "app/services/agent_task_worker.py",
         "app/schemas/search.py",
         "tests/unit/test_db_model_import_compatibility.py",
+        "tests/unit/test_cli_search_harness.py",
     ]:
         assert policy.known_hotspots[path].routing is not None
         assert policy.known_hotspots[path].routing.status == "deferred_reduced_facade"

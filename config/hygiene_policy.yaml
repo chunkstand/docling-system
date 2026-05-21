@@ -187,10 +187,34 @@ file_budgets:
       ratchet_max_private_helpers: 0
       owner_case_id: IC-9812A0B138D9
     app/cli_commands/search_harness.py:
-      max_lines: 604
-      ratchet_max_lines: 604
-      max_private_helpers: 4
-      ratchet_max_private_helpers: 4
+      max_lines: 23
+      ratchet_max_lines: 23
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-9812A0B138D9
+    app/cli_commands/search_harness_support.py:
+      max_lines: 84
+      ratchet_max_lines: 84
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-9812A0B138D9
+    app/cli_commands/search_harness_learning.py:
+      max_lines: 268
+      ratchet_max_lines: 268
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-9812A0B138D9
+    app/cli_commands/search_harness_evaluations.py:
+      max_lines: 176
+      ratchet_max_lines: 176
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-9812A0B138D9
+    app/cli_commands/search_harness_audit.py:
+      max_lines: 111
+      ratchet_max_lines: 111
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
       owner_case_id: IC-9812A0B138D9
     app/db/models.py:
       max_lines: 159

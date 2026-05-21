@@ -336,8 +336,12 @@ known_hotspots:
         - IC-FD18EE2D3309
       route_to_paths:
         - app/cli_commands/runtime.py
-        - app/cli_commands/search_harness.py
-        - tests/unit/test_cli_search_harness.py
+        - app/cli_commands/search_harness_learning.py
+        - app/cli_commands/search_harness_evaluations.py
+        - app/cli_commands/search_harness_audit.py
+        - tests/unit/test_cli_search_harness_learning.py
+        - tests/unit/test_cli_search_harness_evaluations.py
+        - tests/unit/test_cli_search_harness_audit.py
         - tests/unit/test_cli_runtime.py
       route_to_plan_paths:
         - docs/cli_command_dispatch_boundary_milestone_plan.md
@@ -351,6 +355,35 @@ known_hotspots:
       - explicit_forwarding_function
       - parser_registration
       - import_forwarder
+      - deletion
+  app/cli_commands/search_harness.py:
+    target_role: search-harness CLI compatibility facade
+    preferred_owner_modules:
+      - app/cli_commands/search_harness_learning.py
+      - app/cli_commands/search_harness_evaluations.py
+      - app/cli_commands/search_harness_audit.py
+    routing:
+      status: compatibility_facade_trap
+      reason: The search-harness CLI root is now a compact compatibility facade, so future command growth belongs in the focused learning, evaluation, and audit owner modules instead of reopening app/cli_commands/search_harness.py.
+      route_to_case_ids:
+        - IC-9812A0B138D9
+      route_to_paths:
+        - app/cli_commands/search_harness_learning.py
+        - app/cli_commands/search_harness_evaluations.py
+        - app/cli_commands/search_harness_audit.py
+      route_to_plan_paths:
+        - docs/search_harness_cli_facade_boundary_milestone_plan.md
+        - docs/boring_change_architecture_milestone_plan.md
+    block_new:
+      - command_implementation
+      - retrieval_learning_command_logic
+      - evaluation_gate_command_logic
+      - audit_bundle_command_logic
+      - parser_or_json_scaffolding
+    allow:
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
       - deletion
   app/services/agent_task_actions.py:
     target_role: action registry compatibility and execution entrypoint
@@ -828,13 +861,38 @@ known_hotspots:
       route_to_case_ids:
         - IC-FD18EE2D3309
       route_to_paths:
-        - tests/unit/test_cli_search_harness.py
+        - tests/unit/test_cli_search_harness_learning.py
+        - tests/unit/test_cli_search_harness_evaluations.py
+        - tests/unit/test_cli_search_harness_audit.py
         - tests/unit/test_cli_runtime.py
         - tests/unit/test_cli_improvement_cases.py
         - tests/unit/test_cli_ingest.py
       route_to_plan_paths:
         - docs/cli_command_dispatch_boundary_milestone_plan.md
         - docs/residual_large_file_backlog_milestone_plan.md
+    block_new:
+      - broad_new_test_group
+    allow:
+      - compatibility_assertion
+      - deletion
+  tests/unit/test_cli_search_harness.py:
+    target_role: search-harness CLI compatibility tests
+    preferred_owner_modules:
+      - tests/unit/test_cli_search_harness_learning.py
+      - tests/unit/test_cli_search_harness_evaluations.py
+      - tests/unit/test_cli_search_harness_audit.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The reduced search-harness CLI smoke test stays intentionally small, so future command-family coverage belongs in the focused learning, evaluation, and audit test owners instead of reopening tests/unit/test_cli_search_harness.py.
+      route_to_case_ids:
+        - IC-FD18EE2D3309
+      route_to_paths:
+        - tests/unit/test_cli_search_harness_learning.py
+        - tests/unit/test_cli_search_harness_evaluations.py
+        - tests/unit/test_cli_search_harness_audit.py
+      route_to_plan_paths:
+        - docs/search_harness_cli_facade_boundary_milestone_plan.md
+        - docs/boring_change_architecture_milestone_plan.md
     block_new:
       - broad_new_test_group
     allow:

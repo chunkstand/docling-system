@@ -127,3 +127,96 @@ def classify_search_harness_facade_addition(
     ):
         return blocked(line, "harness_owner_logic", _SEARCH_HARNESS_OWNER_MESSAGE)
     return None
+
+
+def classify_search_harness_cli_addition(
+    *,
+    stripped: str,
+    line: ChangedLine,
+) -> ClassifiedLine | None:
+    if re.match(
+        r"[A-Za-z_][A-Za-z0-9_]*\s*=\s*_[A-Za-z0-9_]+\.[A-Za-z_][A-Za-z0-9_]*$",
+        stripped,
+    ) or stripped.endswith("= (") or re.match(
+        r"_[A-Za-z0-9_]+\.[A-Za-z_][A-Za-z0-9_]*\)?$",
+        stripped,
+    ):
+        return ClassifiedLine(
+            line=line,
+            status="allowed",
+            category="alias_forwarder",
+            message="facade alias forwarding is allowed",
+            policy_rule="allow.alias_forwarder",
+        )
+    if stripped.startswith(("def ", "async def ", "class ")):
+        return blocked(
+            line,
+            "command_implementation",
+            (
+                "search-harness CLI command bodies belong in "
+                "search_harness_learning.py, search_harness_evaluations.py, "
+                "or search_harness_audit.py"
+            ),
+        )
+    if any(
+        token in stripped
+        for token in (
+            "ArgumentParser(",
+            "parser.add_argument(",
+            "parser.parse_args(",
+            "parser.error(",
+            "json.dumps(",
+            "model_dump(",
+        )
+    ):
+        return blocked(
+            line,
+            "parser_or_json_scaffolding",
+            "search-harness CLI parser and JSON scaffolding belongs in the focused owner modules",
+        )
+    if any(
+        token in stripped
+        for token in (
+            "materialize_retrieval_learning_dataset",
+            "evaluate_retrieval_learning_candidate",
+            "create_retrieval_reranker_artifact",
+            "SearchHarnessOptimizationRequest(",
+            "RetrievalLearningCandidateEvaluationRequest(",
+            "RetrievalRerankerArtifactRequest(",
+        )
+    ):
+        return blocked(
+            line,
+            "retrieval_learning_command_logic",
+            "retrieval-learning CLI behavior belongs in search_harness_learning.py",
+        )
+    if any(
+        token in stripped
+        for token in (
+            "SearchHarnessEvaluationRequest(",
+            "list_search_harness_evaluations",
+            "get_search_harness_evaluation_detail",
+            "record_search_harness_release_gate",
+            "VerifySearchHarnessEvaluationTaskInput(",
+        )
+    ):
+        return blocked(
+            line,
+            "evaluation_gate_command_logic",
+            "evaluation and gate CLI behavior belongs in search_harness_evaluations.py",
+        )
+    if any(
+        token in stripped
+        for token in (
+            "SearchHarnessReleaseAuditBundleRequest(",
+            "RetrievalTrainingRunAuditBundleRequest(",
+            "AuditBundleValidationReceiptRequest(",
+            "StorageService(",
+        )
+    ):
+        return blocked(
+            line,
+            "audit_bundle_command_logic",
+            "audit-bundle CLI behavior belongs in search_harness_audit.py",
+        )
+    return None

@@ -35,7 +35,7 @@ empty, already-ready, or mixed advanced DB state.
 Focused verification for the readiness chain:
 - `uv run pytest tests/unit/test_cli_entrypoints.py tests/unit/test_cli_runtime.py -q`: `16 passed`
 - `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_regression_readiness_bootstrap.py tests/integration/test_court_grade_readiness_bootstrap.py -q`: `3 passed`
-- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `2166 passed`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `2169 passed`
 - `uv run docling-system-bootstrap-court-grade-readiness --compact` succeeded
   on the live regression-only local baseline and rewrote
   `storage/evaluation_data_readiness.latest.json`.
@@ -65,11 +65,11 @@ and `exceptions=0`;
 `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
 `hotspot_count=20`, `stale_facade_hotspot_count=20`,
 `max_hotspot_risk_score=466.06`, `top_routed_hotspot_paths=[]`,
-`broader_rebaseline_candidate_count=3`, and
-`top_broader_rebaseline_paths=[app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`;
+`broader_rebaseline_candidate_count=1`, and
+`top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`;
 the routed queue is empty again, but the fresh broader-rebaseline output now
-points first at the remaining search harness CLI/test family rather than back
-at the already deployed service facades. The current broader-rebaseline governance refresh is
+points directly at the remaining search API harness test root rather than back
+at the already deployed service or CLI facades. The current broader-rebaseline governance refresh is
 committed locally as `8b0ea812`; it keeps `app/architecture_quality.py` at
 `522` lines by moving the shared scoring and broader-rebaseline selection logic
 into `app/architecture_quality_support.py` at `202` lines, so the queue-empty
@@ -79,17 +79,28 @@ later search-harness facade follow-on now reduces
 registry, and reranking owners into
 `app/services/search_harness_contracts.py` (`105`),
 `app/services/search_harness_registry.py` (`291`), and
-`app/services/search_harness_reranking.py` (`203`), keeps
-`app/cli_commands/search_harness.py` (`604`),
-`tests/unit/test_cli_search_harness.py` (`714`), and
-`tests/unit/test_search_api_harnesses.py` (`764`) unchanged, and drops the
-broader rebaseline residual count from `4` to `3` without shifting debt into
-the remaining search owners. The new hotspot-prevention facade rule now lives
-in `app/hotspot_prevention_classifier_search_rules.py` at `129` lines so the
-shared `app/hotspot_prevention_classifier_service_rules.py` closes at `291`
-lines; the central `app/hotspot_prevention_classifier.py` only grows to `362`
-lines for route-table maintenance instead of inheriting new search-harness
-behavior. The
+`app/services/search_harness_reranking.py` (`203`) and drops the broader
+rebaseline residual count from `4` to `3`. The later
+`docs/search_harness_cli_facade_boundary_milestone_plan.md` follow-on then
+reduces `app/cli_commands/search_harness.py` to `23` lines, moves shared parser support into
+`app/cli_commands/search_harness_support.py` (`84`), moves retrieval-learning
+and optimization ownership into
+`app/cli_commands/search_harness_learning.py` (`268`), moves evaluation and
+gate ownership into `app/cli_commands/search_harness_evaluations.py` (`176`),
+moves audit-bundle ownership into
+`app/cli_commands/search_harness_audit.py` (`111`), reduces
+`tests/unit/test_cli_search_harness.py` to `18` lines with direct owner
+coverage moved into focused `303`, `275`, and `152` line siblings, keeps
+`tests/unit/test_search_api_harnesses.py` unchanged at `764` lines, and drops
+the broader rebaseline residual count from `3` to `1` without shifting debt
+into the remaining search owners. The new hotspot-prevention coverage for the
+reduced CLI/test roots now lives in
+`tests/unit/test_hotspot_prevention_search_cli.py` at `36` lines instead of
+regrowing the governed hotspot test roots, while the central
+`app/hotspot_prevention_classifier.py` still closes at `362` lines and the
+new CLI facade rule folds into
+`app/hotspot_prevention_classifier_search_rules.py` without shifting
+classifier debt into adjacent governance owners. The
 latest broader-reselect closeouts are now
 deployed locally through
 `docs/semantic_registry_owner_rebaseline_milestone_plan.md` and
@@ -126,7 +137,7 @@ owners, and the deployed owner cases are `IC-3F725D0A6C91` and
 `IC-86E1D4B72F0C`.
 Current full-suite closeout gate:
 `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` passed at
-`2166 passed`.
+`2169 passed`.
 Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
 Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
 Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`
