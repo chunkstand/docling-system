@@ -73,26 +73,33 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "8340dc0"
+    deployed_ref: "4284cd5d"
     notes: >-
       Milestone 2 moves the remaining enum ownership into
       app/db/_model_enums.py, reduces app/db/models.py to a pure
       compatibility facade, and adds a gate that prevents the private enum
       support module from becoming a second public import surface. The
-      architecture-quality report may still route app/db/models.py because of
-      its intentional public fan-in, but the unclear_ownership owner case is
-      now resolved under the explicit compatibility contract. Local closeout
-      commit: 8340dc0.
+      later DB caller-migration closeout then keeps the legacy shim behind the
+      repo-owned db-model import policy at a 9-file allowlist with zero
+      ordinary app/ callers while bounded app.db.public.* facades absorb the
+      broader caller fan-in. The architecture-quality report may still list
+      app/db/models.py because of its intentional public role, but the root is
+      now governed as an accepted residual compatibility shim rather than an
+      open owner surface.
   measurement:
     metric_name: db_models_hotspot_line_count
     current_value: 159.0
-    measurement_window: 2026-05-11 local verification
+    measurement_window: 2026-05-21 DB caller-migration alignment refresh
     notes: >-
-      Milestone 2 moved the remaining enum ownership into app/db/_model_enums.py
-      and reduced app/db/models.py from 345 lines to 159 while preserving the
-      governed 111-symbol app.db.models public export contract.
+      app/db/models.py remains a 159-line compatibility facade while the
+      current repo-owned import policy holds the legacy direct-import census at
+      9 files with zero ordinary app/ callers. The bounded replacement fan-in
+      now lands on app.db.public.agent_tasks=172, app.db.public.retrieval=80,
+      app.db.public.ingest=69, app.db.public.semantic_memory=68,
+      app.db.public.audit_and_evidence=55, app.db.public.claim_support=40,
+      and app.db.public.document_artifacts=38.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-11T23:35:00+00:00'
+  updated_at: '2026-05-21T00:00:00Z'
 - case_id: IC-050E60059A34
   title: 'Architecture hotspot: app/services/evidence.py'
   status: deployed
@@ -140,28 +147,30 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "3fe9132"
+    deployed_ref: "8528238f"
     notes: >-
       Local evidence hotspot closeout reduces app/services/evidence.py to a
       141-line / 4-private-helper compatibility facade, preserves the
       settings-aware provenance wrapper seam used by tests, keeps the strict
       hotspot-prevention gate green through an explicit facade exception, and
       routes the remaining oversized owner-family modules into follow-on case
-      IC-65AF4A6D8B1E. Local closeout commit: 3fe9132.
+      IC-65AF4A6D8B1E. The later production trap-set centrality closeout then
+      keeps the facade behind an exact two-file direct-import allowlist and
+      records the root as an accepted residual compatibility surface in
+      config/hotspot_prevention.yaml.
   measurement:
     metric_name: evidence_hotspot_line_count
     current_value: 141.0
-    measurement_window: 2026-05-11 local verification
+    measurement_window: 2026-05-21 production trap-set alignment refresh
     notes: >-
-      Local evidence hotspot closeout moved the remaining claim-feedback,
-      release-readiness, claim-support impact, manifest, semantic-trace,
-      audit-view, and provenance-export implementation families out of
-      app/services/evidence.py. The facade is now 141 lines with 4 private
-      compatibility wrappers, architecture inspection is clean, the full
-      Postgres-backed test suite passes, and the architecture probe no longer
-      lists app/services/evidence.py in the top 12 churn hotspots.
+      app/services/evidence.py remains a 141-line / 4-private-helper
+      compatibility facade with an exact direct-import allowlist of
+      tests/unit/test_evidence_facade_contract.py and
+      tests/unit/test_evidence_provenance.py. The broader evidence
+      implementation families stay routed into the extracted owner modules and
+      IC-65AF4A6D8B1E instead of regrowing the root surface.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-13T00:00:00+00:00'
+  updated_at: '2026-05-21T00:00:00Z'
 - case_id: IC-65AF4A6D8B1E
   title: 'Architecture hotspot: evidence owner-family modules'
   status: deployed
@@ -594,9 +603,10 @@ cases:
   title: 'Architecture hotspot: app/cli.py'
   status: deployed
   cause_class: unclear_ownership
-  observed_failure: app/cli.py is now a 375-line forwarding facade, but raw
-    hotspot measurements can still list it until routed trap metadata is
-    consulted.
+  observed_failure: app/cli.py remained a raw architecture hotspot after the
+    earlier CLI-owner splits because command registration, compatibility
+    entrypoints, and dependency defaults still concentrated in the root before
+    the production trap-set centrality closeout reduced it further.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/cli.py
@@ -643,30 +653,26 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "4a79a82"
+    deployed_ref: "8528238f"
     notes: >-
-      CLI Command Dispatch Milestones 3 and 4 closed locally as 4a79a82. The
-      committed packet moves retrieval-learning and search-harness command
-      ownership into app/cli_commands/search_harness.py at 604 lines, keeps
-      runtime and maintenance ownership in app/cli_commands/runtime.py at 463
-      lines, reduces app/cli.py to 375 lines with explicit forwarding
-      wrappers, and reduces tests/unit/test_cli.py to an empty compatibility
-      placeholder while direct owner tests live in
-      tests/unit/test_cli_search_harness.py. Routed-hotspot interpretation now
-      treats app/cli.py as a deployed reduced facade, so future work routes to
-      the command-owner modules and residual CLI test families instead of back
-      into the root wrapper.
+      The earlier CLI dispatch closeout reduced app/cli.py to a forwarding
+      facade, and the later production trap-set centrality closeout reduces it
+      further to a 146-line / 0-private-helper dispatch surface with a single
+      local owner import. Command implementation now lives under
+      app/cli_commands/*, focused CLI owner coverage lives in the command
+      family tests, and config/hotspot_prevention.yaml records app/cli.py as
+      an accepted residual dispatch root rather than active owner debt.
   measurement:
     metric_name: architecture_quality_risk_score
-    current_value: 425.5
-    measurement_window: 2026-05-14 post-closeout alignment refresh
-    notes: The live architecture-quality report measures app/cli.py at 375
-      lines, 56 changes_90d, and risk_score 425.5 after the closeout commit.
-      The raw architecture-quality summary can still list the facade among the
-      top hotspot paths, but routed-trap metadata and hotspot-prevention policy
-      now classify it as a reduced facade rather than active owner debt.
+    current_value: 357.97
+    measurement_window: 2026-05-21 production trap-set alignment refresh
+    notes: The live architecture-quality report now measures app/cli.py at 146
+      lines, 59 changes_90d, and risk_score 357.97. The repo-owned centrality
+      budget holds the root at one local owner import while stable app.cli
+      run_* entrypoints and console-script targets remain available for
+      callers and tests.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-18T23:45:00Z'
+  updated_at: '2026-05-21T00:00:00Z'
 - case_id: IC-A1E186A34097
   title: 'Architecture hotspot: app/services/agent_task_actions.py'
   status: deployed
@@ -758,7 +764,7 @@ cases:
     - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
     acceptance_conditions:
     - app/services/agent_task_actions.py remains a narrow public composition
-      and worker-execution facade at 163 lines / 1 private helper with no
+      and worker-execution facade at 146 lines / 0 private helpers with no
       executor-family implementation logic moved back into the file.
     - Family-owned action definitions and executor implementations remain in
       app/services/agent_actions/*.py while the public action catalog, action
@@ -767,40 +773,30 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "7cf7465"
+    deployed_ref: "8528238f"
     notes: >-
-      Local agent-task orchestration Milestone 5 closeout keeps
-      app/services/agent_task_actions.py as a 163-line / 1-private-helper
-      composition and worker-execution facade, moves the remaining semantic
-      action families into focused owner modules, tightens exact hygiene
-      ceilings to the verified counts, preserves the public action catalog plus
-      action-index contracts, and is closed locally by commit 7cf7465. The
-      later agent-task residual owner-family follow-on now also reduces
-      app/services/agent_actions/search_harness.py to 444 lines with focused
-      drafting and triage owners at 453 and 386 lines plus
-      app/services/agent_actions/semantic_governance_actions.py to 565 lines
-      with focused ontology and graph owners at 281 and 251 lines. The
-      residual action-family roots are now under the default 600-line budget in
-      the local checkout while the facade contract remains unchanged.
+      The earlier action-catalog closeout reduced the public facade, and the
+      later production trap-set centrality closeout keeps
+      app/services/agent_task_actions.py at 146 lines / 0 private helpers,
+      moves the document reprocess executor into
+      app/services/agent_actions/document_lifecycle_actions.py, preserves the
+      public action catalog plus action-index contracts, and lowers the
+      repo-owned unique internal import budget to 15. The residual action
+      family work remains routed into the focused agent_actions owners instead
+      of regrowing the root registry surface.
   measurement:
     metric_name: agent_task_actions_hotspot_line_count
-    current_value: 163.0
-    measurement_window: 2026-05-12 local Milestone 5 verification
+    current_value: 146.0
+    measurement_window: 2026-05-21 production trap-set alignment refresh
     notes: >-
-      Local Milestone 5 verification keeps app/services/agent_task_actions.py
-      at 163 lines / 1 private helper while preserving the public action
-      catalog, action index output, validation defaults, and worker execution
-      entrypoint. The later residual owner-family verification keeps the
-      remaining action-family roots at 444, 565, 453, 386, 281, and 251 lines
-      for search_harness.py, semantic_governance_actions.py,
-      search_harness_drafting_actions.py,
-      search_harness_triage_actions.py,
-      semantic_governance_ontology_actions.py, and
-      semantic_governance_graph_actions.py respectively, so inherited action
-      ratchets under IC-A1E186A34097 are now under budget in the local
-      checkout.
+      The live checkout keeps app/services/agent_task_actions.py at 146 lines
+      / 0 private helpers while preserving the public action catalog, action
+      index output, validation defaults, and worker execution entrypoints. The
+      repo-owned centrality budget now caps the root at 15 unique internal
+      imports, and the remaining action-family owners stay under the default
+      size budget in the local checkout.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-18T00:00:00+00:00'
+  updated_at: '2026-05-21T00:00:00Z'
 - case_id: IC-FD18EE2D3309
   title: 'Architecture hotspot: tests/unit/test_cli.py'
   status: deployed
@@ -876,25 +872,25 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "efe6d4e"
+    deployed_ref: "8528238f"
     notes: The schema aggregation packet reduced app/schemas/agent_tasks.py to
       a 38-line compatibility facade backed by owner-module export contracts,
       eliminated production app/ import fan-in through the facade, and
-      preserved the 221-name public import surface. The later capability
-      legibility and registry alignment closeout keeps the facade in the raw
-      routing-trap measurement set but retires the stale open owner case
-      because the live `top_routed_hotspot_paths` queue no longer selects this
-      surface for implementation.
+      preserved the 221-name public import surface. The later production
+      trap-set centrality closeout reduces the direct-import census further to
+      a single governed facade-contract test import and records the root as an
+      accepted residual schema facade in config/hotspot_prevention.yaml.
   measurement:
     metric_name: architecture_quality_risk_score
-    current_value: 363.75
-    measurement_window: 2026-05-14 agent-task schema closeout verification
-    notes: app/schemas/agent_tasks.py now measures 38 lines, preserves
-      221 exported names, carries zero production app/ importers, and still
-      routes 30 local test and integration importers through the compatibility
-      facade.
+    current_value: 310.75
+    measurement_window: 2026-05-21 production trap-set alignment refresh
+    notes: >-
+      app/schemas/agent_tasks.py measures 38 lines, preserves the
+      221-name public export surface, carries zero production app/ importers,
+      and now allows exactly one governed direct importer:
+      tests/unit/test_agent_task_schema_facade_contract.py.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-19T00:00:00Z'
+  updated_at: '2026-05-21T00:00:00Z'
 - case_id: IC-D9A84C20546B
   title: 'Architecture hotspot: tests/unit/test_agent_tasks_api.py'
   status: deployed
@@ -1188,14 +1184,14 @@ cases:
       --fail-on-cycles
     acceptance_conditions:
     - app/services/search.py closes as a narrow compatibility facade at or
-      below 450 lines with no residual retrieval-family implementation bodies.
-    - The search facade no longer appears in the top architecture-probe
-      hotspot queue.
+      below 250 lines with no residual retrieval-family implementation bodies.
+    - Future routing targets the extracted search owners and accepted-residual
+      policy instead of treating the raw hotspot listing as active queue debt.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "fd9dd2a"
+    deployed_ref: "8528238f"
     notes: >-
       The compatibility-facade closeout extracted harness and reranker
       ownership into app/services/search_harnesses.py, low-level retrieval
@@ -1203,35 +1199,32 @@ cases:
       metadata supplement plus adjacent-context ownership into
       app/services/search_metadata_supplement.py while keeping
       app.services.search import-stable for callers and monkeypatched tests.
-      The later search-harness follow-ons reduced
-      app/services/search_harnesses.py to 82 lines, moved the shared
-      reranker-config seam into
-      app/services/search_harness_reranker_config.py at 29 lines, reduced
-      app/services/search_harness_contracts.py to 79 lines, and removed the
-      remaining app.services.search_harness_contracts <->
-      app.services.search_harness_reranking cycle without reopening the routed
-      queue or changing the next broader candidate beyond
-      tests/unit/test_search_api_harnesses.py.
+      The later search-harness follow-ons reduced the harness family further,
+      and the production trap-set centrality closeout then lowers
+      app/services/search.py to 229 lines / 0 private helpers, routes the
+      span retrieval seam through app/services/search_span_retrieval.py, and
+      caps the facade at 9 unique internal imports under the repo-owned
+      centrality budget while keeping the public import surface stable.
   measurement:
     metric_name: search_hotspot_line_count
-    current_value: 231.0
-    measurement_window: 2026-05-14 search compatibility-facade closeout
+    current_value: 229.0
+    measurement_window: 2026-05-21 production trap-set alignment refresh
     notes: >-
-      app/services/search.py now measures 231 lines / 2 private helpers as a
+      app/services/search.py now measures 229 lines / 0 private helpers as a
       narrow compatibility facade. The extracted owner modules now close at
       82 / 0 for app/services/search_harnesses.py, 79 / 0 for
       app/services/search_harness_contracts.py, 29 / 0 for
       app/services/search_harness_reranker_config.py, 291 / 0 for
       app/services/search_harness_registry.py, 203 / 0 for
       app/services/search_harness_reranking.py, 312 / 0 for
-      app/services/search_retrieval_primitives.py, and 262 / 0 for
-      app/services/search_metadata_supplement.py. The architecture-quality
-      top-five still excludes app/services/search.py, the live routed queue
-      remains empty at top_routed_hotspot_paths=[], and the architecture probe
-      now reports zero Python cycles.
+      app/services/search_retrieval_primitives.py, 378 / 0 for
+      app/services/search_span_retrieval.py, and 262 / 0 for
+      app/services/search_metadata_supplement.py. The live routed queue
+      remains empty at top_routed_hotspot_paths=[], the root is now governed
+      as an accepted residual facade, and the architecture probe still reports
+      zero Python cycles.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-21T02:48:28Z'
-  updated_at: '2026-05-15T05:18:19Z'
+  updated_at: '2026-05-21T00:00:00Z'
 - case_id: IC-9E6B8F5D62A1
   title: 'Architecture hotspot: app/services/semantics.py'
   status: deployed
@@ -1595,7 +1588,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "b9b3e46"
+    deployed_ref: "8528238f"
     notes: Agent-task residual owner-family closeout commit b9b3e46 resolves
       the routed hotspot by reducing
       app/services/agent_tasks.py to 324 lines, moving dependency validation
@@ -1603,19 +1596,23 @@ cases:
       read-model projection into app/services/agent_task_reads.py at 259
       lines, moving lifecycle mutations into
       app/services/agent_task_lifecycle.py at 197 lines, and keeping the
-      public service entrypoints stable.
+      public service entrypoints stable. The later production trap-set
+      centrality closeout then adds an exact direct-import allowlist at
+      24 files total with 2 app/ callers and records the root as an accepted
+      residual orchestration facade in config/hotspot_prevention.yaml.
   measurement:
     metric_name: agent_tasks_hotspot_line_count
     current_value: 324.0
-    measurement_window: 2026-05-18 local agent-task residual owner-family verification
+    measurement_window: 2026-05-21 production trap-set alignment refresh
     notes: The current local state keeps app/services/agent_tasks.py at 324
       lines / 0 private helpers, with focused owners at 176, 259, and 197
-      lines for dependencies, reads, and lifecycle respectively. The broader
-      owner-family unit slice passed at 105 tests, the focused DB-backed
-      integration slice passed at 13 tests, and the final DB-backed suite
-      passed at 2044 tests in the current checkout.
+      lines for dependencies, reads, and lifecycle respectively. The
+      repo-owned centrality budget now holds the root at 24 direct imports
+      total with zero production app/ fan-in beyond the two governed entry
+      surfaces app/agent_task_cli.py and
+      app/services/claim_support_policy_impact_replay_queue.py.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-19T00:00:00+00:00'
+  updated_at: '2026-05-21T00:00:00Z'
 - case_id: IC-5D14C2A0B6F7
   title: 'Architecture hotspot: tests/unit/test_agent_tasks.py'
   status: deployed
@@ -2820,7 +2817,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "d85cd90"
+    deployed_ref: "8528238f"
     notes: Milestone 5 from
       docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md is now
       committed locally as d85cd90, and a follow-up local gap-closeout pass now
@@ -2837,24 +2834,28 @@ cases:
       app/services/audit_bundle_validation_receipts.py and
       app/services/audit_bundle_training_runs.py, while
       app/services/audit_bundles.py is now a narrow compatibility facade with
-      exact no-growth ratchets.
+      exact no-growth ratchets. The later production trap-set centrality
+      closeout then reduces the root further to 513 lines, moves runtime owner
+      coordination into app/services/audit_bundle_release_imports.py, lowers
+      the unique internal import budget to 8, and records the one bounded
+      runtime-binding exception under IC-7C9A4E2B1D55.
   measurement:
     metric_name: audit_bundles_hotspot_line_count
-    current_value: 595.0
-    measurement_window: 2026-05-11 local verification
+    current_value: 513.0
+    measurement_window: 2026-05-21 production trap-set alignment refresh
     notes: Milestone 5 local implementation moved the remaining search-harness
       release payload, validation, and PROV family into
       app/services/audit_bundle_release_payload_serialization.py,
       app/services/audit_bundle_release_payload_validation.py,
       app/services/audit_bundle_release_payload_prov.py, and
       app/services/audit_bundle_release_payloads.py, reducing
-      app/services/audit_bundles.py from 2203 lines / 41 private helpers to
-      595 lines / 20 private helpers while keeping the public audit-bundle
-      service surface unchanged. The gap-closeout pass also adds exact facade
-      shape tests so the helper set and public function surface cannot regrow
-      silently.
+      app/services/audit_bundles.py from 2203 lines / 41 private helpers first
+      to 595 lines and now to 513 lines while keeping the public audit-bundle
+      service surface unchanged. The current repo-owned centrality budget caps
+      the root at 8 unique internal imports, and the bounded runtime-binding
+      seam is isolated in app/services/audit_bundle_release_imports.py.
   created_at: '2026-05-10T05:45:45.585973+00:00'
-  updated_at: '2026-05-12T06:30:00+00:00'
+  updated_at: '2026-05-21T00:00:00Z'
 - case_id: IC-0D58F1624037
   title: 'Architecture hotspot: app/services/retrieval_learning.py'
   status: deployed

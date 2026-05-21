@@ -1,6 +1,6 @@
 # Session Handoff
 
-Date: 2026-05-20 local / 2026-05-21 UTC
+Date: 2026-05-21 local / 2026-05-21 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
@@ -58,7 +58,7 @@ Current architecture control snapshot from the live 2026-05-20 checkout:
 `uv run docling-system-hygiene-check` reports `inherited budget debt: none`
 and `new hygiene regressions: none`;
 `uv run docling-system-hotspot-prevention-check --strict` reports `blocked=0`,
-`allowed=25`, and `exceptions=1`;
+`allowed=0`, and `exceptions=0`;
 `uv run docling-system-architecture-inspect` remains `valid=true` with
 `violation_count=0`;
 `uv run docling-system-architecture-quality-report --summary` reports
