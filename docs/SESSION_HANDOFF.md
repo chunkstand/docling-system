@@ -4,11 +4,29 @@ Date: 2026-05-21 local / 2026-05-21 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Active ontology-evolution lifecycle packet in the current 2026-05-21 checkout:
-`docs/ontology_evolution_lifecycle_milestone_plan.md` is now in progress in
-this repo, and Milestones 0, 1, and 2 are resolved locally. The current slice
-turns non-additive ontology evolution into a first-class contract: the
-versioned operation surface now lives in
+Active domain-overlay authoring successor in the current 2026-05-21 checkout:
+`docs/domain_overlay_authoring_boundary_milestone_plan.md` is now the queued
+next ontology packet in this repo after lifecycle closeout. The honest
+remaining gap is no longer generic split/merge/deprecate/replace/migrate
+support. It is the still-missing bounded authoring lane for corpus-scoped
+domain overlays that must map back to the shared governed ontology instead of
+becoming a second ontology. Current evidence for the successor packet:
+- `docs/ontology_contract_report.md` still shows only the baseline
+  `domain_overlay_baseline` layer and `domain_overlays` slice
+- live searches across `app/services/semantic_ontology.py`,
+  `app/services/semantic_registry_operation_contracts.py`,
+  `app/services/semantic_registry_operation_mutations.py`,
+  `app/services/agent_actions/semantic_governance_ontology_actions.py`,
+  `app/services/agent_task_context_semantic_governance_ontology.py`, and
+  `app/schemas/agent_task_semantics.py` show no current overlay-scoped
+  authoring contract in the lifecycle owners
+- the new successor plan keeps that gap bounded to overlay authoring
+  infrastructure instead of reopening the closed lifecycle packet
+
+Ontology-evolution lifecycle packet in the current 2026-05-21 checkout:
+`docs/ontology_evolution_lifecycle_milestone_plan.md` is now resolved locally
+in this repo. The closed packet turns non-additive ontology evolution into a
+first-class contract: the versioned operation surface now lives in
 `app/services/semantic_registry_operation_contracts.py`, the concrete mutation
 rules now live in `app/services/semantic_registry_operation_mutations.py`,
 `SemanticRegistryUpdateOperation` in `app/schemas/agent_task_semantics.py`
@@ -28,10 +46,10 @@ with lifecycle preview payloads, records that preview in the verification
 record details, and blocks lifecycle apply unless every non-additive
 operation has explicit document-level preview evidence from verification.
 
-The next honest boundary in the active packet is Milestone 3: refresh the
-packet closeout and route any still-missing corpus-specific overlay work into
-a new bounded successor instead of broadening this lane. Focused verification
-for the current lifecycle preview/apply slice:
+Milestone 3 now closes the packet by refreshing the plan, handoff, and index
+surfaces and by routing the remaining overlay-specific follow-on into
+`docs/domain_overlay_authoring_boundary_milestone_plan.md`. Focused
+verification for the closed lifecycle preview/apply slice:
 - `uv run ruff check app/schemas/agent_task_semantics.py app/services/semantic_ontology.py app/services/semantic_ontology_lifecycle_previews.py app/services/agent_actions/semantic_governance_ontology_actions.py app/services/agent_task_context_semantic_governance_ontology.py tests/unit/agent_task_context_semantic_governance_support.py tests/unit/test_ontology_evolution_lifecycle_baseline.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_context_semantic_governance_ontology.py tests/integration/test_portable_ontology_roundtrip.py`: pass
 - `uv run pytest -q tests/unit/test_ontology_evolution_lifecycle_baseline.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_context_semantic_governance_ontology.py tests/unit/test_semantic_orchestration.py`: `21 passed`
 - `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_portable_ontology_roundtrip.py tests/integration/test_semantic_bootstrap_roundtrip.py tests/integration/test_agent_task_semantic_orchestration_roundtrip.py`: `6 passed`
@@ -72,8 +90,9 @@ validate/report/eval commands, and first-class ontology slice metadata on
 `ActiveOntologySnapshotPayload`, `OntologyExtensionDraftPayload`, and
 `ApplyOntologyExtensionTaskOutput`. The refoundation packet's remaining
 ontology-specific residual is now routed outside this packet into
-`docs/ontology_evolution_lifecycle_milestone_plan.md`, which is the queued
-follow-on for non-additive split/merge/deprecate/replace/migrate work.
+`docs/ontology_evolution_lifecycle_milestone_plan.md`, now resolved locally,
+which in turn routes the remaining corpus-scoped overlay authoring gap into
+`docs/domain_overlay_authoring_boundary_milestone_plan.md`.
 
 Focused verification for the current ontology-contract closeout:
 - `uv run ruff check app/services/semantic_backfill.py app/schemas/semantic_backfill.py tests/unit/test_semantic_backfill_api.py tests/integration/test_semantic_backfill_roundtrip.py tests/integration/test_portable_ontology_roundtrip.py`: pass

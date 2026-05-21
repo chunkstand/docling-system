@@ -1,8 +1,8 @@
 # Ontology Evolution Lifecycle Milestone Plan
 
 Date: 2026-05-21 local / 2026-05-21 UTC
-Status: in_progress in the current 2026-05-21 checkout. Milestones 0, 1, and
-2 are now resolved locally. The repo no longer treats
+Status: resolved locally in the current 2026-05-21 checkout. Milestones 0, 1,
+2, and 3 are now resolved locally. The repo no longer treats
 split/merge/deprecate/replace/migrate as blocked prose-only intent: the
 versioned lifecycle contract now lives in
 `app/services/semantic_registry_operation_contracts.py`, the concrete draft
@@ -15,8 +15,10 @@ source task. Milestone 2 now adds typed lifecycle verification previews in
 evidence in `VerifyDraftOntologyExtensionTaskOutput` and
 `ApplyOntologyExtensionTaskOutput`, and blocks lifecycle publication when the
 verification output cannot prove document-level preview signals for every
-non-additive operation. Milestone 3, the final docs-and-routing closeout,
-remains open.
+non-additive operation. Milestone 3 now closes the packet by refreshing this
+plan, `docs/SESSION_HANDOFF.md`, and `docs/agentic_architecture_index.md`, and
+by routing the still-missing corpus-specific overlay authoring lane into the
+new bounded successor `docs/domain_overlay_authoring_boundary_milestone_plan.md`.
 Owner context: standalone follow-on after
 `docs/ontology_contract_refoundation_milestone_plan.md` closes. This packet
 does not reopen the canonical contract scaffold or the runtime-readiness
@@ -79,6 +81,10 @@ can evolve without hidden manual rewrites or silent semantic drift.
   `tests/integration/test_portable_ontology_roundtrip.py` now prove the new
   manual lifecycle draft path plus the document-preview verification and apply
   adoption path through the real task worker stack.
+- `docs/domain_overlay_authoring_boundary_milestone_plan.md` now owns the
+  remaining corpus-scoped overlay authoring gap. Current lifecycle owners stay
+  closed because live repo searches across their task, schema, and mutation
+  surfaces still show no overlay-scoped authoring contract to broaden here.
 - `docs/ontology_contract_refoundation_milestone_plan.md` is resolved locally
   in the current checkout after the final readiness and portable-roundtrip
   slice, and `docs/SESSION_HANDOFF.md` routes this packet as the remaining
@@ -236,8 +242,9 @@ Implementation slice:
 
 Closure signal:
 
-- the ontology evolution lifecycle closes as its own bounded packet and any
-  later overlay-specific work is explicit and discoverable
+- the ontology evolution lifecycle closes as its own bounded packet and the
+  remaining overlay-specific follow-on is explicit and discoverable in
+  `docs/domain_overlay_authoring_boundary_milestone_plan.md`
 
 ## Required Implementation Artifacts
 
@@ -295,6 +302,6 @@ Closure signal:
 
 ## Residual Risks And Next Milestone Routing
 
-- Corpus-specific overlay authoring may still require later bounded packets
-  even after lifecycle support exists; route that work separately instead of
-  broadening this plan.
+- Corpus-specific overlay authoring now routes through
+  `docs/domain_overlay_authoring_boundary_milestone_plan.md` instead of
+  reopening this closed lifecycle packet.

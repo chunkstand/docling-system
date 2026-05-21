@@ -11,6 +11,17 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
 
 ## Current Milestone Briefs
 
+- `docs/domain_overlay_authoring_boundary_milestone_plan.md`: queued locally
+  on 2026-05-21 as the next bounded ontology follow-on after lifecycle
+  closeout. The remaining ontology gap is no longer generic non-additive
+  mutation support. The repo already has the lifecycle contract, mutation
+  owners, preview evidence, and apply gating for split/merge/deprecate/
+  replace/migrate operations. The honest residual is that
+  `docs/ontology_contract_report.md` still shows only the baseline
+  `domain_overlay_baseline` layer and current lifecycle owner surfaces still
+  show no overlay-scoped authoring contract, so the new packet focuses only on
+  corpus-scoped overlay authoring that must map back to the shared governed
+  ontology without creating a second ontology.
 - `docs/ontology_contract_refoundation_milestone_plan.md`: resolved locally in
   the current 2026-05-21 checkout. The packet refounds the ontology contract from the duplicate minimal
   portable seed into a layered canonical JSON authority with compiled
@@ -34,9 +45,9 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
   deprecation warning, hygiene and architecture governance gates are green, and
   `uv run docling-system-architecture-quality-report --summary` now reports
   `max_hotspot_risk_score=451.06` with `top_routed_hotspot_paths=[]`.
-- `docs/ontology_evolution_lifecycle_milestone_plan.md`: in progress locally
-  on 2026-05-21 as the active ontology follow-on after refoundation closeout.
-  Milestones 0, 1, and 2 are now resolved locally through the versioned lifecycle
+- `docs/ontology_evolution_lifecycle_milestone_plan.md`: resolved locally on
+  2026-05-21 as the closed ontology follow-on after refoundation closeout.
+  Milestones 0 through 3 are now resolved locally through the versioned lifecycle
   contract in `app/services/semantic_registry_operation_contracts.py`, the
   focused mutation owner in
   `app/services/semantic_registry_operation_mutations.py`, the expanded
@@ -50,9 +61,11 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
   apply unless every non-additive operation has explicit document-level
   preview evidence. The packet now supports structured
   split/merge/deprecate/replace/migrate ontology draft operations without a
-  parallel task family, focused Milestone 2 verification is green at
-  `21 passed` plus `6 passed`, and the next honest boundary is Milestone 3:
-  final docs-and-routing closeout.
+  parallel task family, focused verification is green at `21 passed` plus
+  `6 passed`, and Milestone 3 closes the packet by routing the remaining
+  overlay-specific work into
+  `docs/domain_overlay_authoring_boundary_milestone_plan.md` instead of
+  reopening the lifecycle lane.
 - `docs/production_trap_set_centrality_reduction_milestone_plan.md`:
   resolved locally in the current checkout on 2026-05-20. The packet adds
   `config/production_trap_set_centrality_budget.yaml` plus
