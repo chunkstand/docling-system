@@ -11,6 +11,16 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
 
 ## Current Milestone Briefs
 
+- `docs/search_api_harness_route_surface_boundary_milestone_plan.md`:
+  selected locally in the current checkout on 2026-05-20 from a fresh
+  broader-rebaseline rerun while `top_routed_hotspot_paths=[]` remained
+  empty. The brief targets the remaining `tests/unit/test_search_api_harnesses.py`
+  root at `764` lines by keeping the root as a narrow route smoke surface,
+  moving definitions and descriptor, evaluation and release, learning and
+  reranker, and audit and validation receipt coverage into focused sibling
+  tests, and requiring hotspot, hygiene, improvement-case, handoff, and
+  broader-brief closeout so the next packet is selected from live evidence
+  rather than stale queue notes.
 - `docs/search_harness_cycle_boundary_milestone_plan.md`: resolved locally in
   the current checkout on 2026-05-20. The packet removes the remaining
   `app.services.search_harness_contracts` <->
@@ -203,6 +213,12 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
   `max_hotspot_risk_score=466.06`,
   `broader_rebaseline_candidate_count=1`, and
   `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`.
+- The latest docs-only broader rerun confirms that those live metrics are
+  unchanged, keeps `top_routed_hotspot_paths=[]` and `status_counts={"deployed":66}`,
+  and now records the selected next packet in
+  `docs/search_api_harness_route_surface_boundary_milestone_plan.md` so
+  future sessions start from a bounded brief instead of a raw broader
+  candidate list.
 - The later 2026-05-19 retrieval-learning artifact owner closeout, plus the
   2026-05-20 hygiene-gate registry alignment sweep and the later
   hotspot-prevention policy-contract closeout, leave the live

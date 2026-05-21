@@ -72,7 +72,11 @@ points directly at the remaining search API harness test root rather than back
 at the already deployed service or CLI facades. The strict cycle gate is also
 green now, so future sessions should not reopen the resolved search-harness
 facade, CLI facade, or hotspot-prevention policy packets while this broader
-candidate remains unchanged. The later
+candidate remains unchanged. The latest docs-only rerun now records the
+selected next packet in
+`docs/search_api_harness_route_surface_boundary_milestone_plan.md`, so future
+sessions should start from that brief instead of re-running broader selection
+unless the live metrics change again. The later
 `docs/hotspot_prevention_policy_contracts_boundary_milestone_plan.md`
 follow-on now closes the briefly reopened hotspot-prevention policy-contract
 owner surface: `tests/unit/test_hotspot_prevention_policy_contracts.py`
@@ -171,6 +175,12 @@ Latest search-harness cycle-removal packet verification:
 - `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
 - `uv run docling-system-architecture-quality-report --summary`: `top_routed_hotspot_paths=[]`, `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles`: pass, `Python cycles: none detected`
+
+Latest broader-rebaseline rerun verification:
+- `uv run docling-system-architecture-quality-report --summary`: `top_routed_hotspot_paths=[]`, `broader_rebaseline_candidate_count=1`, `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`
+- `uv run docling-system-improvement-case-summary`: `status_counts={"deployed":66}`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 25`: `Python cycles: none detected`; `tests/unit/test_search_api_harnesses.py` remains `764` lines and is still the selected search-family broader candidate
+- `docs/search_api_harness_route_surface_boundary_milestone_plan.md` now records the selected next packet from the fresh rerun so the queue-empty state does not fall back to raw metrics alone
 Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
 Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
 Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`

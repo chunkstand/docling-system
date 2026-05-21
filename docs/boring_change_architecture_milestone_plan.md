@@ -205,6 +205,13 @@ search-harness facade routing and hygiene ratchets to the new shared owner,
 and returns `architecture_probe.py --fail-on-cycles` to zero Python cycles
 without changing the live broader queue beyond
 `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`.
+The latest docs-only broader rerun then re-confirmed that unchanged live state
+from fresh measurements, kept `top_routed_hotspot_paths=[]`,
+`broader_rebaseline_candidate_count=1`, and
+`top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`, and
+records the selected next packet in
+`docs/search_api_harness_route_surface_boundary_milestone_plan.md` so future
+sessions do not restart from raw broader metrics alone.
 
 ## Purpose
 
