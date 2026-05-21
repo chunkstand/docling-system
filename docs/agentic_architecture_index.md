@@ -4,23 +4,26 @@ This is the compact map for architecture work. Use it before reading broad
 chat history or scanning the whole repository.
 
 Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
-`broader_rebaseline_candidate_count=1`,
-`top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`,
-`status_counts={"deployed":66}`, and
+`broader_rebaseline_candidate_count=0`,
+`top_broader_rebaseline_paths=[]`,
+`status_counts={"deployed":67}`, and
 `architecture_probe.py --fail-on-cycles` reports `None detected`.
 
 ## Current Milestone Briefs
 
 - `docs/search_api_harness_route_surface_boundary_milestone_plan.md`:
-  selected locally in the current checkout on 2026-05-20 from a fresh
-  broader-rebaseline rerun while `top_routed_hotspot_paths=[]` remained
-  empty. The brief targets the remaining `tests/unit/test_search_api_harnesses.py`
-  root at `764` lines by keeping the root as a narrow route smoke surface,
-  moving definitions and descriptor, evaluation and release, learning and
-  reranker, and audit and validation receipt coverage into focused sibling
-  tests, and requiring hotspot, hygiene, improvement-case, handoff, and
-  broader-brief closeout so the next packet is selected from live evidence
-  rather than stale queue notes.
+  resolved locally in the current checkout on 2026-05-20. The packet reduces
+  `tests/unit/test_search_api_harnesses.py` to a `40`-line route-registration
+  smoke surface, moves focused coverage into
+  `tests/unit/test_search_api_harness_definitions.py` at `81`,
+  `tests/unit/test_search_api_harness_evaluations.py` at `287`,
+  `tests/unit/test_search_api_harness_learning.py` at `335`, and
+  `tests/unit/test_search_api_harness_audits.py` at `248`, routes the reduced
+  root as a deferred reduced facade under `IC-5C9B1A4D7E2F`, exact-ratchets the
+  full focused owner family, and leaves the live architecture-quality summary
+  at `broader_rebaseline_candidate_count=0` with
+  `top_broader_rebaseline_paths=[]` instead of leaving another queued harness
+  owner behind.
 - `docs/search_harness_cycle_boundary_milestone_plan.md`: resolved locally in
   the current checkout on 2026-05-20. The packet removes the remaining
   `app.services.search_harness_contracts` <->
@@ -85,9 +88,9 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
   committed but unpushed state on 2026-05-20 with the later broader-reselect
   follow-ons recorded underneath the original `8b0ea812` refresh. The current
   architecture-quality report now surfaces
-  `broader_rebaseline_candidate_count=1` and
-  `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`,
-  the routed queue remains at `top_routed_hotspot_paths=[]`, and the support
+  `broader_rebaseline_candidate_count=0` and
+  `top_broader_rebaseline_paths=[]`, the routed queue remains at
+  `top_routed_hotspot_paths=[]`, and the support
   split keeps `app/architecture_quality.py=522` plus
   `app/architecture_quality_support.py=202` so the broader-rebaseline refresh
   does not transfer hygiene or hotspot debt into adjacent architecture-control
@@ -207,18 +210,19 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
   `Architecture Plan 01` Milestones 0-8.
 - Current gate shape: architecture inspection is valid with no violations,
   capability contracts are valid across 6 facades and 111 functions, and the
-  architecture quality summary now reports
-  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
-  `legibility_gap_count=0`, `hotspot_count=20`,
-  `max_hotspot_risk_score=466.06`,
-  `broader_rebaseline_candidate_count=1`, and
-  `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`.
-- The latest docs-only broader rerun confirms that those live metrics are
-  unchanged, keeps `top_routed_hotspot_paths=[]` and `status_counts={"deployed":66}`,
-  and now records the selected next packet in
-  `docs/search_api_harness_route_surface_boundary_milestone_plan.md` so
-  future sessions start from a bounded brief instead of a raw broader
-  candidate list.
+architecture quality summary now reports
+`agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+`legibility_gap_count=0`, `hotspot_count=20`,
+`max_hotspot_risk_score=466.06`,
+`broader_rebaseline_candidate_count=0`, and
+`top_broader_rebaseline_paths=[]`.
+- The earlier docs-only broader rerun is now superseded by the search API
+  harness route-surface closeout: the live checkout keeps
+  `top_routed_hotspot_paths=[]`, now reports `status_counts={"deployed":67}`,
+  and records the resolved packet in
+  `docs/search_api_harness_route_surface_boundary_milestone_plan.md`, which
+  reduced the former `764`-line harness root to `40` lines and cleared
+  `top_broader_rebaseline_paths` back to `[]`.
 - The later 2026-05-19 retrieval-learning artifact owner closeout, plus the
   2026-05-20 hygiene-gate registry alignment sweep and the later
   hotspot-prevention policy-contract closeout, leave the live

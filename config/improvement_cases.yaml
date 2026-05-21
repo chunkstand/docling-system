@@ -1921,7 +1921,7 @@ cases:
   updated_at: '2026-05-19T00:00:00Z'
 - case_id: IC-5C9B1A4D7E2F
   title: 'Architecture hotspot: tests/unit/test_search_api_harnesses.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: tests/unit/test_search_api_harnesses.py remained an
     architecture hotspot at 764 lines after earlier search API, search harness
@@ -1977,6 +1977,21 @@ cases:
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
+  deployment:
+    deployed_ref: "e16f2b6c"
+    notes: Search API harness route-surface follow-on deployed locally in the
+      2026-05-20 implementation commit. tests/unit/test_search_api_harnesses.py
+      now closes at 40 lines as a route-registration smoke surface, focused
+      coverage now lives in tests/unit/test_search_api_harness_definitions.py,
+      tests/unit/test_search_api_harness_evaluations.py,
+      tests/unit/test_search_api_harness_learning.py, and
+      tests/unit/test_search_api_harness_audits.py at 81, 287, 335, and 248
+      lines, hotspot prevention routes the reduced root as a deferred reduced
+      facade, hygiene exact-ratchets the new owner family, and the live
+      architecture-quality summary now returns
+      broader_rebaseline_candidate_count=0 with
+      top_broader_rebaseline_paths=[] instead of leaving the harness root as a
+      queued broader candidate.
   measurement:
     metric_name: test_search_api_harness_hotspot_line_count
     current_value: 40.0

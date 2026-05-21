@@ -1,16 +1,16 @@
 # Search API Harness Route Surface Boundary Milestone Plan
 
 Date: 2026-05-20 local / 2026-05-20 UTC
-Status: proposed in the current checkout after the 2026-05-20 broader
-rebaseline rerun reselected `tests/unit/test_search_api_harnesses.py` as the
-sole honest broader candidate while `top_routed_hotspot_paths=[]` remained
-empty.
-Owner context: fresh broader-rebaseline follow-on after the search-harness
-service, CLI, cycle, and hotspot-prevention policy closeouts returned the live
-routed queue to empty. Earlier search-family packets deliberately left
+Status: resolved locally in the current checkout on 2026-05-20 after the
+search API harness route-surface split reduced the root to a routed smoke
+surface, exact-ratcheted the focused owner family, and cleared the live
+broader-rebaseline queue to `broader_rebaseline_candidate_count=0`.
+Owner context: broader-rebaseline follow-on after the search-harness service,
+CLI, cycle, and hotspot-prevention policy closeouts returned the live routed
+queue to empty. Earlier search-family packets deliberately left
 `tests/unit/test_search_api_harnesses.py` unchanged as inherited residual
-debt, so this file is now the selected next packet from fresh measurements
-rather than from stale queue notes.
+debt; this packet closes that remaining owner family and leaves no queued
+broader candidate in the current checkout.
 
 ## Purpose
 
@@ -89,6 +89,120 @@ changes do not reconcentrate in one `764`-line owner.
   alignment if the harness split absolutely requires it
 - search-harness runtime, reranker, or CLI implementation changes
 - unrelated readiness, DB, worker, or UI work
+
+## 2026-05-20 Local Closeout Update
+
+The search API harness family now closes at these post-split sizes:
+
+- `tests/unit/test_search_api_harnesses.py` at `40` lines
+- `tests/unit/test_search_api_harness_definitions.py` at `81` lines
+- `tests/unit/test_search_api_harness_evaluations.py` at `287` lines
+- `tests/unit/test_search_api_harness_learning.py` at `335` lines
+- `tests/unit/test_search_api_harness_audits.py` at `248` lines
+
+The reduced root now owns only route-registration smoke coverage for the full
+harness family. The focused siblings own the route contracts by concern:
+
+- definitions and descriptor coverage in
+  `tests/unit/test_search_api_harness_definitions.py`
+- harness evaluation, release, and readiness coverage in
+  `tests/unit/test_search_api_harness_evaluations.py`
+- retrieval-learning candidate and reranker artifact coverage in
+  `tests/unit/test_search_api_harness_learning.py`
+- audit-bundle, training-audit, and validation-receipt coverage in
+  `tests/unit/test_search_api_harness_audits.py`
+
+`tests/unit/test_search_api_learning_audit.py` remains the existing error-path
+owner for adjacent learning and audit route failures and was not expanded by
+this packet.
+
+Routing and registry closeout in the current checkout:
+
+- `config/hotspot_prevention.yaml` now routes the reduced root as a deferred
+  reduced facade under `IC-5C9B1A4D7E2F`.
+- `config/hygiene_policy.yaml` exact-ratchets the reduced root and all four
+  new focused siblings at their live post-split sizes.
+- `config/improvement_cases.yaml` now records `IC-5C9B1A4D7E2F` as deployed at
+  the reduced `40`-line root state with implementation commit `e16f2b6c`.
+
+Live verification in the local checkout:
+
+```text
+git diff --check
+  pass
+
+uv run ruff check tests/unit/test_search_api.py \
+  tests/unit/test_search_api_harnesses.py \
+  tests/unit/test_search_api_harness_definitions.py \
+  tests/unit/test_search_api_harness_evaluations.py \
+  tests/unit/test_search_api_harness_learning.py \
+  tests/unit/test_search_api_harness_audits.py \
+  tests/unit/test_search_api_learning_audit.py
+  pass
+
+uv run pytest -q tests/unit/test_search_api.py \
+  tests/unit/test_search_api_harnesses.py \
+  tests/unit/test_search_api_harness_definitions.py \
+  tests/unit/test_search_api_harness_evaluations.py \
+  tests/unit/test_search_api_harness_learning.py \
+  tests/unit/test_search_api_harness_audits.py \
+  tests/unit/test_search_api_learning_audit.py
+  27 passed
+
+uv run docling-system-hotspot-prevention-check --strict
+  known_hotspots=57
+  changed_hotspots=1
+  blocked=0
+  allowed=1
+  exceptions=0
+
+uv run docling-system-hygiene-check
+  new hygiene regressions: none
+  inherited budget debt: none
+
+uv run docling-system-improvement-case-validate
+  valid=true
+
+uv run docling-system-improvement-case-summary
+  status_counts={"deployed":67}
+
+uv run docling-system-architecture-inspect
+  valid=true
+  violation_count=0
+
+uv run docling-system-architecture-quality-report --summary
+  top_routed_hotspot_paths=[]
+  broader_rebaseline_candidate_count=0
+  top_broader_rebaseline_paths=[]
+```
+
+## Current Structural Evidence
+
+- `tests/unit/test_search_api_harnesses.py` is now a `40`-line route-smoke
+  root instead of a `764`-line mixed harness owner.
+- The focused harness siblings remain at `81`, `287`, `335`, and `248` lines,
+  so the split stays comfortably below the default `600`-line budget without
+  cloning the old payload matrix into a fresh sink.
+- The live architecture-quality summary now reports
+  `broader_rebaseline_candidate_count=0` and
+  `top_broader_rebaseline_paths=[]`, so the split clears the broader queue
+  rather than merely moving the same family to another unowned root.
+- `tests/unit/test_search_api.py` and
+  `tests/unit/test_search_api_learning_audit.py` remain narrow existing owners
+  instead of absorbing moved harness-route coverage.
+
+## Residual Risks And Next Routing
+
+- The live `top_routed_hotspot_paths` queue remains empty after this packet,
+  and the broader-rebaseline summary is now also empty, so the next code-owning
+  packet requires a fresh live rebaseline rather than a stale queued follow-on.
+- Future search harness route growth should land in the focused definitions,
+  evaluations, learning, or audits siblings rather than broadening
+  `tests/unit/test_search_api_harnesses.py` again.
+- If a later search-family packet touches
+  `tests/unit/test_search_api_learning_audit.py`, it should stay scoped to
+  adjacent error-path ownership rather than reabsorbing the moved success-path
+  harness coverage.
 
 ## Owner Surfaces
 

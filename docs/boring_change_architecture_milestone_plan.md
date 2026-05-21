@@ -48,9 +48,9 @@ queue was empty at that checkpoint and the next code-owning packet had to be
 reselected from this broader brief rather than from a stale residual root.
 Current live routing state in the current checkout:
 `top_routed_hotspot_paths=[]`,
-`broader_rebaseline_candidate_count=1`,
-`top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`,
-`status_counts={"deployed":66}`, and
+`broader_rebaseline_candidate_count=0`,
+`top_broader_rebaseline_paths=[]`,
+`status_counts={"deployed":67}`, and
 `architecture_probe.py --fail-on-cycles` reports `0` Python cycle components.
 The later
 2026-05-19 registry-alignment sweep also deploys the stale reduced-root
@@ -212,6 +212,16 @@ from fresh measurements, kept `top_routed_hotspot_paths=[]`,
 records the selected next packet in
 `docs/search_api_harness_route_surface_boundary_milestone_plan.md` so future
 sessions do not restart from raw broader metrics alone.
+The later 2026-05-20 search API harness route-surface follow-on then closes
+that remaining broader candidate directly: implementation commit `e16f2b6c`
+reduces `tests/unit/test_search_api_harnesses.py` to `40` lines, moves
+definitions, evaluations, learning, and audit ownership into focused `81`,
+`287`, `335`, and `248` line siblings, routes the reduced root under
+`IC-5C9B1A4D7E2F`, exact-ratchets the focused family, and advances the live
+summary to `status_counts={"deployed":67}`,
+`broader_rebaseline_candidate_count=0`, and
+`top_broader_rebaseline_paths=[]` without reopening the routed queue or
+regrowing the reduced search-harness service or CLI facades.
 
 ## Purpose
 

@@ -53,30 +53,32 @@ Focused verification for the readiness chain:
   `violation_count=0`
 Current architecture control snapshot from the live 2026-05-20 checkout:
 `uv run docling-system-improvement-case-summary` reports
-`status_counts={"deployed":66}` with `open_unconverted_count=0`,
+`status_counts={"deployed":67}` with `open_unconverted_count=0`,
 `converted_unverified_count=0`, and `verified_undeployed_count=0`;
 `uv run docling-system-hygiene-check` reports `inherited budget debt: none`
 and `new hygiene regressions: none`;
-`uv run docling-system-hotspot-prevention-check --strict` reports `blocked=0`
-and `exceptions=0`;
+`uv run docling-system-hotspot-prevention-check --strict` reports `blocked=0`,
+`allowed=1`, and `exceptions=0`;
 `uv run docling-system-architecture-inspect` remains `valid=true` with
 `violation_count=0`;
 `uv run docling-system-architecture-quality-report --summary` reports
 `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
 `hotspot_count=20`, `stale_facade_hotspot_count=20`,
 `max_hotspot_risk_score=466.06`, `top_routed_hotspot_paths=[]`,
-`broader_rebaseline_candidate_count=1`, and
-`top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`;
-the routed queue is empty again, but the fresh broader-rebaseline output now
-points directly at the remaining search API harness test root rather than back
-at the already deployed service or CLI facades. The strict cycle gate is also
-green now, so future sessions should not reopen the resolved search-harness
-facade, CLI facade, or hotspot-prevention policy packets while this broader
-candidate remains unchanged. The latest docs-only rerun now records the
-selected next packet in
-`docs/search_api_harness_route_surface_boundary_milestone_plan.md`, so future
-sessions should start from that brief instead of re-running broader selection
-unless the live metrics change again. The later
+`broader_rebaseline_candidate_count=0`, and
+`top_broader_rebaseline_paths=[]`; the latest search API harness route-surface
+follow-on is committed locally as `e16f2b6c`. It reduces
+`tests/unit/test_search_api_harnesses.py` to a `40`-line route-registration
+smoke surface, moves focused coverage into
+`tests/unit/test_search_api_harness_definitions.py` (`81`),
+`tests/unit/test_search_api_harness_evaluations.py` (`287`),
+`tests/unit/test_search_api_harness_learning.py` (`335`), and
+`tests/unit/test_search_api_harness_audits.py` (`248`), routes the reduced
+root under `IC-5C9B1A4D7E2F`, keeps
+`tests/unit/test_search_api_learning_audit.py` unchanged as the adjacent
+error-path owner at `228` lines, and leaves no active broader-rebaseline
+candidate in the current checkout. Future code-owning work now requires a
+fresh live rebaseline rather than reopening a queued harness packet. The later
 `docs/hotspot_prevention_policy_contracts_boundary_milestone_plan.md`
 follow-on now closes the briefly reopened hotspot-prevention policy-contract
 owner surface: `tests/unit/test_hotspot_prevention_policy_contracts.py`
