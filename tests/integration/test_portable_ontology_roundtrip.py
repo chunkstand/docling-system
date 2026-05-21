@@ -759,3 +759,214 @@ def test_manual_ontology_lifecycle_draft_roundtrip(
             "legacy_control"
         ]
         assert "Legacy Control" in concepts_by_key["governance_control"]["aliases"]
+
+
+def test_manual_ontology_lifecycle_verification_and_apply_roundtrip(
+    postgres_integration_harness,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    upper_ontology_path = tmp_path / "config" / "upper_ontology.yaml"
+    eval_corpus_path = tmp_path / "docs" / "semantic_evaluation_corpus.yaml"
+    _write_upper_ontology(upper_ontology_path)
+    _write_empty_semantic_eval_corpus(eval_corpus_path)
+    monkeypatch.setenv("DOCLING_SYSTEM_SEMANTIC_REGISTRY_PATH", str(upper_ontology_path))
+    monkeypatch.setenv("DOCLING_SYSTEM_UPPER_ONTOLOGY_PATH", str(upper_ontology_path))
+    monkeypatch.setenv("DOCLING_SYSTEM_SEMANTIC_EVALUATION_CORPUS_PATH", str(eval_corpus_path))
+    get_settings.cache_clear()
+    clear_semantic_registry_cache()
+
+    with postgres_integration_harness.session_factory() as session:
+        ensure_workspace_semantic_registry(session)
+        base_snapshot = get_active_semantic_ontology_snapshot(session)
+        seeded_payload = dict(base_snapshot.payload_json or {})
+        seeded_payload["registry_version"] = "portable-upper-ontology-v1.seeded"
+        seeded_payload["concepts"] = [
+            {
+                "concept_key": "legacy_control",
+                "preferred_label": "Legacy Control",
+                "aliases": ["legacy control"],
+            },
+            {
+                "concept_key": "governance_control",
+                "preferred_label": "Governance Control",
+            },
+        ]
+        persist_semantic_ontology_snapshot(
+            session,
+            seeded_payload,
+            source_kind=SemanticOntologySourceKind.ONTOLOGY_EXTENSION_APPLY.value,
+            parent_snapshot_id=base_snapshot.id,
+            activate=True,
+        )
+        session.commit()
+
+    workflow_version = "portable_ontology_lifecycle_preview_contract"
+    client = postgres_integration_harness.client
+    create_response = client.post(
+        "/documents",
+        files={
+            "file": (
+                "legacy-control.pdf",
+                valid_test_pdf_bytes(),
+                "application/pdf",
+            )
+        },
+    )
+    assert create_response.status_code == 202
+    document_id = UUID(create_response.json()["document_id"])
+    run_id = UUID(create_response.json()["run_id"])
+
+    processed_run_id = postgres_integration_harness.process_next_run(
+        StubParser(_build_parsed_document(title="Legacy Control Memo", phrase="legacy control"))
+    )
+    assert processed_run_id == run_id
+    expected_lifecycle_version = "portable-upper-ontology-v1.seeded.1"
+
+    initial_semantics_response = client.get(f"/documents/{document_id}/semantics/latest")
+    assert initial_semantics_response.status_code == 200
+    initial_semantics = initial_semantics_response.json()
+    assert initial_semantics["assertion_count"] == 1
+    assert initial_semantics["assertions"][0]["concept_key"] == "legacy_control"
+
+    with postgres_integration_harness.session_factory() as session:
+        draft_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="draft_ontology_extension",
+                input={
+                    "rationale": "replace the legacy concept with the governed successor",
+                    "operations": [
+                        {
+                            "operation_id": "replace:legacy_control:governance_control",
+                            "operation_type": "replace_concept",
+                            "concept_key": "legacy_control",
+                            "successor_concepts": [{"concept_key": "governance_control"}],
+                        }
+                    ],
+                },
+                workflow_version=workflow_version,
+            ),
+        )
+        draft_task_id = draft_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        verify_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_draft_ontology_extension",
+                input={
+                    "target_task_id": str(draft_task_id),
+                    "document_ids": [str(document_id)],
+                    "max_regressed_document_count": 0,
+                    "max_failed_expectation_increase": 0,
+                    "min_improved_document_count": 1,
+                },
+                workflow_version=workflow_version,
+            ),
+        )
+        verify_task_id = verify_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        verify_task_row = session.get(AgentTask, verify_task_id)
+        assert verify_task_row is not None
+        verify_payload = verify_task_row.result_json["payload"]
+        assert verify_payload["verification"]["outcome"] == "passed"
+        assert verify_payload["summary"]["lifecycle_preview_required"] is True
+        assert verify_payload["summary"]["lifecycle_preview_evidence_complete"] is True
+        lifecycle_preview = verify_payload["lifecycle_preview"]
+        assert lifecycle_preview["required"] is True
+        assert lifecycle_preview["evidence_complete"] is True
+        assert lifecycle_preview["operations_with_preview_count"] == 1
+        assert lifecycle_preview["operations_without_preview_count"] == 0
+        preview_signal = lifecycle_preview["operations"][0]["preview_signals"][0]
+        assert preview_signal["document_id"] == str(document_id)
+        assert preview_signal["added_successor_concept_keys"] == ["governance_control"]
+        assert (
+            verify_payload["verification"]["details"]["lifecycle_preview"]["evidence_complete"]
+            is True
+        )
+
+        apply_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="apply_ontology_extension",
+                input={
+                    "draft_task_id": str(draft_task_id),
+                    "verification_task_id": str(verify_task_id),
+                    "reason": "publish the verified lifecycle ontology extension",
+                },
+                workflow_version=workflow_version,
+            ),
+        )
+        apply_task_id = apply_task.task_id
+        approve_agent_task(
+            session,
+            apply_task_id,
+            AgentTaskApprovalRequest(
+                approved_by="ontology-operator@example.com",
+                approval_note="publish the verified lifecycle ontology extension",
+            ),
+        )
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        apply_task_row = session.get(AgentTask, apply_task_id)
+        assert apply_task_row is not None
+        apply_payload = apply_task_row.result_json["payload"]
+        assert apply_payload["applied_ontology_version"] == expected_lifecycle_version
+        assert apply_payload["verification_summary"]["lifecycle_preview_required"] is True
+        assert apply_payload["lifecycle_preview"]["evidence_complete"] is True
+        assert any(
+            metric["metric_key"] == "lifecycle_preview_preserved" and metric["passed"]
+            for metric in apply_payload["success_metrics"]
+        )
+
+        reprocess_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="enqueue_document_reprocess",
+                input={
+                    "document_id": str(document_id),
+                    "source_task_id": str(apply_task_id),
+                    "reason": "refresh the document under the lifecycle-updated ontology",
+                },
+                workflow_version=workflow_version,
+            ),
+        )
+        reprocess_task_id = reprocess_task.task_id
+        approve_agent_task(
+            session,
+            reprocess_task_id,
+            AgentTaskApprovalRequest(
+                approved_by="ontology-operator@example.com",
+                approval_note="refresh semantics under the lifecycle-updated ontology",
+            ),
+        )
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        reprocess_task_row = session.get(AgentTask, reprocess_task_id)
+        assert reprocess_task_row is not None
+        latest_run_id = UUID(reprocess_task_row.result_json["payload"]["reprocess"]["run_id"])
+
+    rerun_id = postgres_integration_harness.process_next_run(
+        StubParser(_build_parsed_document(title="Legacy Control Memo", phrase="legacy control"))
+    )
+    assert rerun_id == latest_run_id
+
+    final_semantics_response = client.get(f"/documents/{document_id}/semantics/latest")
+    assert final_semantics_response.status_code == 200
+    final_semantics = final_semantics_response.json()
+    assert final_semantics["run_id"] == str(latest_run_id)
+    assert final_semantics["registry_version"] == expected_lifecycle_version
+    assert any(
+        assertion["concept_key"] == "governance_control"
+        for assertion in final_semantics["assertions"]
+    )

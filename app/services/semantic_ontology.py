@@ -7,6 +7,12 @@ from sqlalchemy.orm import Session
 
 from app.db.public.semantic_memory import SemanticOntologySourceKind
 from app.services.ontology_contract_runtime import load_ontology_contract_runtime_metadata
+from app.services.semantic_ontology_lifecycle_previews import (
+    assert_lifecycle_verification_preview_ready,
+    build_lifecycle_verification_preview,
+    lifecycle_apply_success_metrics,
+    lifecycle_verification_success_metrics,
+)
 from app.services.semantic_orchestration import (
     draft_semantic_registry_update,
     draft_semantic_registry_update_from_bootstrap_report,
@@ -330,7 +336,13 @@ def verify_draft_ontology_extension(
     max_failed_expectation_increase: int,
     min_improved_document_count: int,
 ) -> tuple[
-    list[dict[str, Any]], dict[str, Any], dict[str, Any], list[str], str, list[dict[str, Any]]
+    list[dict[str, Any]],
+    dict[str, Any],
+    dict[str, Any],
+    list[str],
+    str,
+    list[dict[str, Any]],
+    dict[str, Any] | None,
 ]:
     resolved_document_ids = document_ids or list(draft.get("document_ids") or [])
     if not resolved_document_ids:
@@ -344,6 +356,22 @@ def verify_draft_ontology_extension(
         for document_id in resolved_document_ids
     ]
     summary = semantic_registry_verification_summary(document_deltas)
+    lifecycle_preview = build_lifecycle_verification_preview(
+        operations=draft.get("operations") or [],
+        document_deltas=document_deltas,
+    )
+    if lifecycle_preview is not None:
+        summary.update(
+            {
+                "lifecycle_preview_required": True,
+                "lifecycle_preview_evidence_complete": lifecycle_preview["evidence_complete"],
+                "lifecycle_operation_count": lifecycle_preview["operation_count"],
+                "lifecycle_operations_without_preview_count": lifecycle_preview[
+                    "operations_without_preview_count"
+                ],
+                "lifecycle_missing_operation_ids": lifecycle_preview["missing_operation_ids"],
+            }
+        )
     reasons: list[str] = []
     if summary["regressed_document_count"] > max_regressed_document_count:
         reasons.append("Draft regresses more documents than the allowed threshold.")
@@ -351,6 +379,10 @@ def verify_draft_ontology_extension(
         reasons.append("Draft increases failed semantic expectations beyond the allowed threshold.")
     if summary["improved_document_count"] < min_improved_document_count:
         reasons.append("Draft does not improve enough documents to justify publication.")
+    if lifecycle_preview is not None and not lifecycle_preview["evidence_complete"]:
+        reasons.append(
+            "Draft is missing explicit lifecycle preview evidence for one or more operations."
+        )
     outcome = "passed" if not reasons else "failed"
     metrics = {
         "document_count": summary["document_count"],
@@ -368,7 +400,18 @@ def verify_draft_ontology_extension(
         },
         document_deltas=document_deltas,
     )
-    return document_deltas, summary, metrics, reasons, outcome, success_metrics
+    success_metrics.extend(
+        lifecycle_verification_success_metrics(lifecycle_preview=lifecycle_preview)
+    )
+    return (
+        document_deltas,
+        summary,
+        metrics,
+        reasons,
+        outcome,
+        success_metrics,
+        lifecycle_preview,
+    )
 
 
 def apply_ontology_extension(
@@ -378,8 +421,14 @@ def apply_ontology_extension(
     source_task_id: UUID,
     source_task_type: str,
     reason: str | None,
+    verification_summary: dict[str, Any],
+    lifecycle_preview: dict[str, Any] | None,
 ) -> dict[str, Any]:
     base_snapshot_id = UUID(str(draft["base_snapshot_id"]))
+    assert_lifecycle_verification_preview_ready(
+        operations=draft.get("operations") or [],
+        lifecycle_preview=lifecycle_preview,
+    )
     contract_runtime = load_ontology_contract_runtime_metadata()
     snapshot = persist_semantic_ontology_snapshot(
         session,
@@ -398,10 +447,15 @@ def apply_ontology_extension(
         "upper_ontology_version": snapshot.upper_ontology_version,
         "reason": reason,
         "applied_operations": draft.get("operations") or [],
-        "success_metrics": semantic_registry_apply_metrics(
-            applied_registry_version=snapshot.ontology_version,
-            applied_operations=draft.get("operations") or [],
-            verification_outcome="passed",
-        ),
+        "verification_summary": verification_summary,
+        "lifecycle_preview": lifecycle_preview,
+        "success_metrics": [
+            *semantic_registry_apply_metrics(
+                applied_registry_version=snapshot.ontology_version,
+                applied_operations=draft.get("operations") or [],
+                verification_outcome="passed",
+            ),
+            *lifecycle_apply_success_metrics(lifecycle_preview=lifecycle_preview),
+        ],
         **contract_runtime,
     }

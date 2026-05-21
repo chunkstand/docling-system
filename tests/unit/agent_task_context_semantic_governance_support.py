@@ -317,20 +317,100 @@ def manual_lifecycle_draft_ontology_output_payload(*, artifact_id=None) -> dict:
     }
 
 
-def verify_draft_ontology_output_payload(*, draft_task_id, artifact_id=None) -> dict:
+def lifecycle_verification_preview_payload(*, document_id=None, run_id=None) -> dict:
+    document_id = document_id or uuid4()
+    run_id = run_id or uuid4()
+    return {
+        "required": True,
+        "evidence_complete": True,
+        "operation_count": 1,
+        "operations_with_preview_count": 1,
+        "operations_without_preview_count": 0,
+        "missing_operation_ids": [],
+        "operations": [
+            {
+                "operation_id": "replace:legacy_control:governance_control",
+                "operation_type": "replace_concept",
+                "source_concept_keys": ["legacy_control"],
+                "successor_concept_keys": ["governance_control"],
+                "previewed_document_count": 1,
+                "regressed_document_count": 0,
+                "preview_signals": [
+                    {
+                        "document_id": str(document_id),
+                        "run_id": str(run_id),
+                        "evaluation_fixture_name": "portable_semantic_eval",
+                        "candidate_evaluation_status": "completed",
+                        "added_successor_concept_keys": ["governance_control"],
+                        "removed_source_concept_keys": [],
+                        "introduced_expected_concepts": ["governance_control"],
+                        "regressed_expected_concepts": [],
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def verify_draft_ontology_output_payload(
+    *,
+    draft_task_id,
+    artifact_id=None,
+    include_lifecycle_preview: bool = False,
+) -> dict:
     now = datetime.now(UTC).isoformat()
-    draft_output = draft_ontology_output_payload(
-        source_task_id=uuid4(),
-        source_task_type="discover_semantic_bootstrap_candidates",
-    )["draft"]
+    document_id = uuid4()
+    run_id = uuid4()
+    draft_output = (
+        manual_lifecycle_draft_ontology_output_payload()["draft"]
+        if include_lifecycle_preview
+        else draft_ontology_output_payload(
+            source_task_id=uuid4(),
+            source_task_type="discover_semantic_bootstrap_candidates",
+        )["draft"]
+    )
     return {
         "draft": draft_output,
-        "document_deltas": [],
+        "document_deltas": (
+            [
+                {
+                    "document_id": str(document_id),
+                    "run_id": str(run_id),
+                    "evaluation_fixture_name": "portable_semantic_eval",
+                    "before_all_expectations_passed": False,
+                    "after_all_expectations_passed": True,
+                    "before_failed_expectations": 1,
+                    "after_failed_expectations": 0,
+                    "before_assertion_count": 1,
+                    "after_assertion_count": 2,
+                    "added_concept_keys": ["governance_control"],
+                    "removed_concept_keys": [],
+                    "introduced_expected_concepts": ["governance_control"],
+                    "regressed_expected_concepts": [],
+                    "candidate_evaluation_status": "completed",
+                    "candidate_evaluation_summary": {
+                        "all_expectations_passed": True,
+                        "failed_expectations": 0,
+                    },
+                    "candidate_registry_version": "portable-upper-ontology-v1.1",
+                    "candidate_registry_sha256": "candidate-ontology-sha",
+                }
+            ]
+            if include_lifecycle_preview
+            else []
+        ),
         "summary": {
             "document_count": 1,
             "improved_document_count": 1,
             "regressed_document_count": 0,
+            "lifecycle_preview_required": include_lifecycle_preview,
+            "lifecycle_preview_evidence_complete": include_lifecycle_preview or False,
         },
+        "lifecycle_preview": (
+            lifecycle_verification_preview_payload(document_id=document_id, run_id=run_id)
+            if include_lifecycle_preview
+            else None
+        ),
         "success_metrics": [],
         "verification": {
             "verification_id": str(uuid4()),
@@ -355,6 +435,7 @@ def apply_ontology_output_payload(
     draft_task_id,
     verification_task_id,
     artifact_id=None,
+    include_lifecycle_preview: bool = False,
 ) -> dict:
     return {
         "draft_task_id": str(draft_task_id),
@@ -366,15 +447,39 @@ def apply_ontology_output_payload(
         **ontology_contract_runtime_payload(),
         "reason": "Publish the verified ontology extension.",
         "applied_operations": [
-            {
-                "operation_id": "op-1",
-                "operation_type": "add_concept",
-                "concept_key": "incident_response_latency",
-                "preferred_label": "Incident Response Latency",
-                "source_issue_ids": ["issue-1"],
-                "rationale": "Derived from corpus evidence.",
-            }
+            (
+                {
+                    "operation_id": "replace:legacy_control:governance_control",
+                    "operation_type": "replace_concept",
+                    "concept_key": "legacy_control",
+                    "source_issue_ids": [],
+                    "rationale": "Move the legacy concept to the governed successor.",
+                    "source_concept_keys": [],
+                    "successor_concepts": [{"concept_key": "governance_control"}],
+                }
+                if include_lifecycle_preview
+                else {
+                    "operation_id": "op-1",
+                    "operation_type": "add_concept",
+                    "concept_key": "incident_response_latency",
+                    "preferred_label": "Incident Response Latency",
+                    "source_issue_ids": ["issue-1"],
+                    "rationale": "Derived from corpus evidence.",
+                }
+            )
         ],
+        "verification_summary": {
+            "document_count": 1,
+            "improved_document_count": 1,
+            "regressed_document_count": 0,
+            "lifecycle_preview_required": include_lifecycle_preview,
+            "lifecycle_preview_evidence_complete": include_lifecycle_preview or False,
+        },
+        "lifecycle_preview": (
+            lifecycle_verification_preview_payload()
+            if include_lifecycle_preview
+            else None
+        ),
         "success_metrics": [],
         "artifact_id": str(artifact_id or uuid4()),
         "artifact_kind": "applied_ontology_extension",

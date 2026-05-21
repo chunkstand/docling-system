@@ -4,6 +4,8 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
+import pytest
+
 from app.db.public.agent_tasks import AgentTask
 from app.schemas.agent_task_semantics import (
     ApplyOntologyExtensionTaskInput,
@@ -20,6 +22,9 @@ from app.services.agent_actions.semantic_governance_actions import (
     _apply_ontology_extension_executor,
     _draft_ontology_extension_executor,
     _verify_draft_ontology_extension_executor,
+)
+from tests.unit.agent_task_context_semantic_governance_support import (
+    manual_lifecycle_draft_ontology_output_payload,
 )
 
 
@@ -332,6 +337,7 @@ def test_verify_draft_ontology_extension_executor_writes_verification_artifact(
             [],
             "passed",
             [],
+            None,
         ),
     )
     monkeypatch.setattr(
@@ -367,6 +373,7 @@ def test_verify_draft_ontology_extension_executor_writes_verification_artifact(
     )
 
     assert result["verification"]["outcome"] == "passed"
+    assert result["lifecycle_preview"] is None
     assert result["artifact_kind"] == "ontology_extension_draft_verification"
 
 def test_apply_ontology_extension_executor_writes_artifact(monkeypatch) -> None:
@@ -425,7 +432,8 @@ def test_apply_ontology_extension_executor_writes_artifact(monkeypatch) -> None:
                     "success_metrics": [],
                 },
                 "document_deltas": [],
-                "summary": {},
+                "summary": {"document_count": 1, "improved_document_count": 1},
+                "lifecycle_preview": None,
                 "success_metrics": [],
                 "verification": {
                     "verification_id": str(uuid4()),
@@ -460,6 +468,8 @@ def test_apply_ontology_extension_executor_writes_artifact(monkeypatch) -> None:
             "upper_ontology_version": "portable-upper-ontology-v1",
             "reason": kwargs["reason"],
             "applied_operations": [],
+            "verification_summary": kwargs["verification_summary"],
+            "lifecycle_preview": kwargs["lifecycle_preview"],
             "success_metrics": [],
         },
     )
@@ -483,4 +493,78 @@ def test_apply_ontology_extension_executor_writes_artifact(monkeypatch) -> None:
     )
 
     assert result["applied_ontology_version"] == "portable-upper-ontology-v1.1"
+    assert result["verification_summary"]["document_count"] == 1
+    assert result["lifecycle_preview"] is None
     assert result["artifact_kind"] == "applied_ontology_extension"
+
+
+def test_apply_ontology_extension_executor_rejects_lifecycle_apply_without_preview(
+    monkeypatch,
+) -> None:
+    draft_task_id = uuid4()
+    verification_task_id = uuid4()
+    task = AgentTask(
+        id=uuid4(),
+        task_type="apply_ontology_extension",
+        status="processing",
+        priority=100,
+        side_effect_level="promotable",
+        requires_approval=True,
+        approved_at=datetime.now(UTC),
+        approved_by="operator@example.com",
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    dependencies = {
+        ("draft_ontology_extension", draft_task_id): SimpleNamespace(
+            output=manual_lifecycle_draft_ontology_output_payload()
+        ),
+        ("verify_draft_ontology_extension", verification_task_id): SimpleNamespace(
+            output={
+                "draft": manual_lifecycle_draft_ontology_output_payload()["draft"],
+                "document_deltas": [],
+                "summary": {"document_count": 1, "improved_document_count": 0},
+                "lifecycle_preview": None,
+                "success_metrics": [],
+                "verification": {
+                    "verification_id": str(uuid4()),
+                    "target_task_id": str(draft_task_id),
+                    "verification_task_id": str(verification_task_id),
+                    "verifier_type": "ontology_extension_draft_gate",
+                    "outcome": "passed",
+                    "metrics": {"document_count": 1},
+                    "reasons": [],
+                    "details": {},
+                    "created_at": datetime.now(UTC).isoformat(),
+                    "completed_at": datetime.now(UTC).isoformat(),
+                },
+                "artifact_id": str(uuid4()),
+                "artifact_kind": "ontology_extension_draft_verification",
+                "artifact_path": "/tmp/ontology_extension_draft_verification.json",
+            }
+        ),
+    }
+    monkeypatch.setattr(
+        "app.services.agent_actions.semantic_governance_actions.resolve_required_dependency_task_output_context",
+        lambda session, task_id, depends_on_task_id, expected_task_type, **kwargs: dependencies[
+            (expected_task_type, depends_on_task_id)
+        ],
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="requires explicit document-level preview evidence",
+    ):
+        _apply_ontology_extension_executor(
+            session=object(),
+            task=task,
+            payload=ApplyOntologyExtensionTaskInput(
+                draft_task_id=draft_task_id,
+                verification_task_id=verification_task_id,
+                reason="publish verified ontology extension",
+            ),
+        )

@@ -11,6 +11,10 @@ from app.schemas.agent_task_semantics import (
     SemanticRegistryUpdateOperation,
     VerifyDraftOntologyExtensionTaskOutput,
 )
+from app.services.semantic_ontology_lifecycle_previews import (
+    assert_lifecycle_verification_preview_ready,
+    build_lifecycle_verification_preview,
+)
 from app.services.semantic_registry_operation_contracts import (
     SEMANTIC_REGISTRY_OPERATION_CONTRACT_VERSION,
     SUPPORTED_SEMANTIC_REGISTRY_OPERATION_TYPES,
@@ -248,6 +252,49 @@ def test_draft_ontology_extension_input_requires_source_task_or_operations() -> 
     assert payload.operations[0].operation_type == "replace_concept"
 
 
+def test_build_lifecycle_verification_preview_requires_document_signal_per_operation() -> None:
+    preview = build_lifecycle_verification_preview(
+        operations=_lifecycle_operations(),
+        document_deltas=[
+            {
+                "document_id": uuid4(),
+                "run_id": uuid4(),
+                "evaluation_fixture_name": "portable_semantic_eval",
+                "before_all_expectations_passed": False,
+                "after_all_expectations_passed": True,
+                "before_failed_expectations": 1,
+                "after_failed_expectations": 0,
+                "before_assertion_count": 1,
+                "after_assertion_count": 2,
+                "added_concept_keys": ["incident_ack_latency", "triage_decision_gate"],
+                "removed_concept_keys": [],
+                "introduced_expected_concepts": ["incident_ack_latency"],
+                "regressed_expected_concepts": [],
+                "candidate_evaluation_status": "completed",
+            }
+        ],
+    )
+
+    assert preview is not None
+    assert preview["required"] is True
+    assert preview["evidence_complete"] is False
+    assert preview["operations_with_preview_count"] == 3
+    assert preview["operations_without_preview_count"] == 2
+    assert preview["missing_operation_ids"] == [
+        "merge:vendor_escalation_owner",
+        "deprecate:legacy_control",
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match="requires preview evidence for every non-additive operation",
+    ):
+        assert_lifecycle_verification_preview_ready(
+            operations=_lifecycle_operations(),
+            lifecycle_preview=preview,
+        )
+
+
 def test_ontology_extension_task_outputs_preserve_contract_fields_with_lifecycle_version() -> None:
     source_task_id = uuid4()
     additive_draft_output = DraftOntologyExtensionTaskOutput.model_validate(
@@ -260,12 +307,16 @@ def test_ontology_extension_task_outputs_preserve_contract_fields_with_lifecycle
         manual_lifecycle_draft_ontology_output_payload()
     )
     verify_output = VerifyDraftOntologyExtensionTaskOutput.model_validate(
-        verify_draft_ontology_output_payload(draft_task_id=uuid4())
+        verify_draft_ontology_output_payload(
+            draft_task_id=uuid4(),
+            include_lifecycle_preview=True,
+        )
     )
     apply_output = ApplyOntologyExtensionTaskOutput.model_validate(
         apply_ontology_output_payload(
             draft_task_id=uuid4(),
             verification_task_id=uuid4(),
+            include_lifecycle_preview=True,
         )
     )
 
@@ -289,5 +340,14 @@ def test_ontology_extension_task_outputs_preserve_contract_fields_with_lifecycle
         verify_output.draft.operation_contract_version
         == SEMANTIC_REGISTRY_OPERATION_CONTRACT_VERSION
     )
+    assert verify_output.lifecycle_preview is not None
+    assert verify_output.lifecycle_preview.evidence_complete is True
+    assert (
+        verify_output.lifecycle_preview.operations[0].successor_concept_keys
+        == ["governance_control"]
+    )
     assert apply_output.applied_ontology_version == "portable-upper-ontology-v1.1"
-    assert apply_output.applied_operations[0].operation_type == "add_concept"
+    assert apply_output.applied_operations[0].operation_type == "replace_concept"
+    assert apply_output.lifecycle_preview is not None
+    assert apply_output.lifecycle_preview.evidence_complete is True
+    assert apply_output.verification_summary["lifecycle_preview_required"] is True

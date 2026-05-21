@@ -404,6 +404,37 @@ class SemanticRegistryDocumentDelta(BaseModel):
     regressed_expected_concepts: list[str] = Field(default_factory=list)
 
 
+class OntologyLifecycleDocumentPreviewSignal(BaseModel):
+    document_id: UUID
+    run_id: UUID
+    evaluation_fixture_name: str | None = None
+    candidate_evaluation_status: str | None = None
+    added_successor_concept_keys: list[str] = Field(default_factory=list)
+    removed_source_concept_keys: list[str] = Field(default_factory=list)
+    introduced_expected_concepts: list[str] = Field(default_factory=list)
+    regressed_expected_concepts: list[str] = Field(default_factory=list)
+
+
+class OntologyLifecycleOperationPreview(BaseModel):
+    operation_id: str
+    operation_type: SemanticRegistryOperationType
+    source_concept_keys: list[str] = Field(default_factory=list)
+    successor_concept_keys: list[str] = Field(default_factory=list)
+    previewed_document_count: int = 0
+    regressed_document_count: int = 0
+    preview_signals: list[OntologyLifecycleDocumentPreviewSignal] = Field(default_factory=list)
+
+
+class OntologyLifecycleVerificationPreview(BaseModel):
+    required: bool = False
+    evidence_complete: bool = True
+    operation_count: int = 0
+    operations_with_preview_count: int = 0
+    operations_without_preview_count: int = 0
+    missing_operation_ids: list[str] = Field(default_factory=list)
+    operations: list[OntologyLifecycleOperationPreview] = Field(default_factory=list)
+
+
 class VerifyDraftSemanticRegistryUpdateTaskOutput(BaseModel):
     draft: SemanticRegistryDraftPayload
     document_deltas: list[SemanticRegistryDocumentDelta] = Field(default_factory=list)
@@ -427,6 +458,7 @@ class VerifyDraftOntologyExtensionTaskOutput(BaseModel):
     draft: OntologyExtensionDraftPayload
     document_deltas: list[SemanticRegistryDocumentDelta] = Field(default_factory=list)
     summary: dict = Field(default_factory=dict)
+    lifecycle_preview: OntologyLifecycleVerificationPreview | None = None
     success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
     verification: AgentTaskVerificationResponse
     artifact_id: UUID
@@ -469,6 +501,8 @@ class ApplyOntologyExtensionTaskOutput(OntologyContractRuntimePayload):
     upper_ontology_version: str
     reason: str | None = None
     applied_operations: list[SemanticRegistryUpdateOperation] = Field(default_factory=list)
+    verification_summary: dict = Field(default_factory=dict)
+    lifecycle_preview: OntologyLifecycleVerificationPreview | None = None
     success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
     artifact_id: UUID
     artifact_kind: str
@@ -506,6 +540,9 @@ __all__ = [
     "DraftOntologyExtensionTaskOutput",
     "VerifyDraftSemanticRegistryUpdateTaskInput",
     "SemanticRegistryDocumentDelta",
+    "OntologyLifecycleDocumentPreviewSignal",
+    "OntologyLifecycleOperationPreview",
+    "OntologyLifecycleVerificationPreview",
     "VerifyDraftSemanticRegistryUpdateTaskOutput",
     "VerifyDraftOntologyExtensionTaskInput",
     "VerifyDraftOntologyExtensionTaskOutput",

@@ -6,7 +6,7 @@ Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Active ontology-evolution lifecycle packet in the current 2026-05-21 checkout:
 `docs/ontology_evolution_lifecycle_milestone_plan.md` is now in progress in
-this repo, and Milestones 0 and 1 are resolved locally. The current slice
+this repo, and Milestones 0, 1, and 2 are resolved locally. The current slice
 turns non-additive ontology evolution into a first-class contract: the
 versioned operation surface now lives in
 `app/services/semantic_registry_operation_contracts.py`, the concrete mutation
@@ -20,15 +20,22 @@ additive drafts and manual lifecycle drafts, and the updated
 `tests/unit/test_ontology_evolution_lifecycle_baseline.py` plus
 `tests/integration/test_portable_ontology_roundtrip.py` prove the new
 machine-readable split/merge/deprecate/replace/migrate surface through the
-real task worker path.
+real task worker path. Milestone 2 then adds
+`app/services/semantic_ontology_lifecycle_previews.py` as the focused owner
+for per-operation document preview evidence, extends
+`VerifyDraftOntologyExtensionTaskOutput` and `ApplyOntologyExtensionTaskOutput`
+with lifecycle preview payloads, records that preview in the verification
+record details, and blocks lifecycle apply unless every non-additive
+operation has explicit document-level preview evidence from verification.
 
-The next honest boundary in the active packet is Milestone 2: extend document-
-level verification previews and apply adoption around the new lifecycle draft
-surface. Focused verification for the current lifecycle contract slice:
-- `uv run ruff check app/schemas/agent_task_semantics.py app/services/semantic_registry_operation_contracts.py app/services/semantic_registry_operation_mutations.py app/services/semantic_orchestration.py app/services/semantic_ontology.py app/services/agent_actions/semantic_governance_actions.py app/services/agent_actions/semantic_governance_ontology_actions.py app/services/agent_task_context_semantic_governance_ontology.py tests/unit/agent_task_context_semantic_governance_support.py tests/unit/test_ontology_evolution_lifecycle_baseline.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_context_semantic_governance_ontology.py tests/integration/test_portable_ontology_roundtrip.py`: pass
-- `uv run pytest -q tests/unit/test_ontology_evolution_lifecycle_baseline.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_context_semantic_governance_ontology.py tests/unit/test_semantic_orchestration.py`: `19 passed`
-- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_portable_ontology_roundtrip.py tests/integration/test_semantic_bootstrap_roundtrip.py tests/integration/test_agent_task_semantic_orchestration_roundtrip.py`: `5 passed`
-- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `2211 passed`, `1` docling deprecation warning
+The next honest boundary in the active packet is Milestone 3: refresh the
+packet closeout and route any still-missing corpus-specific overlay work into
+a new bounded successor instead of broadening this lane. Focused verification
+for the current lifecycle preview/apply slice:
+- `uv run ruff check app/schemas/agent_task_semantics.py app/services/semantic_ontology.py app/services/semantic_ontology_lifecycle_previews.py app/services/agent_actions/semantic_governance_ontology_actions.py app/services/agent_task_context_semantic_governance_ontology.py tests/unit/agent_task_context_semantic_governance_support.py tests/unit/test_ontology_evolution_lifecycle_baseline.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_context_semantic_governance_ontology.py tests/integration/test_portable_ontology_roundtrip.py`: pass
+- `uv run pytest -q tests/unit/test_ontology_evolution_lifecycle_baseline.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_context_semantic_governance_ontology.py tests/unit/test_semantic_orchestration.py`: `21 passed`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_portable_ontology_roundtrip.py tests/integration/test_semantic_bootstrap_roundtrip.py tests/integration/test_agent_task_semantic_orchestration_roundtrip.py`: `6 passed`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `2214 passed`, `1` docling deprecation warning
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
 - `uv run docling-system-hotspot-prevention-check --strict`: `blocked=0`, `allowed=0`, `exceptions=0`
 - `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`

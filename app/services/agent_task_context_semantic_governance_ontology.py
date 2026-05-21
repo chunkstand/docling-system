@@ -70,8 +70,6 @@ def _resolve_ontology_source_task_context(
             ),
         )
     return None
-
-
 def _build_draft_ontology_extension_context(
     session: Session,
     task: AgentTask,
@@ -131,16 +129,14 @@ def _build_draft_ontology_extension_context(
         ),
         goal="Capture a reviewable ontology extension draft without changing live state.",
         decision="The ontology draft is ready for verification against active documents.",
-        next_action=(
-            "Create verify_draft_ontology_extension before any ontology publication step."
-        ),
+        next_action="Create verify_draft_ontology_extension before any ontology publication step.",
         approval_state="not_required",
         verification_state="pending",
         metrics={
             "operation_count": len(output.draft.operations),
             "document_count": len(output.draft.document_ids),
             "success_metric_pass_count": sum(
-                1 for item in output.draft.success_metrics if item.passed
+                item.passed for item in output.draft.success_metrics
             ),
         },
     )
@@ -158,8 +154,6 @@ def _build_draft_ontology_extension_context(
         refs=refs,
         output=output.model_dump(mode="json"),
     )
-
-
 def _build_verify_draft_ontology_extension_context(
     session: Session,
     task: AgentTask,
@@ -260,6 +254,10 @@ def _build_verify_draft_ontology_extension_context(
             "improved_document_count": output.summary.get("improved_document_count"),
             "regressed_document_count": output.summary.get("regressed_document_count"),
             "operation_count": len(output.draft.operations),
+            "lifecycle_preview_required": bool(output.lifecycle_preview),
+            "lifecycle_preview_evidence_complete": output.lifecycle_preview.evidence_complete
+            if output.lifecycle_preview is not None
+            else None,
         },
     )
     return task_core.TaskContextEnvelope(
@@ -276,8 +274,6 @@ def _build_verify_draft_ontology_extension_context(
         refs=refs,
         output=output.model_dump(mode="json"),
     )
-
-
 def _build_apply_ontology_extension_context(
     session: Session,
     task: AgentTask,
@@ -387,6 +383,10 @@ def _build_apply_ontology_extension_context(
             "operation_count": len(output.applied_operations),
             "improved_document_count": verification_output.summary.get("improved_document_count"),
             "regressed_document_count": verification_output.summary.get("regressed_document_count"),
+            "lifecycle_preview_required": bool(output.lifecycle_preview),
+            "lifecycle_preview_evidence_complete": output.lifecycle_preview.evidence_complete
+            if output.lifecycle_preview is not None
+            else None,
         },
     )
     return task_core.TaskContextEnvelope(

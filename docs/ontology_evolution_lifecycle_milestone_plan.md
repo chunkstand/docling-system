@@ -1,8 +1,8 @@
 # Ontology Evolution Lifecycle Milestone Plan
 
 Date: 2026-05-21 local / 2026-05-21 UTC
-Status: in_progress in the current 2026-05-21 checkout. Milestone 0 and
-Milestone 1 are now resolved locally. The repo no longer treats
+Status: in_progress in the current 2026-05-21 checkout. Milestones 0, 1, and
+2 are now resolved locally. The repo no longer treats
 split/merge/deprecate/replace/migrate as blocked prose-only intent: the
 versioned lifecycle contract now lives in
 `app/services/semantic_registry_operation_contracts.py`, the concrete draft
@@ -10,8 +10,13 @@ mutation owner now lives in
 `app/services/semantic_registry_operation_mutations.py`, and
 `DraftOntologyExtensionTaskInput` in `app/schemas/agent_task_semantics.py`
 now accepts explicit machine-readable lifecycle operations without requiring a
-source task. Milestone 2, which extends verification previews and apply
-adoption around the new lifecycle drafts, remains open.
+source task. Milestone 2 now adds typed lifecycle verification previews in
+`app/services/semantic_ontology_lifecycle_previews.py`, records that preview
+evidence in `VerifyDraftOntologyExtensionTaskOutput` and
+`ApplyOntologyExtensionTaskOutput`, and blocks lifecycle publication when the
+verification output cannot prove document-level preview signals for every
+non-additive operation. Milestone 3, the final docs-and-routing closeout,
+remains open.
 Owner context: standalone follow-on after
 `docs/ontology_contract_refoundation_milestone_plan.md` closes. This packet
 does not reopen the canonical contract scaffold or the runtime-readiness
@@ -54,13 +59,26 @@ can evolve without hidden manual rewrites or silent semantic drift.
   ontology draft action owner now accepts explicit lifecycle operations through
   the same `draft_ontology_extension` task family instead of introducing a
   parallel task or side channel.
+- `app/services/semantic_ontology_lifecycle_previews.py` now owns the
+  lifecycle-specific document preview contract for verification and apply:
+  every split/merge/deprecate/replace/migrate operation now produces a typed
+  per-operation preview over the selected documents, verification fails when
+  any non-additive operation has no document-level signal, and apply refuses
+  lifecycle drafts unless that explicit preview evidence is present and
+  complete.
+- `app/schemas/agent_task_semantics.py`,
+  `app/services/agent_actions/semantic_governance_ontology_actions.py`, and
+  `app/services/agent_task_context_semantic_governance_ontology.py` now carry
+  that lifecycle preview evidence through the existing verify/apply task
+  family without breaking task identities or removing prior payload fields.
 - `tests/unit/test_ontology_evolution_lifecycle_baseline.py` now pins the
   lifecycle contract surface, the direct mutation lineage semantics, and the
   current draft/verify/apply ontology payload fields, while
   `tests/unit/test_agent_task_actions_ontology.py`,
   `tests/unit/test_agent_task_context_semantic_governance_ontology.py`, and
   `tests/integration/test_portable_ontology_roundtrip.py` now prove the new
-  manual lifecycle draft path through the real task worker stack.
+  manual lifecycle draft path plus the document-preview verification and apply
+  adoption path through the real task worker stack.
 - `docs/ontology_contract_refoundation_milestone_plan.md` is resolved locally
   in the current checkout after the final readiness and portable-roundtrip
   slice, and `docs/SESSION_HANDOFF.md` routes this packet as the remaining

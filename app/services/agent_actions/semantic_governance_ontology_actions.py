@@ -101,6 +101,7 @@ def verify_draft_ontology_extension_task(
         reasons,
         outcome,
         success_metrics,
+        lifecycle_preview,
     ) = verify_draft_ontology_extension_func(
         session,
         output.draft.model_dump(mode="json"),
@@ -119,6 +120,7 @@ def verify_draft_ontology_extension_task(
         "target_task_id": str(draft_context.task_id),
         "target_task_type": draft_context.task_type,
         "proposed_ontology_version": output.draft.proposed_ontology_version,
+        "lifecycle_preview": lifecycle_preview,
     }
     record = create_agent_task_verification_record_func(
         session,
@@ -134,6 +136,7 @@ def verify_draft_ontology_extension_task(
         "draft": output.draft.model_dump(mode="json"),
         "document_deltas": document_deltas,
         "summary": summary,
+        "lifecycle_preview": lifecycle_preview,
         "success_metrics": success_metrics,
         "verification": record.model_dump(mode="json"),
     }
@@ -213,6 +216,12 @@ def apply_ontology_extension_task(
         source_task_id=task.id,
         source_task_type=task.task_type,
         reason=payload.reason,
+        verification_summary=verification_output.summary,
+        lifecycle_preview=(
+            verification_output.lifecycle_preview.model_dump(mode="json")
+            if verification_output.lifecycle_preview is not None
+            else None
+        ),
     )
     apply_payload.update(
         {

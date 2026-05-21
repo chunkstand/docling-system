@@ -36,19 +36,23 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
   `max_hotspot_risk_score=451.06` with `top_routed_hotspot_paths=[]`.
 - `docs/ontology_evolution_lifecycle_milestone_plan.md`: in progress locally
   on 2026-05-21 as the active ontology follow-on after refoundation closeout.
-  Milestones 0 and 1 are now resolved locally through the versioned lifecycle
+  Milestones 0, 1, and 2 are now resolved locally through the versioned lifecycle
   contract in `app/services/semantic_registry_operation_contracts.py`, the
   focused mutation owner in
   `app/services/semantic_registry_operation_mutations.py`, the expanded
   ontology task schema in `app/schemas/agent_task_semantics.py`, and the
   manual lifecycle draft path in
   `app/services/agent_actions/semantic_governance_ontology_actions.py` plus
-  `app/services/semantic_ontology.py`. The packet now supports structured
+  `app/services/semantic_ontology.py`. Milestone 2 then adds the focused
+  preview owner in `app/services/semantic_ontology_lifecycle_previews.py`,
+  extends the existing verify/apply ontology payloads with lifecycle preview
+  evidence, records that preview in verification details, and blocks lifecycle
+  apply unless every non-additive operation has explicit document-level
+  preview evidence. The packet now supports structured
   split/merge/deprecate/replace/migrate ontology draft operations without a
-  parallel task family, focused Milestone 1 verification is green at
-  `19 passed` plus `5 passed`, and the next honest boundary is Milestone 2:
-  extend verification previews and apply adoption around the new lifecycle
-  draft surface.
+  parallel task family, focused Milestone 2 verification is green at
+  `21 passed` plus `6 passed`, and the next honest boundary is Milestone 3:
+  final docs-and-routing closeout.
 - `docs/production_trap_set_centrality_reduction_milestone_plan.md`:
   resolved locally in the current checkout on 2026-05-20. The packet adds
   `config/production_trap_set_centrality_budget.yaml` plus

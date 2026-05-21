@@ -210,7 +210,10 @@ def test_build_agent_task_context_for_apply_ontology_extension_includes_dependen
         source_task_id=uuid4(),
         source_task_type="discover_semantic_bootstrap_candidates",
     )
-    verification_output = verify_draft_ontology_output_payload(draft_task_id=draft_task_id)
+    verification_output = verify_draft_ontology_output_payload(
+        draft_task_id=draft_task_id,
+        include_lifecycle_preview=True,
+    )
     draft_context_artifact = build_context_artifact(
         task_id=draft_task_id,
         payload=build_task_context_payload(
@@ -247,6 +250,7 @@ def test_build_agent_task_context_for_apply_ontology_extension_includes_dependen
         draft_task_id=draft_task_id,
         verification_task_id=verification_task_id,
         artifact_id=artifact_id,
+        include_lifecycle_preview=True,
     )
     artifact = AgentTaskArtifact(
         id=artifact_id,
@@ -294,6 +298,9 @@ def test_build_agent_task_context_for_apply_ontology_extension_includes_dependen
 
     assert context.summary.approval_state == "approved"
     assert context.summary.metrics["operation_count"] == 1
+    assert context.summary.metrics["lifecycle_preview_required"] is True
+    assert context.summary.metrics["lifecycle_preview_evidence_complete"] is True
     assert [ref.ref_kind for ref in context.refs[:2]] == ["task_output", "task_output"]
     assert context.output["ontology_slice_count"] == 5
+    assert context.output["lifecycle_preview"]["evidence_complete"] is True
     assert context.output["competency_families"][0]["family_key"] == "claim_support"
