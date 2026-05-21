@@ -45,7 +45,14 @@ reduced `app/api/routers/agent_tasks.py` route root from the active queue. The
 later retrieval-learning residual-smoke closeout now routes that already-split
 family off the active queue as well, so the live `top_routed_hotspot_paths`
 queue was empty at that checkpoint and the next code-owning packet had to be
-reselected from this broader brief rather than from a stale residual root. The later
+reselected from this broader brief rather than from a stale residual root.
+Current live routing state in the current checkout:
+`top_routed_hotspot_paths=[]`,
+`broader_rebaseline_candidate_count=1`,
+`top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`,
+`status_counts={"deployed":66}`, and
+`architecture_probe.py --fail-on-cycles` reports `0` Python cycle components.
+The later
 2026-05-19 registry-alignment sweep also deploys the stale reduced-root
 agent-task, claim-support, action-test, and UI bootstrap cases left behind by
 earlier packets, bringing the live case summary to `open=12`, `verified=8`,
@@ -128,7 +135,7 @@ remains honestly empty again. Future code-owning work from this broader brief
 therefore requires another fresh broader rebaseline rather than a queued child
 packet. The later 2026-05-20 hygiene-gate registry alignment sweep then
 deploys `IC-20260424-hygiene-gate`, advances the live summary to
-`status_counts={"deployed":65}`, keeps
+`status_counts={"deployed":66}`, keeps
 `max_hotspot_risk_score=466.06`, and leaves
 `top_routed_hotspot_paths=[]` so this coordination brief still points to a
 fresh broader rebaseline rather than a hidden queued packet. The later
@@ -153,7 +160,8 @@ the search-harness and CLI/test residual owners unchanged at `627`, `604`,
 The later 2026-05-20 search-harness facade follow-on then reduces
 `app/services/search_harnesses.py` to `82` lines, moves harness contracts,
 registry, and reranking ownership into
-`app/services/search_harness_contracts.py` at `105`,
+`app/services/search_harness_contracts.py` at `79`,
+`app/services/search_harness_reranker_config.py` at `29`,
 `app/services/search_harness_registry.py` at `291`, and
 `app/services/search_harness_reranking.py` at `203`, keeps the remaining
 search CLI/test residual owners unchanged at `604`, `714`, and `764` lines,

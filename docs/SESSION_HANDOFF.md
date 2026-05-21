@@ -1,6 +1,6 @@
 # Session Handoff
 
-Date: 2026-05-20 local / 2026-05-20 UTC
+Date: 2026-05-20 local / 2026-05-21 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
@@ -69,7 +69,10 @@ and `exceptions=0`;
 `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`;
 the routed queue is empty again, but the fresh broader-rebaseline output now
 points directly at the remaining search API harness test root rather than back
-at the already deployed service or CLI facades. The later
+at the already deployed service or CLI facades. The strict cycle gate is also
+green now, so future sessions should not reopen the resolved search-harness
+facade, CLI facade, or hotspot-prevention policy packets while this broader
+candidate remains unchanged. The later
 `docs/hotspot_prevention_policy_contracts_boundary_milestone_plan.md`
 follow-on now closes the briefly reopened hotspot-prevention policy-contract
 owner surface: `tests/unit/test_hotspot_prevention_policy_contracts.py`
@@ -124,7 +127,7 @@ hotspot prevention now routes both roots as compatibility-facade traps, and
 `IC-0E4F1B9A2D73` plus `IC-5F4E8C2B1A90` are recorded as the current deployed
 owner cases. The later docs-only registry alignment sweep also deploys
 `IC-20260424-hygiene-gate`, so the live improvement-case registry is fully
-closed at `status_counts={"deployed":65}` without reopening the routed queue
+closed at `status_counts={"deployed":66}` without reopening the routed queue
 or introducing a new governed hotspot. A debt-shift
 audit over the adjacent semantic owners and focused semantic test roots stayed
 empty after the split, so no semantic-registry logic was pushed into preview,

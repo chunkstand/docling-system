@@ -3,6 +3,12 @@
 This is the compact map for architecture work. Use it before reading broad
 chat history or scanning the whole repository.
 
+Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
+`broader_rebaseline_candidate_count=1`,
+`top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`,
+`status_counts={"deployed":66}`, and
+`architecture_probe.py --fail-on-cycles` reports `None detected`.
+
 ## Current Milestone Briefs
 
 - `docs/search_harness_cycle_boundary_milestone_plan.md`: resolved locally in
@@ -42,14 +48,18 @@ chat history or scanning the whole repository.
   the current checkout on 2026-05-20. The packet reduces
   `app/services/search_harnesses.py` to `82` lines, moves contracts,
   registry, and reranking ownership into
-  `app/services/search_harness_contracts.py` at `105`,
+  `app/services/search_harness_contracts.py` at `79`,
+  `app/services/search_harness_reranker_config.py` at `29`,
   `app/services/search_harness_registry.py` at `291`, and
   `app/services/search_harness_reranking.py` at `203`, keeps the reduced
   root test at `18` lines with direct owner coverage moved to
-  `tests/unit/test_search_harness_registry.py` at `44` and
+  `tests/unit/test_search_harness_registry.py` at `51` and
   `tests/unit/test_search_harness_reranking.py` at `69`; at that checkpoint,
   it dropped the live broader-rebaseline candidate count to `3` and handed the
-  queue to the CLI/test search-harness family.
+  queue to the CLI/test search-harness family before the later standalone cycle
+  follow-on returned the live routing state to the current empty routed queue
+  plus `tests/unit/test_search_api_harnesses.py` as the next honest broader
+  candidate.
 - `docs/search_span_retrieval_boundary_milestone_plan.md`: resolved locally in
   committed but unpushed state on 2026-05-20 through closeout commit
   `0c007206`. The packet reduces
@@ -124,7 +134,7 @@ chat history or scanning the whole repository.
 - `docs/agent_tasks_api_lifecycle_boundary_milestone_plan.md`: resolved locally through implementation commit `790fa2d` plus durable docs-and-registry closeout commit `8ce05b7` for `IC-D9A84C20546B`. `tests/unit/test_agent_tasks_api.py` remains `92` lines, analytics coverage now lives in `tests/unit/test_agent_tasks_api_analytics.py` at `360`, artifacts and failure-artifact success coverage now live in `tests/unit/test_agent_tasks_api_artifacts.py` at `566`, lifecycle coverage now lives in `tests/unit/test_agent_tasks_api_lifecycle.py` at `360`, claim-support and auth siblings remain at `419` and `93`, `config/hotspot_prevention.yaml` now routes the reduced root as a deferred reduced facade, the focused family slice passed at `49 passed`, and the broader queue now advances to `IC-DCEE88C7CA97` / `app/schemas/search.py`.
 - `docs/documents_api_route_surface_boundary_milestone_plan.md`: resolved through the 2026-05-19 verified-to-deployed registry closeout after the broader-reselect follow-on for `IC-23F2C79C8AA7`. `tests/unit/test_documents_api.py` now closes at `154` lines, access coverage now lives in `tests/unit/test_documents_api_access.py` at `253`, run coverage now lives in `tests/unit/test_documents_api_runs.py` at `137`, latest-evaluation coverage now lives in `tests/unit/test_documents_api_evaluations.py` at `93`, the earlier artifact and semantic siblings remain at `286` and `394`, hotspot prevention now routes the reduced root as a deferred reduced facade, and the full document-route owner family is exact-ratcheted and durably deployed.
 - `docs/remaining_packet_queue_resolution_milestone_plan.md`: resolved through the 2026-05-19 Packet E queue-exhaustion closeout. Packets A through E are now resolved, the later runtime-and-verification broader rebaseline closeout also remains resolved, and the queue plan itself stays historically complete even though the immediate post-Packet-E routed owner surface later became `app/hotspot_prevention_classifier.py` before the later classifier, semantic-registry, retrieval-learning, and hygiene-gate closeouts returned the live queue to `top_routed_hotspot_paths=[]`.
-- `docs/queue_exhaustion_honesty_sweep_milestone_plan.md`: resolved through the 2026-05-19 Packet E closeout. The Packet E checkpoint landed at `status_counts={"measured":1,"deployed":60}`, `top_routed_hotspot_paths=[]`, `blocked=0`, `exceptions=0`, and `violation_count=0`; the later runtime, classifier, semantic, and retrieval-learning artifact broader-reselect follow-ons advanced the then-live summary to `status_counts={"measured":1,"deployed":64}` while keeping `top_routed_hotspot_paths=[]` honest, and the later 2026-05-20 hygiene-gate registry alignment sweep moved the current live summary to `status_counts={"deployed":65}` without reopening the queue.
+- `docs/queue_exhaustion_honesty_sweep_milestone_plan.md`: resolved through the 2026-05-19 Packet E closeout. The Packet E checkpoint landed at `status_counts={"measured":1,"deployed":60}`, `top_routed_hotspot_paths=[]`, `blocked=0`, `exceptions=0`, and `violation_count=0`; the later runtime, classifier, semantic, and retrieval-learning artifact broader-reselect follow-ons advanced the then-live summary to `status_counts={"measured":1,"deployed":64}` while keeping `top_routed_hotspot_paths=[]` honest, and the later 2026-05-20 hygiene-gate, hotspot-prevention policy-contract, and search-harness cycle follow-ons moved the current live summary to `status_counts={"deployed":66}` without reopening the queue.
 - `docs/search_service_residual_ranking_split_milestone_plan.md`: resolved through the 2026-05-19 Packet D closeout. `tests/unit/test_search_service_ranking.py` now closes at `532` lines, `tests/unit/test_search_service_ranking_source_filename.py` now closes at `158`, the residual search-service root remains `117`, hotspot prevention now routes the reduced root as a deferred facade, and the strict hotspot-prevention, hygiene, and architecture gates stayed green through the later Packet E sweep that exhausted the queue.
 - `docs/agent_task_context_residual_successor_split_milestone_plan.md`: resolved through the 2026-05-19 Packet C closeout. `tests/unit/test_agent_task_context_reports_claim_support.py` now closes at `358` lines over a `294`-line family-local support module, `tests/unit/test_agent_task_context_semantic_graph_promotions.py` now closes at `236` lines over a `426`-line family-local support module, the residual compatibility root remains `328`, and the strict hotspot-prevention, hygiene, and architecture gates stayed green while Packet D became the next queued pass before the later Packet D closeout advanced the queue again.
 - `docs/stale_open_registry_closeout_milestone_plan.md`: resolved through the 2026-05-19 docs-only Packet A closeout. The stale `open` cases `IC-65AF4A6D8B1E`, `IC-FD18EE2D3309`, `IC-81C531769EB3`, `IC-9A0332D41F79`, `IC-33B4990DC366`, `IC-649D7B4E3AB5`, `IC-4B6E9F8D2A10`, `IC-81F2C6D4B9A7`, and `IC-2D5A7E9C4B18` are now deployed, the interim Packet A registry counts landed at `open=2`, `verified=9`, and `deployed=49`, the later Packet B closeout is now also complete, and Packet D `IC-25C1F7B9E4DA` was the next queued pass after Packet C closed before the later Packet D closeout completed the queue.
