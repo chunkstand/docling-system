@@ -3,11 +3,11 @@ from __future__ import annotations
 from dataclasses import replace
 
 from app.services.search_harness_contracts import (
-    LinearRerankerConfig,
     SearchHarness,
     SearchRetrievalProfile,
 )
 from app.services.search_harness_overrides import load_applied_search_harness_overrides
+from app.services.search_harness_reranker_config import LinearRerankerConfig
 
 DEFAULT_SEARCH_HARNESS_NAME = "default_v1"
 

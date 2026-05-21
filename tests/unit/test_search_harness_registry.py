@@ -42,3 +42,10 @@ def test_build_search_harness_registry_applies_transient_overrides() -> None:
 def test_get_search_harness_reports_available_names_for_unknown_override() -> None:
     with pytest.raises(ValueError, match="Available: .*default_v1"):
         search_harness_registry.get_search_harness("missing_harness")
+
+
+def test_get_search_harness_builds_reranker_from_registry_owner() -> None:
+    reranker = search_harness_registry.get_search_harness("default_v1").build_reranker()
+
+    assert reranker.name == "linear_feature_reranker"
+    assert reranker.config.harness_name == "default_v1"

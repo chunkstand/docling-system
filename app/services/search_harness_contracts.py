@@ -4,7 +4,9 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Protocol
 
+import app.services.search_harness_reranking as _reranking
 from app.schemas.search import SearchRequest
+from app.services.search_harness_reranker_config import LinearRerankerConfig
 
 if TYPE_CHECKING:
     from app.services.search_query_features import QueryFeatureSet
@@ -35,32 +37,6 @@ class SearchRetrievalProfile:
     late_interaction_enabled: bool = False
     late_interaction_candidate_multiplier: int = 6
     late_interaction_min_candidate_limit: int = 24
-
-    def snapshot(self) -> dict:
-        return asdict(self)
-
-
-@dataclass(frozen=True)
-class LinearRerankerConfig:
-    harness_name: str
-    reranker_name: str
-    reranker_version: str
-    retrieval_profile_name: str
-    tabular_table_bonus: float
-    title_exact_match_bonus: float
-    title_token_coverage_bonus: float
-    source_filename_exact_match_bonus: float
-    source_filename_token_coverage_bonus: float
-    document_title_exact_match_bonus: float
-    document_title_token_coverage_bonus: float
-    prose_document_cluster_bonus: float
-    heading_token_coverage_bonus: float
-    phrase_overlap_bonus: float
-    rare_token_overlap_bonus: float
-    adjacent_chunk_context_bonus: float
-    prose_table_penalty: float
-    exact_filter_bonus: float
-    result_type_priority_bonus: float
 
     def snapshot(self) -> dict:
         return asdict(self)
@@ -100,6 +76,4 @@ class SearchHarness:
         return snapshot
 
     def build_reranker(self) -> SearchReranker:
-        from app.services.search_harness_reranking import LinearFeatureSearchReranker
-
-        return LinearFeatureSearchReranker(self.reranker_config)
+        return _reranking.LinearFeatureSearchReranker(self.reranker_config)

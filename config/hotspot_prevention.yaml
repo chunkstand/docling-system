@@ -623,6 +623,7 @@ known_hotspots:
     target_role: search harness compatibility facade
     preferred_owner_modules:
       - app/services/search_harness_contracts.py
+      - app/services/search_harness_reranker_config.py
       - app/services/search_harness_registry.py
       - app/services/search_harness_reranking.py
     routing:
@@ -632,6 +633,7 @@ known_hotspots:
         - IC-1D03DBFE8492
       route_to_paths:
         - app/services/search_harness_contracts.py
+        - app/services/search_harness_reranker_config.py
         - app/services/search_harness_registry.py
         - app/services/search_harness_reranking.py
       route_to_plan_paths:

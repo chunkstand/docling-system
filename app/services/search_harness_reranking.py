@@ -5,7 +5,7 @@ from collections.abc import Callable
 import app.services.search_query_features as _query_features
 import app.services.search_ranking as _search_ranking
 from app.schemas.search import SearchRequest
-from app.services.search_harness_contracts import LinearRerankerConfig
+from app.services.search_harness_reranker_config import LinearRerankerConfig
 from app.services.search_query_features import QueryFeatureSet
 
 QUERY_INTENT_TABULAR = _query_features.QUERY_INTENT_TABULAR

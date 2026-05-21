@@ -188,6 +188,15 @@ lines, routes the reduced root under `IC-B1FD75CDA84F`, advances the live
 summary to `status_counts={"deployed":66}`, and still leaves
 `top_routed_hotspot_paths=[]` with
 `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`.
+The later standalone search-harness cycle follow-on then moves the shared
+`LinearRerankerConfig` seam into
+`app/services/search_harness_reranker_config.py` at `29` lines, reduces
+`app/services/search_harness_contracts.py` to `79`, keeps
+`app/services/search_harness_reranking.py` at `203`, extends the reduced
+search-harness facade routing and hygiene ratchets to the new shared owner,
+and returns `architecture_probe.py --fail-on-cycles` to zero Python cycles
+without changing the live broader queue beyond
+`top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`.
 
 ## Purpose
 

@@ -13,6 +13,10 @@ SEARCH_CYCLE_PATHS = [
     ROOT / "app/services/search_metadata_supplement.py",
     ROOT / "app/services/search_retrieval_primitives.py",
 ]
+SEARCH_HARNESS_CYCLE_BOUNDARY_PATHS = [
+    ROOT / "app/services/search_harness_contracts.py",
+    ROOT / "app/services/search_harness_reranking.py",
+]
 SERVICE_CYCLE_IMPORT_PATHS = [
     ROOT / "app/services/docling_parser.py",
     ROOT / "app/services/docling_parser_tables.py",
@@ -71,7 +75,11 @@ def test_search_cycle_modules_use_explicit_submodule_imports() -> None:
 
 
 def test_cycle_boundary_modules_keep_imports_at_module_scope() -> None:
-    for path in [*SEARCH_CYCLE_PATHS, *CYCLE_BOUNDARY_PATHS]:
+    for path in [
+        *SEARCH_CYCLE_PATHS,
+        *SEARCH_HARNESS_CYCLE_BOUNDARY_PATHS,
+        *CYCLE_BOUNDARY_PATHS,
+    ]:
         assert _nested_import_lines(_parse(path)) == [], path.name
 
 
@@ -83,6 +91,13 @@ def test_evidence_cycle_modules_do_not_back_import_each_other() -> None:
 
     assert "app.services.evidence_provenance_export_graph_core" not in report_targets
     assert "app.services.evidence_search_packages" not in trace_store_targets
+
+
+def test_search_harness_cycle_modules_do_not_back_import_contract_owner() -> None:
+    reranking_path = ROOT / "app/services/search_harness_reranking.py"
+    reranking_targets = _import_targets(_parse(reranking_path))
+
+    assert "app.services.search_harness_contracts" not in reranking_targets
 
 
 def test_cycle_import_helpers_reject_controlled_violations() -> None:

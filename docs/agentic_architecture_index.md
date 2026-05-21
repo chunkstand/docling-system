@@ -5,6 +5,17 @@ chat history or scanning the whole repository.
 
 ## Current Milestone Briefs
 
+- `docs/search_harness_cycle_boundary_milestone_plan.md`: resolved locally in
+  the current checkout on 2026-05-20. The packet removes the remaining
+  `app.services.search_harness_contracts` <->
+  `app.services.search_harness_reranking` Python cycle by moving the shared
+  reranker config into `app/services/search_harness_reranker_config.py` at
+  `29` lines, reducing `app/services/search_harness_contracts.py` to `79`,
+  keeping `app/services/search_harness_reranking.py` at `203`, extending the
+  reduced search-harness facade routing to the new shared owner, and returning
+  `architecture_probe.py --fail-on-cycles` to `None detected` while leaving
+  `top_routed_hotspot_paths=[]` and
+  `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`.
 - `docs/hotspot_prevention_policy_contracts_boundary_milestone_plan.md`:
   resolved locally in the current checkout on 2026-05-20. The packet reduces
   `tests/unit/test_hotspot_prevention_policy_contracts.py` to `21` lines,

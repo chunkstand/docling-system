@@ -1200,8 +1200,14 @@ file_budgets:
       ratchet_max_private_helpers: 2
       owner_case_id: IC-1D03DBFE8492
     app/services/search_harness_contracts.py:
-      max_lines: 105
-      ratchet_max_lines: 105
+      max_lines: 79
+      ratchet_max_lines: 79
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-1D03DBFE8492
+    app/services/search_harness_reranker_config.py:
+      max_lines: 29
+      ratchet_max_lines: 29
       max_private_helpers: 0
       ratchet_max_private_helpers: 0
       owner_case_id: IC-1D03DBFE8492

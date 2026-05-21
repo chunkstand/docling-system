@@ -86,7 +86,8 @@ refresh did not shift hygiene debt back into the governance entrypoint. The
 later search-harness facade follow-on now reduces
 `app/services/search_harnesses.py` to `82` lines, moves the contracts,
 registry, and reranking owners into
-`app/services/search_harness_contracts.py` (`105`),
+`app/services/search_harness_contracts.py` (`79`),
+`app/services/search_harness_reranker_config.py` (`29`),
 `app/services/search_harness_registry.py` (`291`), and
 `app/services/search_harness_reranking.py` (`203`) and drops the broader
 rebaseline residual count from `4` to `3`. The later
@@ -155,7 +156,18 @@ Latest hotspot-prevention policy-contract packet verification:
 - `uv run docling-system-improvement-case-validate`: `valid=true`
 - `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
 - `uv run docling-system-architecture-quality-report --summary`: `top_routed_hotspot_paths=[]`, `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`
-- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`: the search-harness cycle still exists separately at `app.services.search_harness_contracts` <-> `app.services.search_harness_reranking`; this packet did not touch that boundary.
+
+Latest search-harness cycle-removal packet verification:
+- `git diff --check`: pass
+- `uv run ruff check app/services/search_harness_contracts.py app/services/search_harness_registry.py app/services/search_harness_reranker_config.py app/services/search_harness_reranking.py app/services/search_harnesses.py tests/unit/test_search_harnesses.py tests/unit/test_search_harness_registry.py tests/unit/test_search_harness_reranking.py tests/unit/test_search_harness_overrides.py tests/unit/test_search_service_ranking.py tests/unit/test_search_service.py tests/unit/test_search_execution_orchestration.py tests/unit/test_search_api_harnesses.py tests/unit/test_python_cycle_imports.py tests/unit/test_architecture_governance_imports.py`: all checks passed
+- `uv run pytest -q tests/unit/test_search_harnesses.py tests/unit/test_search_harness_registry.py tests/unit/test_search_harness_reranking.py tests/unit/test_search_harness_overrides.py tests/unit/test_search_service_ranking.py tests/unit/test_search_service.py tests/unit/test_search_execution_orchestration.py tests/unit/test_search_api_harnesses.py tests/unit/test_python_cycle_imports.py tests/unit/test_architecture_governance_imports.py`: `41 passed`
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_multivector_retrieval.py tests/integration/test_search_replays_roundtrip.py tests/integration/test_postgres_roundtrip.py`: `6 passed`
+- `uv run docling-system-hotspot-prevention-check --strict`: `blocked=0`, `exceptions=0`
+- `uv run docling-system-hygiene-check`: `inherited budget debt: none`; `new hygiene regressions: none`
+- `uv run docling-system-improvement-case-summary`: `status_counts={"deployed":66}`
+- `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
+- `uv run docling-system-architecture-quality-report --summary`: `top_routed_hotspot_paths=[]`, `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles`: pass, `Python cycles: none detected`
 Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
 Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
 Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`

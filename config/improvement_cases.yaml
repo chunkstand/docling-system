@@ -1142,35 +1142,50 @@ cases:
     commands:
     - git diff --check
     - uv run ruff check app/services/search.py app/services/search_harnesses.py
+      app/services/search_harness_contracts.py
+      app/services/search_harness_reranker_config.py
+      app/services/search_harness_registry.py
+      app/services/search_harness_reranking.py
       app/services/search_retrieval_primitives.py
       app/services/search_metadata_supplement.py
       app/hotspot_prevention_classifier.py tests/unit/test_search_service.py
       tests/unit/test_search_harnesses.py
+      tests/unit/test_search_harness_registry.py
+      tests/unit/test_search_harness_reranking.py
       tests/unit/test_search_retrieval_primitives.py
       tests/unit/test_search_harness_overrides.py
+      tests/unit/test_search_service_ranking.py
       tests/unit/test_search_legibility.py
       tests/unit/test_search_metadata_supplement.py
       tests/unit/test_search_service_orchestration.py
       tests/unit/test_search_service_persistence.py
+      tests/unit/test_search_api_harnesses.py tests/unit/test_python_cycle_imports.py
+      tests/unit/test_architecture_governance_imports.py
       tests/unit/test_hotspot_prevention.py
     - uv run pytest -q tests/unit/test_search_service.py
       tests/unit/test_search_harnesses.py
+      tests/unit/test_search_harness_registry.py
+      tests/unit/test_search_harness_reranking.py
       tests/unit/test_search_retrieval_primitives.py
       tests/unit/test_search_harness_overrides.py
+      tests/unit/test_search_service_ranking.py
       tests/unit/test_search_legibility.py
       tests/unit/test_search_metadata_supplement.py
       tests/unit/test_search_service_orchestration.py
       tests/unit/test_search_service_persistence.py
+      tests/unit/test_search_api_harnesses.py tests/unit/test_python_cycle_imports.py
+      tests/unit/test_architecture_governance_imports.py
       tests/unit/test_hotspot_prevention.py
     - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
       tests/integration/test_multivector_retrieval.py
+      tests/integration/test_search_replays_roundtrip.py
       tests/integration/test_postgres_roundtrip.py
     - uv run docling-system-hotspot-prevention-check --strict
     - uv run docling-system-hygiene-check
     - uv run docling-system-architecture-inspect
     - uv run docling-system-architecture-quality-report --summary
     - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
-      --format markdown --top 20
+      --fail-on-cycles
     acceptance_conditions:
     - app/services/search.py closes as a narrow compatibility facade at or
       below 450 lines with no residual retrieval-family implementation bodies.
@@ -1188,24 +1203,34 @@ cases:
       metadata supplement plus adjacent-context ownership into
       app/services/search_metadata_supplement.py while keeping
       app.services.search import-stable for callers and monkeypatched tests.
-      The architecture probe no longer routes app/services/search.py in the
-      top hotspot queue, so the broader owner case is retired from active
-      search routing.
+      The later search-harness follow-ons reduced
+      app/services/search_harnesses.py to 82 lines, moved the shared
+      reranker-config seam into
+      app/services/search_harness_reranker_config.py at 29 lines, reduced
+      app/services/search_harness_contracts.py to 79 lines, and removed the
+      remaining app.services.search_harness_contracts <->
+      app.services.search_harness_reranking cycle without reopening the routed
+      queue or changing the next broader candidate beyond
+      tests/unit/test_search_api_harnesses.py.
   measurement:
     metric_name: search_hotspot_line_count
     current_value: 231.0
     measurement_window: 2026-05-14 search compatibility-facade closeout
     notes: >-
       app/services/search.py now measures 231 lines / 2 private helpers as a
-      narrow compatibility facade. The extracted owner modules close at
-      627 lines / 0 private helpers for app/services/search_harnesses.py,
-      653 lines / 0 private helpers for
-      app/services/search_retrieval_primitives.py, and 262 lines / 0 private
-      helpers for app/services/search_metadata_supplement.py. The
-      architecture-quality top-five still excludes app/services/search.py, and
-      the live architecture probe now routes app/services/agent_tasks.py as
-      the top hotspot instead of the search facade.
+      narrow compatibility facade. The extracted owner modules now close at
+      82 / 0 for app/services/search_harnesses.py, 79 / 0 for
+      app/services/search_harness_contracts.py, 29 / 0 for
+      app/services/search_harness_reranker_config.py, 291 / 0 for
+      app/services/search_harness_registry.py, 203 / 0 for
+      app/services/search_harness_reranking.py, 312 / 0 for
+      app/services/search_retrieval_primitives.py, and 262 / 0 for
+      app/services/search_metadata_supplement.py. The architecture-quality
+      top-five still excludes app/services/search.py, the live routed queue
+      remains empty at top_routed_hotspot_paths=[], and the architecture probe
+      now reports zero Python cycles.
   created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-21T02:48:28Z'
   updated_at: '2026-05-15T05:18:19Z'
 - case_id: IC-9E6B8F5D62A1
   title: 'Architecture hotspot: app/services/semantics.py'
