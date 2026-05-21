@@ -1,52 +1,23 @@
 from __future__ import annotations
 
-from app.services import search_retrieval_primitives
+from app.services import search_retrieval_primitives, search_span_retrieval
 
 
-def test_keyword_terms_dedupes_short_and_repeated_tokens() -> None:
-    terms = search_retrieval_primitives.keyword_terms("A vent vent stack 701 701")
-
-    assert terms == ["vent", "stack", "701"]
-
-
-def test_query_multivector_windows_preserves_overlap_and_hash_payload() -> None:
-    windows = search_retrieval_primitives.query_multivector_windows(
-        "one two three four five six seven eight"
+def test_search_retrieval_primitives_reexports_span_retrieval_helpers() -> None:
+    assert search_retrieval_primitives.keyword_terms is search_span_retrieval.keyword_terms
+    assert (
+        search_retrieval_primitives.run_keyword_span_chunk_search
+        is search_span_retrieval.run_keyword_span_chunk_search
     )
-
-    assert len(windows) == 2
-    assert windows[0]["text"] == "one two three four five six"
-    assert windows[1]["text"] == "four five six seven eight"
-    assert windows[0]["token_end"] - windows[0]["token_start"] == 6
-    assert windows[1]["token_start"] == 3
-    assert windows[0]["text_sha256"]
-    assert windows[1]["text_sha256"]
-
-
-def test_late_interaction_match_trace_orders_matches_by_query_vector_index() -> None:
-    trace = search_retrieval_primitives.late_interaction_match_trace(
-        query_windows=[
-            {
-                "query_vector_index": 0,
-                "token_start": 0,
-                "token_end": 2,
-                "text": "one two",
-                "text_sha256": "a",
-            },
-            {
-                "query_vector_index": 1,
-                "token_start": 2,
-                "token_end": 4,
-                "text": "three four",
-                "text_sha256": "b",
-            },
-        ],
-        query_matches={
-            1: {"query_vector_index": 1, "score": 0.8},
-            0: {"query_vector_index": 0, "score": 0.9},
-        },
-        score=0.85,
+    assert (
+        search_retrieval_primitives.run_semantic_span_table_search
+        is search_span_retrieval.run_semantic_span_table_search
     )
-
-    assert trace["score"] == 0.85
-    assert [match["query_vector_index"] for match in trace["maxsim_matches"]] == [0, 1]
+    assert (
+        search_retrieval_primitives.query_multivector_windows
+        is search_span_retrieval.query_multivector_windows
+    )
+    assert (
+        search_retrieval_primitives.run_late_interaction_search
+        is search_span_retrieval.run_late_interaction_search
+    )

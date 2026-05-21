@@ -65,8 +65,8 @@ and `exceptions=0`;
 `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
 `hotspot_count=20`, `stale_facade_hotspot_count=20`,
 `max_hotspot_risk_score=466.06`, `top_routed_hotspot_paths=[]`,
-`broader_rebaseline_candidate_count=5`, and
-`top_broader_rebaseline_paths=[app/services/search_retrieval_primitives.py, app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`;
+`broader_rebaseline_candidate_count=4`, and
+`top_broader_rebaseline_paths=[app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`;
 the routed queue is empty again, but the fresh broader-rebaseline output now
 points first at the search residual family rather than back at the already
 deployed facade traps. The current broader-rebaseline governance refresh is
@@ -74,6 +74,15 @@ committed locally as `8b0ea812`; it keeps `app/architecture_quality.py` at
 `522` lines by moving the shared scoring and broader-rebaseline selection logic
 into `app/architecture_quality_support.py` at `202` lines, so the queue-empty
 refresh did not shift hygiene debt back into the governance entrypoint. The
+later search span retrieval follow-on now reduces
+`app/services/search_retrieval_primitives.py` to `312` lines, moves the span
+keyword/semantic and late-interaction path into
+`app/services/search_span_retrieval.py` at `378` lines, keeps
+`app/services/search_harnesses.py`, `app/cli_commands/search_harness.py`,
+`tests/unit/test_cli_search_harness.py`, and
+`tests/unit/test_search_api_harnesses.py` unchanged, and drops the broader
+rebaseline residual count from `5` to `4` without shifting debt into the
+remaining search owners. The
 latest broader-reselect closeouts are now
 deployed locally through
 `docs/semantic_registry_owner_rebaseline_milestone_plan.md` and
@@ -239,15 +248,14 @@ reports `case_count=55`, `status_counts.open=39`,
 `status_counts.deployed=15`, and `measured_case_count=51`, and the latest full
 DB-backed suite passed at `2078 passed`.
 Latest verified bounded implementation brief:
-`docs/retrieval_learning_artifacts_owner_rebaseline_milestone_plan.md`
+`docs/search_span_retrieval_boundary_milestone_plan.md`
 Latest resolved bounded implementation brief:
-`docs/retrieval_learning_artifacts_owner_rebaseline_milestone_plan.md`
+`docs/search_span_retrieval_boundary_milestone_plan.md`
 Next routed bounded implementation brief:
 none active; the live `top_routed_hotspot_paths` queue is empty again, but the
 fresh broader rebaseline now points first at the search residual family
-through `app/services/search_retrieval_primitives.py`,
-`app/services/search_harnesses.py`, `app/cli_commands/search_harness.py`,
-`tests/unit/test_cli_search_harness.py`, and
+through `app/services/search_harnesses.py`,
+`app/cli_commands/search_harness.py`, `tests/unit/test_cli_search_harness.py`, and
 `tests/unit/test_search_api_harnesses.py`
 Queued standalone follow-on:
 none. `docs/court_grade_readiness_db_blockers_resolution_milestone_plan.md`

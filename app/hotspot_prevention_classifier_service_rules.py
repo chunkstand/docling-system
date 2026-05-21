@@ -155,7 +155,7 @@ def classify_search_addition(*, stripped: str, line: ChangedLine) -> ClassifiedL
         return blocked(
             line,
             "retrieval_primitive_logic",
-            "search retrieval primitives belong in search_retrieval_primitives.py",
+            "search primitives live in search_retrieval_primitives.py or search_span_retrieval.py",
         )
     if re.match(
         r"(async def |def )(_?)(ranked_metadata_overlap_score|metadata_tsquery|"

@@ -561,10 +561,12 @@ known_hotspots:
       route_to_paths:
         - app/services/search_harnesses.py
         - app/services/search_retrieval_primitives.py
+        - app/services/search_span_retrieval.py
         - app/services/search_metadata_supplement.py
       route_to_plan_paths:
         - docs/search_execution_persistence_boundary_milestone_plan.md
         - docs/search_execution_orchestration_boundary_milestone_plan.md
+        - docs/search_span_retrieval_boundary_milestone_plan.md
         - docs/search_compatibility_facade_boundary_milestone_plan.md
     block_new:
       - harness_registry_logic

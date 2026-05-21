@@ -30,8 +30,8 @@ Current repo-level signals:
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
   `hotspot_count=20`, `stale_facade_hotspot_count=20`,
   `max_hotspot_risk_score=466.06`, `top_routed_hotspot_paths=[]`,
-  `broader_rebaseline_candidate_count=5`, and
-  `top_broader_rebaseline_paths=[app/services/search_retrieval_primitives.py, app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`.
+  `broader_rebaseline_candidate_count=4`, and
+  `top_broader_rebaseline_paths=[app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`.
 - `uv run docling-system-hygiene-check` is green when there are no new
   regressions and now reports `inherited budget debt: none`.
 - `uv run docling-system-hotspot-prevention-check --strict` passes on the
@@ -41,7 +41,6 @@ Current repo-level signals:
   `status_counts={"deployed":65}` with no actionable routed backlog.
 - The routed queue is still intentionally empty, but the new broader-rebaseline
   output now points first at the search residual family, led by
-  `app/services/search_retrieval_primitives.py` and
   `app/services/search_harnesses.py`, before the inherited CLI/test harness
   siblings.
 - The 2026-05-20 broader-rebaseline refresh is committed locally as
@@ -49,6 +48,12 @@ Current repo-level signals:
   the shared broader-rebaseline ranking logic into
   `app/architecture_quality_support.py` at `202` lines, so the refresh did not
   shift hygiene debt back into the architecture-governance entrypoint.
+- The later 2026-05-20 search span retrieval follow-on now keeps
+  `app/services/search_retrieval_primitives.py` at `312` lines by moving the
+  span keyword/semantic and late-interaction retrieval logic into
+  `app/services/search_span_retrieval.py` at `378` lines; the broader
+  rebaseline count dropped from `5` to `4`, and the next real owner is now
+  `app/services/search_harnesses.py`.
 - The canonical local release gate is `uv run docling-system-release-gate-parity`;
   the checked-in `Release Gate Parity` workflow runs that same command on pull
   requests and pushes to `main`, uploads

@@ -5,11 +5,20 @@ chat history or scanning the whole repository.
 
 ## Current Milestone Briefs
 
+- `docs/search_span_retrieval_boundary_milestone_plan.md`: resolved locally in
+  the current checkout on 2026-05-20. The packet reduces
+  `app/services/search_retrieval_primitives.py` to `312` lines, moves span
+  keyword/semantic plus late-interaction retrieval ownership into
+  `app/services/search_span_retrieval.py` at `378` lines, keeps the reduced
+  root test at `23` lines with direct owner coverage moved to
+  `tests/unit/test_search_span_retrieval.py` at `52`, and drops the live
+  broader-rebaseline candidate count to `4` with
+  `app/services/search_harnesses.py` as the next honest search-family owner.
 - `docs/boring_change_architecture_milestone_plan.md`: refreshed locally in
   committed but unpushed state on 2026-05-20 through closeout commit
   `8b0ea812`. The architecture-quality report now surfaces
-  `broader_rebaseline_candidate_count=5` and
-  `top_broader_rebaseline_paths=[app/services/search_retrieval_primitives.py, app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`,
+  `broader_rebaseline_candidate_count=4` and
+  `top_broader_rebaseline_paths=[app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`,
   the routed queue remains at `top_routed_hotspot_paths=[]`, and the support
   split keeps `app/architecture_quality.py=522` plus
   `app/architecture_quality_support.py=202` so the broader-rebaseline refresh
@@ -80,7 +89,7 @@ chat history or scanning the whole repository.
 - `docs/agent_task_orchestration_boundary_milestone_plan.md`: resolved locally through Milestone 5 closeout commit `7cf7465` for `IC-A1E186A34097` / `app/services/agent_task_actions.py` and `IC-E52B6C7B22FD` / `app/services/agent_task_context.py`; the next routed hotspot is `IC-1D03DBFE8492` / `app/services/search.py`.
 - `docs/search_execution_persistence_boundary_milestone_plan.md`: resolved locally through Milestone 1 closeout commit `f55b474` for `IC-1D03DBFE8492`; search execution persistence and operator-trace payload assembly now live in `app/services/search_execution_persistence.py`, `app/services/search.py` is reduced to 2089 lines / 37 private helpers, and the next routed follow-on is the remaining execution-orchestration cluster in `execute_search(...)` and adjacent candidate-loading/detail assembly paths.
 - `docs/search_execution_orchestration_boundary_milestone_plan.md`: resolved locally through Milestone 1 closeout commit `dae5e4f` for `IC-1D03DBFE8492`; search execution orchestration now lives in `app/services/search_execution_orchestration.py`, `app/services/search.py` is reduced to 1592 lines / 32 private helpers, and the broader owner case remains reduced because the architecture probe still routes the facade.
-- `docs/search_compatibility_facade_boundary_milestone_plan.md`: resolved locally through closeout commit `fd9dd2a` for `IC-1D03DBFE8492`; harness/reranker ownership now lives in `app/services/search_harnesses.py` at `627` lines / `0` private helpers, low-level retrieval primitives now live in `app/services/search_retrieval_primitives.py` at `653` lines / `0` private helpers, metadata supplement plus adjacent-context ownership now lives in `app/services/search_metadata_supplement.py` at `262` lines / `0` private helpers, and `app/services/search.py` is reduced to a `231` line / `2` private-helper compatibility facade that no longer appears in the top architecture-probe hotspot queue.
+- `docs/search_compatibility_facade_boundary_milestone_plan.md`: resolved locally through closeout commit `fd9dd2a` for `IC-1D03DBFE8492`; harness/reranker ownership now lives in `app/services/search_harnesses.py` at `627` lines / `0` private helpers, low-level retrieval primitives now live in `app/services/search_retrieval_primitives.py` at `312` lines / `0` private helpers plus the later `app/services/search_span_retrieval.py` owner at `378` lines / `0` private helpers, metadata supplement plus adjacent-context ownership now lives in `app/services/search_metadata_supplement.py` at `262` lines / `0` private helpers, and `app/services/search.py` is reduced to a `231` line / `2` private-helper compatibility facade that no longer appears in the top architecture-probe hotspot queue.
 - `docs/claim_support_policy_impacts_boundary_milestone_plan.md`: resolved locally through Milestone 4 closeout commit `3d7d090` for `IC-E2270F89B397`; `app/services/claim_support_policy_impacts.py` is now a 184-line compatibility facade, the read-model and alert owner now lives in `app/services/claim_support_policy_impact_views.py` at 899 lines / 16 private helpers, the replay-lifecycle owner now lives in `app/services/claim_support_policy_impact_replay.py` at 898 lines / 11 private helpers, and the broader owner case remains reduced because the extracted owners still exceed the default 600-line budget.
 - `docs/claim_support_residual_owner_family_milestone_plan.md`: resolved locally through closeout commit `40024a3` across `IC-E2270F89B397` and `IC-7C73737C689F`; the packet retires the residual policy-impact, evaluation, governance, and replay-alert fixture-corpus owner families at or below the default 600-line budget, removes the live `claim_support_policy_impacts` / `claim_support_replay_alert_promotions` cycle, and updates hygiene plus improvement-case routing so both claim-support owner cases are now deployed locally.
 - `docs/evaluations_service_boundary_milestone_plan.md`: resolved locally through Milestone 4 closeout commit `1159297` for `IC-BF180637814C`; `app/services/evaluations.py` remains the `283` line / `1` private-helper orchestration and compatibility facade, latest-evaluation summary/detail reads remain in `app/services/evaluation_reads.py` at `154` lines / `1` private helper, and the later evaluation residual owner-family packet now leaves the extracted fixture, scoring, workbench, and family-local test roots at `376`, `570`, `67`, `530`, `175`, `218`, `322`, `431`, `252`, `445`, `310`, `390`, and `378` lines respectively.
@@ -126,8 +135,8 @@ chat history or scanning the whole repository.
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
   `legibility_gap_count=0`, `hotspot_count=20`,
   `max_hotspot_risk_score=466.06`,
-  `broader_rebaseline_candidate_count=5`, and
-  `top_broader_rebaseline_paths=[app/services/search_retrieval_primitives.py, app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`.
+  `broader_rebaseline_candidate_count=4`, and
+  `top_broader_rebaseline_paths=[app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`.
 - The later 2026-05-19 retrieval-learning artifact owner closeout, plus the
   2026-05-20 hygiene-gate registry alignment sweep, leave the live
   improvement-case summary at `status_counts={"deployed":65}`, keep hotspot
@@ -138,7 +147,6 @@ chat history or scanning the whole repository.
   the full `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` gate at
   `2159 passed`, and now surface the next honest broader-reselect family
   through the search residual owner paths led by
-  `app/services/search_retrieval_primitives.py` and
   `app/services/search_harnesses.py` rather than reopening a reduced facade,
   while keeping
   `app/services/retrieval_learning_artifacts.py` recorded as a
