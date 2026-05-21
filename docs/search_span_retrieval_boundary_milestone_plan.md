@@ -1,7 +1,8 @@
 # Search Span Retrieval Boundary Milestone Plan
 
 Date: 2026-05-20 local / 2026-05-20 UTC
-Status: resolved locally in the current checkout. The packet reduces
+Status: resolved locally in committed but unpushed state through closeout
+commit `0c007206`. The packet reduces
 `app/services/search_retrieval_primitives.py` to `312` lines by moving the
 span-search and late-interaction retrieval path into
 `app/services/search_span_retrieval.py` at `378` lines, preserves the
@@ -50,17 +51,20 @@ This packet closes the narrowest honest slice by:
 - `config/hotspot_prevention.yaml` now records
   `app/services/search_span_retrieval.py` as an explicit search-family owner
   path under the reduced `app/services/search.py` compatibility facade.
+- The bounded search-span split is committed locally as `0c007206`
+  (`Split search span retrieval owner`).
 - The live architecture-quality summary now reports
   `broader_rebaseline_candidate_count=4` with
   `top_broader_rebaseline_paths=[app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`.
 
 Debt-shift audit:
 
-- `app/services/search_harnesses.py`, `app/cli_commands/search_harness.py`,
-  `tests/unit/test_cli_search_harness.py`, and
-  `tests/unit/test_search_api_harnesses.py` stayed unchanged in this packet, so
-  the reduction did not simply push retrieval debt into the next queued search
-  owners.
+- `app/services/search_harnesses.py` (`627` lines),
+  `app/cli_commands/search_harness.py` (`604`),
+  `tests/unit/test_cli_search_harness.py` (`714`), and
+  `tests/unit/test_search_api_harnesses.py` (`764`) stayed unchanged in this
+  packet, so the reduction did not simply push retrieval debt into the next
+  queued search owners.
 
 ## Verification
 

@@ -142,12 +142,13 @@ broader-rebaseline ranking logic into
 honest packet on the search residual family instead of falling back to the
 already-deployed facade traps. That broader-rebaseline refresh therefore
 closes as part of the shared committed closeout state of the live checkout.
-The later 2026-05-20 search span retrieval follow-on then reduces
-`app/services/search_retrieval_primitives.py` to `312` lines, moves span
-keyword/semantic plus late-interaction retrieval ownership into
-`app/services/search_span_retrieval.py` at `378` lines, keeps the search
-harness and CLI/test residual owners unchanged, and advances the live broader
-rebaseline summary to `broader_rebaseline_candidate_count=4` with
+The later 2026-05-20 search span retrieval follow-on is now committed locally
+as `0c007206`; it reduces `app/services/search_retrieval_primitives.py` to
+`312` lines, moves span keyword/semantic plus late-interaction retrieval
+ownership into `app/services/search_span_retrieval.py` at `378` lines, keeps
+the search-harness and CLI/test residual owners unchanged at `627`, `604`,
+`714`, and `764` lines, and advances the live broader rebaseline summary to
+`broader_rebaseline_candidate_count=4` with
 `top_broader_rebaseline_paths=[app/services/search_harnesses.py, app/cli_commands/search_harness.py, tests/unit/test_cli_search_harness.py, tests/unit/test_search_api_harnesses.py]`.
 
 ## Purpose

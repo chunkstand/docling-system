@@ -74,15 +74,16 @@ committed locally as `8b0ea812`; it keeps `app/architecture_quality.py` at
 `522` lines by moving the shared scoring and broader-rebaseline selection logic
 into `app/architecture_quality_support.py` at `202` lines, so the queue-empty
 refresh did not shift hygiene debt back into the governance entrypoint. The
-later search span retrieval follow-on now reduces
+later search span retrieval follow-on is now committed locally as `0c007206`
+(`Split search span retrieval owner`); it reduces
 `app/services/search_retrieval_primitives.py` to `312` lines, moves the span
 keyword/semantic and late-interaction path into
 `app/services/search_span_retrieval.py` at `378` lines, keeps
-`app/services/search_harnesses.py`, `app/cli_commands/search_harness.py`,
-`tests/unit/test_cli_search_harness.py`, and
-`tests/unit/test_search_api_harnesses.py` unchanged, and drops the broader
-rebaseline residual count from `5` to `4` without shifting debt into the
-remaining search owners. The
+`app/services/search_harnesses.py` (`627`), `app/cli_commands/search_harness.py`
+(`604`), `tests/unit/test_cli_search_harness.py` (`714`), and
+`tests/unit/test_search_api_harnesses.py` (`764`) unchanged, and drops the
+broader rebaseline residual count from `5` to `4` without shifting debt into
+the remaining search owners. The
 latest broader-reselect closeouts are now
 deployed locally through
 `docs/semantic_registry_owner_rebaseline_milestone_plan.md` and

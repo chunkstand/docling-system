@@ -48,12 +48,13 @@ Current repo-level signals:
   the shared broader-rebaseline ranking logic into
   `app/architecture_quality_support.py` at `202` lines, so the refresh did not
   shift hygiene debt back into the architecture-governance entrypoint.
-- The later 2026-05-20 search span retrieval follow-on now keeps
-  `app/services/search_retrieval_primitives.py` at `312` lines by moving the
-  span keyword/semantic and late-interaction retrieval logic into
-  `app/services/search_span_retrieval.py` at `378` lines; the broader
-  rebaseline count dropped from `5` to `4`, and the next real owner is now
-  `app/services/search_harnesses.py`.
+- The later 2026-05-20 search span retrieval follow-on is committed locally as
+  `0c007206`; it keeps `app/services/search_retrieval_primitives.py` at `312`
+  lines by moving the span keyword/semantic and late-interaction retrieval
+  logic into `app/services/search_span_retrieval.py` at `378` lines, leaves
+  the adjacent search residual owners unchanged at `627`, `604`, `714`, and
+  `764` lines, drops the broader rebaseline count from `5` to `4`, and makes
+  `app/services/search_harnesses.py` the next real owner.
 - The canonical local release gate is `uv run docling-system-release-gate-parity`;
   the checked-in `Release Gate Parity` workflow runs that same command on pull
   requests and pushes to `main`, uploads

@@ -6,13 +6,15 @@ chat history or scanning the whole repository.
 ## Current Milestone Briefs
 
 - `docs/search_span_retrieval_boundary_milestone_plan.md`: resolved locally in
-  the current checkout on 2026-05-20. The packet reduces
+  committed but unpushed state on 2026-05-20 through closeout commit
+  `0c007206`. The packet reduces
   `app/services/search_retrieval_primitives.py` to `312` lines, moves span
   keyword/semantic plus late-interaction retrieval ownership into
   `app/services/search_span_retrieval.py` at `378` lines, keeps the reduced
   root test at `23` lines with direct owner coverage moved to
   `tests/unit/test_search_span_retrieval.py` at `52`, and drops the live
-  broader-rebaseline candidate count to `4` with
+  broader-rebaseline candidate count to `4` with unchanged adjacent residual
+  owners at `627`, `604`, `714`, and `764` lines, leaving
   `app/services/search_harnesses.py` as the next honest search-family owner.
 - `docs/boring_change_architecture_milestone_plan.md`: refreshed locally in
   committed but unpushed state on 2026-05-20 through closeout commit
