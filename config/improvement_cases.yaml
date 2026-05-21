@@ -378,9 +378,10 @@ cases:
     lines and became the analyzer-behavior residual surface over focused
     policy-contract, blocked-family, wrapper-allowance, and shared-support
     hotspot-prevention siblings. The latest classifier-owner rebaseline keeps
-    the smoke root narrow at 341 lines while adding the dispatcher and support
-    self-hosting guard coverage in the focused siblings at 376, 356, 296, and
-    50 lines.
+    the smoke root narrow at 341 lines while the later policy-contract
+    follow-on reduces the separate policy smoke surface to 21 lines over
+    focused 164, 123, 40, and 10 line validation, report and CLI, diff
+    collector, and packaging siblings.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:tests/unit/test_hotspot_prevention.py
@@ -413,11 +414,19 @@ cases:
       app/hotspot_prevention_classifier_support.py
       tests/unit/test_hotspot_prevention.py
       tests/unit/test_hotspot_prevention_policy_contracts.py
+      tests/unit/test_hotspot_prevention_policy_validation.py
+      tests/unit/test_hotspot_prevention_report_cli.py
+      tests/unit/test_hotspot_prevention_diff_collectors.py
+      tests/unit/test_hotspot_prevention_packaging.py
       tests/unit/test_hotspot_prevention_family_rules.py
       tests/unit/test_hotspot_prevention_wrapper_rules.py
       tests/unit/hotspot_prevention_test_support.py
     - uv run pytest -q tests/unit/test_hotspot_prevention.py
       tests/unit/test_hotspot_prevention_policy_contracts.py
+      tests/unit/test_hotspot_prevention_policy_validation.py
+      tests/unit/test_hotspot_prevention_report_cli.py
+      tests/unit/test_hotspot_prevention_diff_collectors.py
+      tests/unit/test_hotspot_prevention_packaging.py
       tests/unit/test_hotspot_prevention_family_rules.py
       tests/unit/test_hotspot_prevention_wrapper_rules.py
     - uv run docling-system-hotspot-prevention-check --strict
@@ -431,6 +440,10 @@ cases:
       root at or below the default 600-line hygiene budget without weakening
       negative-path or controlled-violation coverage.
     - tests/unit/test_hotspot_prevention_policy_contracts.py,
+      tests/unit/test_hotspot_prevention_policy_validation.py,
+      tests/unit/test_hotspot_prevention_report_cli.py,
+      tests/unit/test_hotspot_prevention_diff_collectors.py,
+      tests/unit/test_hotspot_prevention_packaging.py,
       tests/unit/test_hotspot_prevention_family_rules.py,
       tests/unit/test_hotspot_prevention_wrapper_rules.py, and
       tests/unit/hotspot_prevention_test_support.py remain governed at or
@@ -450,14 +463,16 @@ cases:
       records the 2026-05-18 companion-test packet as deployed locally
       instead of leaving the re-growth state open. The root analyzer file is
       now 341 / 0, the policy
-      and report contract coverage now lives in
-      tests/unit/test_hotspot_prevention_policy_contracts.py at 376 / 0, the
+      smoke surface now lives in
+      tests/unit/test_hotspot_prevention_policy_contracts.py at 21 / 0 over
+      focused validation, report and CLI, diff collector, and packaging
+      siblings at 164 / 0, 123 / 0, 40 / 0, and 10 / 0, the
       blocked-family coverage remains in
       tests/unit/test_hotspot_prevention_family_rules.py at 356 / 0, the
       wrapper-allowance coverage remains in
       tests/unit/test_hotspot_prevention_wrapper_rules.py at 296 / 0, and the
       shared test support remains in
-      tests/unit/hotspot_prevention_test_support.py at 50 / 2. The later
+      tests/unit/hotspot_prevention_test_support.py at 133 / 2. The later
       classifier-owner rebaseline keeps the smoke root routed as a deferred
       reduced facade while the new self-hosting guard coverage stays in the
       focused policy-contract and family-rules siblings instead of regrowing
@@ -465,22 +480,116 @@ cases:
   measurement:
     metric_name: test_hotspot_prevention_line_count
     current_value: 341.0
-    measurement_window: 2026-05-19 classifier-owner rebaseline closeout
+    measurement_window: 2026-05-20 hotspot-prevention policy-contract closeout
     notes: The current local state keeps tests/unit/test_hotspot_prevention.py
-      at 341 lines / 0 private helpers, moves policy, report, CLI wiring, and
-      self-hosting guard coverage
-      coverage into tests/unit/test_hotspot_prevention_policy_contracts.py at
-      376 / 0, preserves blocked-family coverage in
+      at 341 lines / 0 private helpers, keeps the reduced policy smoke root in
+      tests/unit/test_hotspot_prevention_policy_contracts.py at 21 / 0,
+      moves focused validation, report and CLI, diff collector, and packaging
+      coverage into 164 / 0, 123 / 0, 40 / 0, and 10 / 0 siblings, preserves
+      blocked-family coverage in
       tests/unit/test_hotspot_prevention_family_rules.py at 356 / 0, keeps
       wrapper and allowance coverage in
       tests/unit/test_hotspot_prevention_wrapper_rules.py at 296 / 0, and
       keeps shared test support in
-      tests/unit/hotspot_prevention_test_support.py at 50 / 2. The companion
+      tests/unit/hotspot_prevention_test_support.py at 133 / 2. The companion
       classifier remains at 360 lines / 1 private helper under
       IC-6C1B516A3F92, and the family is now fully under the default 600-line
       budget without moving the debt into a new oversized sibling.
   created_at: '2026-05-16T08:10:00Z'
-  updated_at: '2026-05-19T04:02:22Z'
+  updated_at: '2026-05-20T00:00:00Z'
+- case_id: IC-B1FD75CDA84F
+  title: 'Architecture hotspot: tests/unit/test_hotspot_prevention_policy_contracts.py'
+  status: deployed
+  cause_class: unclear_ownership
+  observed_failure: tests/unit/test_hotspot_prevention_policy_contracts.py had
+    regrown to 405 lines and mixed live policy loading, policy payload
+    validation, report and CLI assertions, git diff collector wiring, and
+    packaging checks in one root test surface even though the broader
+    hotspot-prevention family was already under governance.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:tests/unit/test_hotspot_prevention_policy_contracts.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=tests/unit/test_hotspot_prevention_policy_contracts.py;
+      verification_command=uv run docling-system-architecture-quality-report;
+      stop_condition=Hotspot risk decreases or the surface has a narrower
+      owner contract. Introduced during the 2026-05-20 follow-on after the
+      live quality report selected this root as the next active owner because
+      config/hotspot_prevention.yaml never routed the reduced surface.
+  artifact:
+    artifact_type: test
+    target_path: tests/unit/test_hotspot_prevention_policy_contracts.py
+    description: Hotspot-prevention policy smoke and compatibility owner surface.
+  verification:
+    commands:
+    - git diff --check
+    - uv run ruff check tests/unit/test_hotspot_prevention.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
+      tests/unit/test_hotspot_prevention_policy_validation.py
+      tests/unit/test_hotspot_prevention_report_cli.py
+      tests/unit/test_hotspot_prevention_diff_collectors.py
+      tests/unit/test_hotspot_prevention_packaging.py
+      tests/unit/test_hotspot_prevention_family_rules.py
+      tests/unit/test_hotspot_prevention_wrapper_rules.py
+      tests/unit/hotspot_prevention_test_support.py
+    - uv run pytest -q tests/unit/test_hotspot_prevention.py
+      tests/unit/test_hotspot_prevention_policy_contracts.py
+      tests/unit/test_hotspot_prevention_policy_validation.py
+      tests/unit/test_hotspot_prevention_report_cli.py
+      tests/unit/test_hotspot_prevention_diff_collectors.py
+      tests/unit/test_hotspot_prevention_packaging.py
+      tests/unit/test_hotspot_prevention_family_rules.py
+      tests/unit/test_hotspot_prevention_wrapper_rules.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-architecture-inspect
+    - uv run docling-system-architecture-quality-report --summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - tests/unit/test_hotspot_prevention_policy_contracts.py remains a narrow
+      live-policy and routing smoke surface at or below 100 lines.
+    - Policy payload validation remains in
+      tests/unit/test_hotspot_prevention_policy_validation.py instead of
+      regrowing the root.
+    - Report payload, exception-allowance, and CLI exit behavior remain in
+      tests/unit/test_hotspot_prevention_report_cli.py instead of regrowing
+      the root.
+    - Git diff collector wiring remains in
+      tests/unit/test_hotspot_prevention_diff_collectors.py and packaging
+      checks remain in tests/unit/test_hotspot_prevention_packaging.py.
+    - Hotspot prevention routes future work away from the reduced root toward
+      the focused sibling tests.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: local
+    notes: The 2026-05-20 hotspot-prevention policy-contract closeout reduces
+      tests/unit/test_hotspot_prevention_policy_contracts.py to 21 / 0,
+      moves focused policy validation into
+      tests/unit/test_hotspot_prevention_policy_validation.py at 164 / 0,
+      moves report and CLI behavior into
+      tests/unit/test_hotspot_prevention_report_cli.py at 123 / 0, moves git
+      diff collector wiring into
+      tests/unit/test_hotspot_prevention_diff_collectors.py at 40 / 0, moves
+      packaging checks into
+      tests/unit/test_hotspot_prevention_packaging.py at 10 / 0, routes the
+      reduced root as a deferred reduced facade in
+      config/hotspot_prevention.yaml, and exact-ratchets the new sibling
+      tests in config/hygiene_policy.yaml so the active queue no longer
+      reopens the already-split root.
+  measurement:
+    metric_name: test_hotspot_prevention_policy_contracts_line_count
+    current_value: 21.0
+    measurement_window: 2026-05-20 hotspot-prevention policy-contract closeout
+    notes: The reduced root now measures 21 lines / 0 private helpers, while
+      focused validation, report and CLI, diff collector, and packaging
+      siblings measure 164 / 0, 123 / 0, 40 / 0, and 10 / 0 respectively.
+  created_at: '2026-05-20T00:00:00Z'
+  updated_at: '2026-05-20T00:00:00Z'
 - case_id: IC-9812A0B138D9
   title: 'Architecture hotspot: app/cli.py'
   status: deployed

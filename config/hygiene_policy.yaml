@@ -1657,8 +1657,8 @@ file_budgets:
       ratchet_max_private_helpers: 0
       owner_case_id: IC-23F2C79C8AA7
     tests/unit/hotspot_prevention_test_support.py:
-      max_lines: 50
-      ratchet_max_lines: 50
+      max_lines: 133
+      ratchet_max_lines: 133
       max_private_helpers: 2
       ratchet_max_private_helpers: 2
       owner_case_id: IC-15F6E41A9C77
@@ -1669,11 +1669,35 @@ file_budgets:
       ratchet_max_private_helpers: 0
       owner_case_id: IC-15F6E41A9C77
     tests/unit/test_hotspot_prevention_policy_contracts.py:
-      max_lines: 376
-      ratchet_max_lines: 376
+      max_lines: 21
+      ratchet_max_lines: 21
       max_private_helpers: 0
       ratchet_max_private_helpers: 0
-      owner_case_id: IC-15F6E41A9C77
+      owner_case_id: IC-B1FD75CDA84F
+    tests/unit/test_hotspot_prevention_policy_validation.py:
+      max_lines: 164
+      ratchet_max_lines: 164
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-B1FD75CDA84F
+    tests/unit/test_hotspot_prevention_report_cli.py:
+      max_lines: 123
+      ratchet_max_lines: 123
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-B1FD75CDA84F
+    tests/unit/test_hotspot_prevention_diff_collectors.py:
+      max_lines: 40
+      ratchet_max_lines: 40
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-B1FD75CDA84F
+    tests/unit/test_hotspot_prevention_packaging.py:
+      max_lines: 10
+      ratchet_max_lines: 10
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-B1FD75CDA84F
     tests/unit/test_hotspot_prevention_family_rules.py:
       max_lines: 356
       ratchet_max_lines: 356

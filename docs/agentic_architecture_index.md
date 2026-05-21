@@ -5,6 +5,15 @@ chat history or scanning the whole repository.
 
 ## Current Milestone Briefs
 
+- `docs/hotspot_prevention_policy_contracts_boundary_milestone_plan.md`:
+  resolved locally in the current checkout on 2026-05-20. The packet reduces
+  `tests/unit/test_hotspot_prevention_policy_contracts.py` to `21` lines,
+  moves live-policy routing validation, report and CLI behavior, diff
+  collector wiring, and packaging checks into focused `164`, `123`, `40`, and
+  `10` line siblings, grows shared support to `133` lines, routes the reduced
+  root as a deferred reduced facade under `IC-B1FD75CDA84F`, and returns the
+  live architecture-quality queue to `top_routed_hotspot_paths=[]` with
+  `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`.
 - `docs/search_harness_cli_facade_boundary_milestone_plan.md`: resolved
   locally in the current checkout on 2026-05-20. The packet reduces
   `app/cli_commands/search_harness.py` to `23` lines, moves shared parser
@@ -128,7 +137,7 @@ chat history or scanning the whole repository.
 - `docs/evidence_claim_support_replay_alerts_boundary_milestone_plan.md`: resolved through the 2026-05-19 stale-open registry closeout as the latest resolved bounded evidence-owner follow-on for `IC-65AF4A6D8B1E` after the manifest-owner split. Milestones 0 through 2 are now resolved locally: `app/services/evidence_claim_support_replay_alerts.py` is reduced to a `407` line / `4` private-helper replay-alert facade, replay-alert fixture-corpus snapshot lineage now lives in `app/services/evidence_claim_support_replay_alert_corpus.py` at `128` lines / `0` private helpers, `tests/unit/test_evidence_claim_support_replay_alerts.py` adds dedicated owner coverage and the facade-size ratchet, the focused unit gate passed at `24 passed`, the technical-report integration slice passed at `5 passed`, and the broader evidence owner-family case now has no governed file above the default `600`-line budget in the local checkout and is deployed.
 - `docs/semantics_service_boundary_milestone_plan.md`: resolved locally through closeout commit `a2eb27e` on 2026-05-13 local / 2026-05-14 UTC for `IC-9E6B8F5D62A1`; `app/services/semantics.py` is now a 54-line / 0-private-helper compatibility facade, the later lifecycle/read follow-on reduced the extracted semantic-pass owners under budget, and the open-owner closeout now verifies the broader semantics compatibility case as closed locally rather than merely retirement-ready.
 - `docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md`: resolved through the 2026-05-19 verified-to-deployed registry closeout. The packet keeps `app/services/semantic_pass_lifecycle.py` at `529` lines / `3` private helpers, `app/services/semantic_pass_reads.py` at `372` lines / `3`, and the supporting artifact/review/source-record siblings at `150`, `369`, and `415`, and the later open-owner closeout plus Packet B now deploy `IC-9E6B8F5D62A1`, `IC-8304248AB64C`, and `IC-ADCFFF108626`.
-- `docs/hotspot_prevention_family_boundary_milestone_plan.md`: resolved locally through closeout commit `463d3fc`, and the later classifier-owner rebaseline keeps the current companion-test family aligned without reopening the packet. `app/hotspot_prevention_classifier.py` remains `360` lines / `1` private helper, the companion analyzer root now closes at `341 / 0`, policy and report contract coverage now lives in `tests/unit/test_hotspot_prevention_policy_contracts.py` at `376 / 0`, blocked-family coverage remains at `356 / 0`, wrapper coverage remains at `296 / 0`, and shared support remains at `50 / 2`. `IC-6C1B516A3F92` and `IC-15F6E41A9C77` are now recorded as deployed locally, `config/hotspot_prevention.yaml` routes the residual root test as a deferred reduced facade, the focused family gate passed at `41 passed`, and the later classifier-owner control-plane refresh returns the routed queue to `top_routed_hotspot_paths=[]`.
+- `docs/hotspot_prevention_family_boundary_milestone_plan.md`: resolved locally through closeout commit `463d3fc`, and the later classifier-owner rebaseline keeps the current companion-test family aligned without reopening the packet. `app/hotspot_prevention_classifier.py` remains `360` lines / `1` private helper, the companion analyzer root now closes at `341 / 0`, the later policy-contract follow-on reduces `tests/unit/test_hotspot_prevention_policy_contracts.py` to `21 / 0` over focused `164 / 0`, `123 / 0`, `40 / 0`, and `10 / 0` siblings, blocked-family coverage remains at `356 / 0`, wrapper coverage remains at `296 / 0`, and shared support now remains at `133 / 2`. `IC-6C1B516A3F92`, `IC-15F6E41A9C77`, and `IC-B1FD75CDA84F` are now recorded as deployed locally, `config/hotspot_prevention.yaml` routes both reduced hotspot-prevention roots as deferred reduced facades, the focused family gate now passes at `44 passed`, and the later policy-contract closeout returns the routed queue to `top_routed_hotspot_paths=[]`.
 - `docs/semantic_residual_owner_family_milestone_plan.md`: superseded historical draft. It predates the app large owner modules closeout that reduced `app/services/semantic_governance.py` to `39` lines, so the active lifecycle/read follow-on now routes through `docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md` instead of reviving the older three-owner draft unchanged.
 - `docs/cli_command_dispatch_boundary_milestone_plan.md`: resolved locally
   through closeout commit `4a79a82` for `IC-9812A0B138D9`; runtime and
@@ -174,8 +183,9 @@ chat history or scanning the whole repository.
   `broader_rebaseline_candidate_count=1`, and
   `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`.
 - The later 2026-05-19 retrieval-learning artifact owner closeout, plus the
-  2026-05-20 hygiene-gate registry alignment sweep, leave the live
-  improvement-case summary at `status_counts={"deployed":65}`, keep hotspot
+  2026-05-20 hygiene-gate registry alignment sweep and the later
+  hotspot-prevention policy-contract closeout, leave the live
+  improvement-case summary at `status_counts={"deployed":66}`, keep hotspot
   prevention at `blocked=0` and `exceptions=0`, keep hygiene at
   `inherited budget debt: none` and `new hygiene regressions: none`, leave
   the current live architecture-quality summary at

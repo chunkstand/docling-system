@@ -980,6 +980,38 @@ known_hotspots:
       - import_forwarder
       - compatibility_assertion
       - deletion
+  tests/unit/test_hotspot_prevention_policy_contracts.py:
+    target_role: hotspot-prevention policy smoke and compatibility tests
+    preferred_owner_modules:
+      - tests/unit/test_hotspot_prevention_policy_validation.py
+      - tests/unit/test_hotspot_prevention_report_cli.py
+      - tests/unit/test_hotspot_prevention_diff_collectors.py
+      - tests/unit/test_hotspot_prevention_packaging.py
+      - tests/unit/hotspot_prevention_test_support.py
+    routing:
+      status: deferred_reduced_facade
+      reason: The hotspot-prevention policy-contract root is now a narrow live
+        policy and routing smoke surface, so future policy validation, report
+        and CLI behavior, diff collector wiring, and packaging checks belong in
+        the focused sibling tests instead of regrowing the root file.
+      route_to_case_ids:
+        - IC-B1FD75CDA84F
+      route_to_paths:
+        - tests/unit/test_hotspot_prevention_policy_validation.py
+        - tests/unit/test_hotspot_prevention_report_cli.py
+        - tests/unit/test_hotspot_prevention_diff_collectors.py
+        - tests/unit/test_hotspot_prevention_packaging.py
+        - tests/unit/hotspot_prevention_test_support.py
+      route_to_plan_paths:
+        - docs/hotspot_prevention_policy_contracts_boundary_milestone_plan.md
+        - docs/boring_change_architecture_milestone_plan.md
+    block_new:
+      - broad_new_test_group
+      - broad_helper
+    allow:
+      - import_forwarder
+      - compatibility_assertion
+      - deletion
   tests/integration/test_claim_support_judge_evaluation_roundtrip.py:
     target_role: claim-support judge integration smoke surface
     preferred_owner_modules:

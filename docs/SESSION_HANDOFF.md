@@ -53,7 +53,7 @@ Focused verification for the readiness chain:
   `violation_count=0`
 Current architecture control snapshot from the live 2026-05-20 checkout:
 `uv run docling-system-improvement-case-summary` reports
-`status_counts={"deployed":65}` with `open_unconverted_count=0`,
+`status_counts={"deployed":66}` with `open_unconverted_count=0`,
 `converted_unverified_count=0`, and `verified_undeployed_count=0`;
 `uv run docling-system-hygiene-check` reports `inherited budget debt: none`
 and `new hygiene regressions: none`;
@@ -69,7 +69,16 @@ and `exceptions=0`;
 `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`;
 the routed queue is empty again, but the fresh broader-rebaseline output now
 points directly at the remaining search API harness test root rather than back
-at the already deployed service or CLI facades. The current broader-rebaseline governance refresh is
+at the already deployed service or CLI facades. The later
+`docs/hotspot_prevention_policy_contracts_boundary_milestone_plan.md`
+follow-on now closes the briefly reopened hotspot-prevention policy-contract
+owner surface: `tests/unit/test_hotspot_prevention_policy_contracts.py`
+measures `21 / 0`, focused validation / report-and-CLI / diff-collector /
+packaging siblings now measure `164 / 0`, `123 / 0`, `40 / 0`, and `10 / 0`,
+shared support now measures `133 / 2`, `config/hotspot_prevention.yaml` routes
+the reduced root under `IC-B1FD75CDA84F`, and the queue returns to
+`top_routed_hotspot_paths=[]` instead of leaving the root as an unowned active
+hotspot. The current broader-rebaseline governance refresh is
 committed locally as `8b0ea812`; it keeps `app/architecture_quality.py` at
 `522` lines by moving the shared scoring and broader-rebaseline selection logic
 into `app/architecture_quality_support.py` at `202` lines, so the queue-empty
@@ -138,6 +147,15 @@ owners, and the deployed owner cases are `IC-3F725D0A6C91` and
 Current full-suite closeout gate:
 `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` passed at
 `2169 passed`.
+Latest hotspot-prevention policy-contract packet verification:
+- `uv run ruff check tests/unit/test_hotspot_prevention.py tests/unit/test_hotspot_prevention_policy_contracts.py tests/unit/test_hotspot_prevention_policy_validation.py tests/unit/test_hotspot_prevention_report_cli.py tests/unit/test_hotspot_prevention_diff_collectors.py tests/unit/test_hotspot_prevention_packaging.py tests/unit/test_hotspot_prevention_family_rules.py tests/unit/test_hotspot_prevention_wrapper_rules.py tests/unit/hotspot_prevention_test_support.py`: all checks passed
+- `uv run pytest -q tests/unit/test_hotspot_prevention.py tests/unit/test_hotspot_prevention_policy_contracts.py tests/unit/test_hotspot_prevention_policy_validation.py tests/unit/test_hotspot_prevention_report_cli.py tests/unit/test_hotspot_prevention_diff_collectors.py tests/unit/test_hotspot_prevention_packaging.py tests/unit/test_hotspot_prevention_family_rules.py tests/unit/test_hotspot_prevention_wrapper_rules.py`: `44 passed`
+- `uv run docling-system-hotspot-prevention-check --strict`: `blocked=0`, `allowed=1`, `exceptions=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-improvement-case-validate`: `valid=true`
+- `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
+- `uv run docling-system-architecture-quality-report --summary`: `top_routed_hotspot_paths=[]`, `top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`: the search-harness cycle still exists separately at `app.services.search_harness_contracts` <-> `app.services.search_harness_reranking`; this packet did not touch that boundary.
 Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
 Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
 Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`

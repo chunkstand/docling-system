@@ -178,7 +178,16 @@ The new search-harness hotspot-prevention facade rule now lives in
 shared `app/hotspot_prevention_classifier_service_rules.py` closes at `291`
 lines; the dispatcher root only grows to `362` lines for route-map
 maintenance, which avoids shifting the real search-harness classifier logic
-back into the broader governance owners.
+back into the broader governance owners. The later 2026-05-20
+hotspot-prevention policy-contract follow-on then closes the briefly reopened
+test-family owner surface without reopening the broader queue: it reduces
+`tests/unit/test_hotspot_prevention_policy_contracts.py` to `21` lines, moves
+validation, report and CLI, diff collector, and packaging coverage into new
+`164`, `123`, `40`, and `10` line siblings, grows shared support to `133`
+lines, routes the reduced root under `IC-B1FD75CDA84F`, advances the live
+summary to `status_counts={"deployed":66}`, and still leaves
+`top_routed_hotspot_paths=[]` with
+`top_broader_rebaseline_paths=[tests/unit/test_search_api_harnesses.py]`.
 
 ## Purpose
 
