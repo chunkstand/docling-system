@@ -1,7 +1,15 @@
 # Ontology Contract Refoundation Milestone Plan
 
 Date: 2026-05-21 local / 2026-05-21 UTC
-Status: in_progress
+Status: resolved locally in the current 2026-05-21 checkout. The final slice
+adds contract-aware semantic-backfill
+readiness metadata in `app/schemas/semantic_backfill.py` and
+`app/services/semantic_backfill.py`, proves the negative-path minimal-registry
+gate in `tests/integration/test_semantic_backfill_roundtrip.py`, proves the
+positive-path richer portable seed in
+`tests/integration/test_portable_ontology_roundtrip.py`, and routes the
+remaining non-additive ontology evolution work into
+`docs/ontology_evolution_lifecycle_milestone_plan.md`.
 Owner context: standalone semantic contract follow-on after
 `docs/semantic_registry_owner_rebaseline_milestone_plan.md` and
 `docs/semantic_pass_lifecycle_reads_boundary_milestone_plan.md` closed. The
@@ -100,9 +108,14 @@ Current structural evidence:
   registry operations (`add_concept`, `add_alias`, `add_category_binding`).
   That is enough for vocabulary growth, but not enough to prove a refounded
   ontology contract on its own.
-- `app/services/semantic_backfill.py` still reduces ontology readiness to
-  concept presence and `document_mentions_concept`. Report-generation agents
-  need broader class and relation guarantees than that.
+- `app/services/semantic_backfill.py` now exposes contract-aware readiness
+  state through `/semantics/backfill/status`: the payload records the canonical
+  contract path/version, ontology slice keys, competency family keys, required
+  report-semantics relations, and any missing report-semantics relation keys.
+  The readiness gate now blocks when the active registry lacks
+  `document_mentions_concept` or the canonical report-semantics relation
+  family, so the default minimal compatibility views are reported honestly as
+  not report-ready instead of looking green on generic concept presence alone.
 - `app/services/semantic_graph_build.py` carries ontology version and hash
   into graph payloads, but not layer, export, or shape-contract metadata.
 - `app/services/agent_task_context_semantic_analysis.py` and
@@ -114,10 +127,11 @@ Current structural evidence:
   five slice expectations, four competency-family expectations, and eight
   competency questions, and `docs/ontology_evaluation_report.json` records the
   resulting dedicated ontology gate as a repo-owned artifact.
-- `tests/integration/test_portable_ontology_roundtrip.py` still proves the
-  runtime can bootstrap a domain-agnostic ontology, but the fixture contract
-  remains a minimal portable seed and does not yet exercise the richer
-  report-semantics families now present in the canonical contract.
+- `tests/integration/test_portable_ontology_roundtrip.py` now boots a richer
+  portable upper-ontology seed that carries the full canonical
+  report-semantics relation family, and the integration lane proves the same
+  `/semantics/backfill/status` payload turns `report_semantics_ready=true`
+  with an empty missing-relation list under that richer seed.
 
 ## Goal
 
@@ -494,7 +508,7 @@ Closure signal:
 
 ### Milestone 5: Closeout, Docs, And Residual Routing
 
-Outcome label: reduced
+Outcome label: resolved
 
 Implementation slice:
 
@@ -624,8 +638,8 @@ Closure signal:
 ## Residual Risks And Next Milestone Routing
 
 - Non-additive ontology evolution operations such as split, merge, deprecate,
-  and migrate may still remain after this contract refoundation. If so, route
-  them into a fresh follow-on such as
+  and migrate still remain after this contract refoundation, and they are now
+  routed into the queued follow-on
   `docs/ontology_evolution_lifecycle_milestone_plan.md` instead of broadening
   this packet.
 - Corpus-specific domain overlays may require later bounded follow-ons once the

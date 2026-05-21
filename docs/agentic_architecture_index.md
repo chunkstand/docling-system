@@ -11,44 +11,36 @@ Live routing state in the current checkout: `top_routed_hotspot_paths=[]`,
 
 ## Current Milestone Briefs
 
-- `docs/ontology_contract_refoundation_milestone_plan.md`: drafted locally on
-  2026-05-21 as a fresh standalone ontology packet after the semantic-registry
-  and semantic-pass owner closeouts, and the current implementation slices are
-  landed locally in the current checkout. The packet does not reopen those
-  closed large-owner splits; it refounds the ontology contract from the current
-  duplicate minimal portable seed into a layered canonical JSON authority with
-  compiled compatibility views for `config/upper_ontology.yaml` and
-  `config/semantic_registry.yaml`, deterministic JSON-LD, OWL/Turtle, and SHACL
-  exports, richer runtime snapshot legibility, first-class ontology slices for
-  agent context reuse, and ontology-specific competency-question gates for
-  report generation. The current landed slices add
-  `config/ontology/docling_ontology_contract.json`,
-  `app/services/ontology_contracts.py`,
-  `app/services/ontology_contract_runtime.py`,
-  `app/services/ontology_contract_evaluations.py`,
-  `app/ontology_contract_cli.py`,
-  `docs/ontology_contract_report.md`, and
-  `docs/ontology_evaluation_report.json`; strict validate/report/eval now prove
-  the canonical contract structure, legacy-view parity, active non-legacy slice
-  semantics, and explicit ontology coverage in
-  `docs/semantic_evaluation_corpus.yaml` with five slice expectations, four
-  competency-family expectations, and eight competency questions. The later
-  runtime slice adds additive ontology contract metadata plus first-class
-  `ontology_slices` and `competency_families` to the active snapshot, ontology
-  extension draft, and ontology apply payloads so downstream task contexts
-  inherit reusable slice data without reopening the larger context-owner split.
-  The latest landed implementation commit is `7a2c2012`, and the later
-  alignment pass adds explicit hygiene-policy budgets for
-  `app/services/ontology_contracts.py` and
-  `app/services/ontology_contract_evaluations.py` so the packet's stricter
-  new-owner thresholds are satisfied in repo state. Focused ontology/context
-  coverage now passes at `21 passed`, the dedicated ontology integration
-  cluster passes at `8 passed`, live architecture quality remains queue-empty
-  with `max_hotspot_risk_score=456.06`, hygiene and architecture governance
-  gates are green, and the broad DB-backed suite stayed green at `2203 passed`
-  with `1` docling deprecation warning. The next honest boundary inside the
-  same packet is deeper ontology-readiness expansion plus richer portable
-  roundtrip coverage for the new report-semantics families.
+- `docs/ontology_contract_refoundation_milestone_plan.md`: resolved locally in
+  the current 2026-05-21 checkout. The packet refounds the ontology contract from the duplicate minimal
+  portable seed into a layered canonical JSON authority with compiled
+  compatibility views for `config/upper_ontology.yaml` and
+  `config/semantic_registry.yaml`, deterministic JSON-LD, OWL/Turtle, and
+  SHACL exports, richer runtime snapshot legibility, first-class ontology
+  slices for agent context reuse, dedicated ontology validate/report/eval
+  commands, and ontology-specific competency-question gates for report
+  generation. The final closeout slice extends
+  `app/schemas/semantic_backfill.py` and `app/services/semantic_backfill.py`
+  so `/semantics/backfill/status` now exposes canonical contract metadata,
+  ontology slice/family routing, and missing report-semantics relation keys,
+  and it now blocks readiness when the active registry lacks
+  `document_mentions_concept` or the canonical report-semantics family. The
+  negative-path minimal-registry gate now lives in
+  `tests/integration/test_semantic_backfill_roundtrip.py`, while
+  `tests/integration/test_portable_ontology_roundtrip.py` now boots a richer
+  portable seed that proves `report_semantics_ready=true` under the same route.
+  Focused ontology/backfill closeout coverage now passes at `25 passed`,
+  full DB-backed verification remains green at `2203 passed` with `1` docling
+  deprecation warning, hygiene and architecture governance gates are green, and
+  `uv run docling-system-architecture-quality-report --summary` now reports
+  `max_hotspot_risk_score=451.06` with `top_routed_hotspot_paths=[]`.
+- `docs/ontology_evolution_lifecycle_milestone_plan.md`: drafted locally on
+  2026-05-21 as the queued ontology follow-on after refoundation closeout. It
+  keeps the canonical contract scaffold intact and targets the remaining
+  additive-only gap in `app/services/semantic_orchestration.py` by introducing
+  structured split/merge/deprecate/replace/migrate operations, draft
+  verification, compatibility-preserving runtime payload adoption, and durable
+  routing for any later overlay-specific work.
 - `docs/production_trap_set_centrality_reduction_milestone_plan.md`:
   resolved locally in the current checkout on 2026-05-20. The packet adds
   `config/production_trap_set_centrality_budget.yaml` plus

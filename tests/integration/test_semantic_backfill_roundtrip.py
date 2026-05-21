@@ -144,6 +144,13 @@ def test_semantic_backfill_runs_over_existing_active_run(
     assert status["active_document_count"] == 1
     assert status["missing_current_pass_count"] == 1
     assert status["current_registry"]["concept_count"] == 1
+    assert status["current_registry"]["ontology_contract"]["report_semantics_ready"] is False
+    assert "claim_supported_by_evidence" in status["current_registry"]["ontology_contract"][
+        "missing_report_semantics_relation_keys"
+    ]
+    assert any(
+        "report-semantics relations" in reason for reason in status["readiness"]["blocked_reasons"]
+    )
 
     backfill_response = client.post(
         "/semantics/backfill",

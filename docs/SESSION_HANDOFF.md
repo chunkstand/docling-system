@@ -4,60 +4,55 @@ Date: 2026-05-21 local / 2026-05-21 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Active ontology-contract refoundation packet in the current 2026-05-21 checkout:
-`docs/ontology_contract_refoundation_milestone_plan.md` is now in progress in
-this repo. Three implementation slices have landed locally through
+Ontology-contract refoundation packet in the current 2026-05-21 checkout:
+`docs/ontology_contract_refoundation_milestone_plan.md` is now resolved
+locally in this repo.
+The final slice extends `app/schemas/semantic_backfill.py` and
+`app/services/semantic_backfill.py` so `/semantics/backfill/status` now
+exposes the canonical contract path/version, ontology slice keys, competency
+family keys, required report-semantics relation family, and any missing
+report-semantics relation keys. The readiness gate now blocks when the active
+registry lacks `document_mentions_concept` or the canonical report-semantics
+family, which means the default minimal compatibility views are reported
+honestly as not report-ready instead of looking green on generic concept
+presence alone. The negative-path minimal-registry behavior is now covered by
+`tests/integration/test_semantic_backfill_roundtrip.py`, while
+`tests/integration/test_portable_ontology_roundtrip.py` now boots a richer
+portable upper-ontology seed with the full canonical report-semantics relation
+family and proves the same status route turns `report_semantics_ready=true`
+with an empty missing-relation list under that richer seed.
+
+The earlier ontology refoundation slices remain intact in the same checkout:
 `config/ontology/docling_ontology_contract.json`,
 `app/services/ontology_contracts.py`,
 `app/services/ontology_contract_runtime.py`,
 `app/services/ontology_contract_evaluations.py`,
 `app/ontology_contract_cli.py`,
 the generated `docs/ontology_contract_report.md` artifact, and the generated
-`docs/ontology_evaluation_report.json` artifact. The packet now establishes a
-canonical JSON ontology contract scaffold, compiles the current
-`config/upper_ontology.yaml` and `config/semantic_registry.yaml` views from the
-canonical contract for parity checks, adds
-`docling-system-ontology-contract-validate`,
-`docling-system-ontology-contract-report`, and
-`docling-system-ontology-eval`, and enriches the non-legacy ontology layers so
-the contract now carries active application, overlay, report-semantics, and
-evaluation-coverage slices instead of placeholder-only declarations. The strict
-validation, report, and ontology-eval commands pass locally and confirm the
-current ontology gate baseline: five named layers, five ontology slices, four
-competency families, nineteen aggregate entity types, twenty aggregate
-relations, both legacy YAML views in sync with the canonical JSON contract,
-five ontology slice expectations, four competency-family expectations, and
-eight competency questions in `docs/semantic_evaluation_corpus.yaml`. The
-earlier runtime slice still exposes contract-prefixed metadata,
-`ontology_slices`, and `competency_families` on
+`docs/ontology_evaluation_report.json` artifact still establish the canonical
+JSON contract scaffold, the legacy-view parity checks, the dedicated
+validate/report/eval commands, and first-class ontology slice metadata on
 `ActiveOntologySnapshotPayload`, `OntologyExtensionDraftPayload`, and
-`ApplyOntologyExtensionTaskOutput`, so the existing ontology task contexts
-inherit first-class slice data without a broader task-context owner rewrite.
-The latest implementation closeout commit for the landed ontology runtime and
-eval slices is `7a2c2012` (`Implement ontology contract runtime and eval slices`).
-The later alignment pass also adds explicit budgets for
-`app/services/ontology_contracts.py` and
-`app/services/ontology_contract_evaluations.py` in
-`config/hygiene_policy.yaml` so the packet's new-owner placement rules are
-honored in repo state rather than only in chat.
-The next honest boundary inside the same packet is deeper ontology-readiness
-expansion beyond the current generic runtime readiness and richer portable
-roundtrip coverage for the new report-semantics families.
-Focused verification for the current ontology-contract slices:
-- `uv run ruff check app/services/ontology_contracts.py app/services/ontology_contract_reporting.py app/services/ontology_contract_evaluations.py app/services/ontology_contract_runtime.py app/services/semantic_ontology.py app/schemas/agent_task_semantics.py app/ontology_contract_cli.py tests/unit/test_ontology_contracts.py tests/unit/agent_task_context_semantic_governance_support.py tests/unit/test_agent_task_context_semantic_governance.py tests/unit/test_agent_task_context_semantic_governance_ontology.py`: pass
-- `uv run pytest -q tests/unit/test_agent_task_actions_ontology.py tests/unit/test_ontology_contracts.py tests/unit/test_agent_task_context_semantic_governance.py tests/unit/test_agent_task_context_semantic_governance_ontology.py tests/unit/test_semantic_registry.py`: `21 passed`
+`ApplyOntologyExtensionTaskOutput`. The refoundation packet's remaining
+ontology-specific residual is now routed outside this packet into
+`docs/ontology_evolution_lifecycle_milestone_plan.md`, which is the queued
+follow-on for non-additive split/merge/deprecate/replace/migrate work.
+
+Focused verification for the current ontology-contract closeout:
+- `uv run ruff check app/services/semantic_backfill.py app/schemas/semantic_backfill.py tests/unit/test_semantic_backfill_api.py tests/integration/test_semantic_backfill_roundtrip.py tests/integration/test_portable_ontology_roundtrip.py`: pass
+- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/unit/test_semantic_backfill_api.py tests/unit/test_ontology_contracts.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_context_semantic_governance_ontology.py tests/integration/test_semantic_backfill_roundtrip.py tests/integration/test_portable_ontology_roundtrip.py tests/integration/test_semantic_bootstrap_roundtrip.py tests/integration/test_semantic_graph_roundtrip.py tests/integration/test_semantic_governance_ledger.py tests/integration/test_agent_task_semantic_orchestration_roundtrip.py`: `25 passed`
+- `git diff --check`: pass
 - `uv run docling-system-ontology-contract-validate --strict`: pass
 - `uv run docling-system-ontology-contract-report --strict --output docs/ontology_contract_report.md`: pass
 - `uv run docling-system-ontology-eval --output docs/ontology_evaluation_report.json`: pass
-- `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_portable_ontology_roundtrip.py tests/integration/test_semantic_bootstrap_roundtrip.py tests/integration/test_semantic_backfill_roundtrip.py tests/integration/test_semantic_graph_roundtrip.py tests/integration/test_semantic_governance_ledger.py tests/integration/test_agent_task_semantic_orchestration_roundtrip.py`: `8 passed`
 - `env DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `2203 passed`, `1` docling deprecation warning
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
-- `uv run docling-system-hotspot-prevention-check --strict`: `blocked=0`, `exceptions=0`
+- `uv run docling-system-hotspot-prevention-check --strict`: `blocked=0`, `allowed=0`, `exceptions=0`
 - `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
 - `uv run docling-system-capability-contracts`: `valid=true`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --fail-on-cycles`: `Python cycles: none detected`
 - `uv run docling-system-improvement-case-summary`: `status_counts={"deployed":67}`
-- `uv run docling-system-architecture-quality-report --summary`: `top_routed_hotspot_paths=[]`, `broader_rebaseline_candidate_count=0`, `max_hotspot_risk_score=456.06`
+- `uv run docling-system-architecture-quality-report --summary`: `top_routed_hotspot_paths=[]`, `broader_rebaseline_candidate_count=0`, `max_hotspot_risk_score=451.06`
 Latest evaluation-data readiness implementation in the current 2026-05-20
 local checkout:
 `uv run docling-system-bootstrap-regression-readiness` remains the strict

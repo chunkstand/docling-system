@@ -18,6 +18,7 @@ from app.db.public.semantic_memory import (
 from app.schemas.semantic_backfill import (
     SemanticBackfillDocumentResult,
     SemanticBackfillGraphStatus,
+    SemanticBackfillOntologyContractStatus,
     SemanticBackfillReadiness,
     SemanticBackfillRegistryStatus,
     SemanticBackfillRequest,
@@ -25,6 +26,7 @@ from app.schemas.semantic_backfill import (
     SemanticBackfillStatusResponse,
 )
 from app.services.evaluations import resolve_baseline_run_id
+from app.services.ontology_contract_runtime import load_ontology_contract_runtime_metadata
 from app.services.semantic_facts import build_document_fact_graph
 from app.services.semantic_graph import get_active_semantic_graph_snapshot
 from app.services.semantic_ontology import initialize_workspace_ontology
@@ -157,6 +159,7 @@ def _load_active_document_runs(
 
 
 def _registry_status(registry) -> SemanticBackfillRegistryStatus:
+    relation_keys = sorted(relation.relation_key for relation in registry.relations)
     return SemanticBackfillRegistryStatus(
         snapshot_id=registry.snapshot_id,
         registry_name=registry.registry_name,
@@ -166,7 +169,8 @@ def _registry_status(registry) -> SemanticBackfillRegistryStatus:
         concept_count=len(registry.concepts),
         category_count=len(registry.categories),
         relation_count=len(registry.relations),
-        relation_keys=sorted(relation.relation_key for relation in registry.relations),
+        relation_keys=relation_keys,
+        ontology_contract=_ontology_contract_status(relation_keys),
     )
 
 
@@ -214,12 +218,24 @@ def _readiness(
             "verified ontology extension."
         )
     if "document_mentions_concept" not in set(registry_status.relation_keys):
-        warnings.append(
+        blocked_reasons.append(
             "The active ontology is missing document_mentions_concept, so document "
             "fact graphs cannot be built."
         )
         next_actions.append(
             "Apply an ontology snapshot that includes the portable fact-graph relations."
+        )
+    if registry_status.ontology_contract.missing_report_semantics_relation_keys:
+        missing = ", ".join(
+            registry_status.ontology_contract.missing_report_semantics_relation_keys
+        )
+        blocked_reasons.append(
+            "The active ontology is missing required report-semantics relations: "
+            f"{missing}."
+        )
+        next_actions.append(
+            "Apply an ontology snapshot that includes the canonical report-semantics "
+            "relation family before relying on semantic graph or report workflows."
         )
     if missing_current_pass_count:
         next_actions.append("Run semantic backfill over active runs.")
@@ -234,6 +250,61 @@ def _readiness(
         blocked_reasons=blocked_reasons,
         warnings=warnings,
         next_actions=next_actions,
+    )
+
+
+def _ontology_contract_status(
+    registry_relation_keys: list[str],
+) -> SemanticBackfillOntologyContractStatus:
+    metadata = load_ontology_contract_runtime_metadata()
+    ontology_slices = metadata.get("ontology_slices") or []
+    competency_families = metadata.get("competency_families") or []
+    report_semantics_slice = next(
+        (
+            slice_row
+            for slice_row in ontology_slices
+            if str(slice_row.get("slice_key") or "").strip() == "report_semantics"
+        ),
+        {},
+    )
+    report_semantics_relation_keys = sorted(
+        {
+            str(relation_key or "").strip()
+            for relation_key in (report_semantics_slice.get("relation_keys") or [])
+            if str(relation_key or "").strip()
+        }
+    )
+    missing_report_semantics_relation_keys = sorted(
+        set(report_semantics_relation_keys) - set(registry_relation_keys)
+    )
+    return SemanticBackfillOntologyContractStatus(
+        contract_path=str(metadata.get("contract_path") or "").strip() or None,
+        contract_version=str(metadata.get("contract_version") or "").strip() or None,
+        contract_upper_ontology_version=(
+            str(metadata.get("contract_upper_ontology_version") or "").strip() or None
+        ),
+        ontology_slice_count=int(metadata.get("ontology_slice_count") or len(ontology_slices)),
+        ontology_slice_keys=sorted(
+            {
+                str(slice_row.get("slice_key") or "").strip()
+                for slice_row in ontology_slices
+                if str(slice_row.get("slice_key") or "").strip()
+            }
+        ),
+        competency_family_count=int(
+            metadata.get("competency_family_count") or len(competency_families)
+        ),
+        competency_family_keys=sorted(
+            {
+                str(family.get("family_key") or "").strip()
+                for family in competency_families
+                if str(family.get("family_key") or "").strip()
+            }
+        ),
+        report_semantics_relation_keys=report_semantics_relation_keys,
+        missing_report_semantics_relation_keys=missing_report_semantics_relation_keys,
+        report_semantics_ready=bool(report_semantics_relation_keys)
+        and not missing_report_semantics_relation_keys,
     )
 
 

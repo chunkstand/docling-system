@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
+import yaml
 
 from app.core.config import get_settings
 from app.db.public.agent_tasks import AgentTask, AgentTaskStatus
@@ -40,24 +41,105 @@ class StubParser:
 def _write_upper_ontology(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        """registry_name: portable_upper_ontology
-registry_version: portable-upper-ontology-v1
-upper_ontology_version: portable-upper-ontology-v1
-categories: []
-concepts: []
-relations:
-  - relation_key: document_mentions_concept
-    preferred_label: Document Mentions Concept
-  - relation_key: concept_related_to_concept
-    preferred_label: Concept Related To Concept
-entity_types:
-  - entity_type: document
-    preferred_label: Document
-  - entity_type: concept
-    preferred_label: Concept
-  - entity_type: literal
-    preferred_label: Literal
-"""
+        yaml.safe_dump(
+            {
+                "registry_name": "portable_upper_ontology",
+                "registry_version": "portable-upper-ontology-v1",
+                "upper_ontology_version": "portable-upper-ontology-v1",
+                "categories": [],
+                "concepts": [],
+                "relations": [
+                    {
+                        "relation_key": "document_mentions_concept",
+                        "preferred_label": "Document Mentions Concept",
+                        "domain_entity_types": ["document"],
+                        "range_entity_types": ["concept"],
+                        "symmetric": False,
+                        "allow_literal_object": False,
+                    },
+                    {
+                        "relation_key": "concept_related_to_concept",
+                        "preferred_label": "Concept Related To Concept",
+                        "domain_entity_types": ["concept"],
+                        "range_entity_types": ["concept"],
+                        "symmetric": True,
+                        "allow_literal_object": False,
+                        "inverse_relation_key": "concept_related_to_concept",
+                    },
+                    {
+                        "relation_key": "claim_supported_by_evidence",
+                        "preferred_label": "Claim Supported By Evidence",
+                        "domain_entity_types": ["claim"],
+                        "range_entity_types": ["evidence"],
+                        "symmetric": False,
+                        "allow_literal_object": False,
+                    },
+                    {
+                        "relation_key": "evidence_cites_source",
+                        "preferred_label": "Evidence Cites Source",
+                        "domain_entity_types": ["evidence"],
+                        "range_entity_types": ["source"],
+                        "symmetric": False,
+                        "allow_literal_object": False,
+                    },
+                    {
+                        "relation_key": "document_cites_source",
+                        "preferred_label": "Document Cites Source",
+                        "domain_entity_types": ["document"],
+                        "range_entity_types": ["source"],
+                        "symmetric": False,
+                        "allow_literal_object": False,
+                    },
+                    {
+                        "relation_key": "table_reports_measurement",
+                        "preferred_label": "Table Reports Measurement",
+                        "domain_entity_types": ["table"],
+                        "range_entity_types": ["measurement"],
+                        "symmetric": False,
+                        "allow_literal_object": False,
+                    },
+                    {
+                        "relation_key": "measurement_has_unit",
+                        "preferred_label": "Measurement Has Unit",
+                        "domain_entity_types": ["measurement"],
+                        "range_entity_types": ["unit"],
+                        "symmetric": False,
+                        "allow_literal_object": False,
+                    },
+                    {
+                        "relation_key": "obligation_applies_to_actor",
+                        "preferred_label": "Obligation Applies To Actor",
+                        "domain_entity_types": ["obligation"],
+                        "range_entity_types": ["actor"],
+                        "symmetric": False,
+                        "allow_literal_object": False,
+                    },
+                    {
+                        "relation_key": "event_occurs_before_event",
+                        "preferred_label": "Event Occurs Before Event",
+                        "domain_entity_types": ["event"],
+                        "range_entity_types": ["event"],
+                        "symmetric": False,
+                        "allow_literal_object": False,
+                    },
+                ],
+                "entity_types": [
+                    {"entity_type": "document", "preferred_label": "Document"},
+                    {"entity_type": "concept", "preferred_label": "Concept"},
+                    {"entity_type": "literal", "preferred_label": "Literal"},
+                    {"entity_type": "claim", "preferred_label": "Claim"},
+                    {"entity_type": "evidence", "preferred_label": "Evidence"},
+                    {"entity_type": "source", "preferred_label": "Source"},
+                    {"entity_type": "table", "preferred_label": "Table"},
+                    {"entity_type": "measurement", "preferred_label": "Measurement"},
+                    {"entity_type": "unit", "preferred_label": "Unit"},
+                    {"entity_type": "actor", "preferred_label": "Actor"},
+                    {"entity_type": "obligation", "preferred_label": "Obligation"},
+                    {"entity_type": "event", "preferred_label": "Event"},
+                ],
+            },
+            sort_keys=False,
+        )
     )
 
 
@@ -246,8 +328,15 @@ def test_portable_ontology_roundtrip_is_domain_agnostic(
         assert snapshot_task_row is not None
         snapshot_payload = snapshot_task_row.result_json["payload"]
         assert snapshot_payload["snapshot"]["relation_keys"] == [
+            "claim_supported_by_evidence",
             "concept_related_to_concept",
+            "document_cites_source",
             "document_mentions_concept",
+            "event_occurs_before_event",
+            "evidence_cites_source",
+            "measurement_has_unit",
+            "obligation_applies_to_actor",
+            "table_reports_measurement",
         ]
 
     create_response = client.post(
@@ -275,6 +364,17 @@ def test_portable_ontology_roundtrip_is_domain_agnostic(
     assert initial_semantics["assertion_count"] == 0
     assert initial_semantics["ontology_snapshot_id"] is not None
     assert initial_semantics["upper_ontology_version"] == "portable-upper-ontology-v1"
+    status_response = client.get("/semantics/backfill/status")
+    assert status_response.status_code == 200
+    status = status_response.json()
+    assert status["current_registry"]["ontology_contract"]["report_semantics_ready"] is True
+    assert (
+        status["current_registry"]["ontology_contract"]["missing_report_semantics_relation_keys"]
+        == []
+    )
+    assert "claim_supported_by_evidence" in status["current_registry"]["ontology_contract"][
+        "report_semantics_relation_keys"
+    ]
 
     with postgres_integration_harness.session_factory() as session:
         discover_task = create_agent_task(

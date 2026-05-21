@@ -13,6 +13,19 @@ class SemanticBackfillReadiness(BaseModel):
     next_actions: list[str] = Field(default_factory=list)
 
 
+class SemanticBackfillOntologyContractStatus(BaseModel):
+    contract_path: str | None = None
+    contract_version: str | None = None
+    contract_upper_ontology_version: str | None = None
+    ontology_slice_count: int = 0
+    ontology_slice_keys: list[str] = Field(default_factory=list)
+    competency_family_count: int = 0
+    competency_family_keys: list[str] = Field(default_factory=list)
+    report_semantics_relation_keys: list[str] = Field(default_factory=list)
+    missing_report_semantics_relation_keys: list[str] = Field(default_factory=list)
+    report_semantics_ready: bool = False
+
+
 class SemanticBackfillRegistryStatus(BaseModel):
     snapshot_id: UUID | None = None
     registry_name: str | None = None
@@ -23,6 +36,9 @@ class SemanticBackfillRegistryStatus(BaseModel):
     category_count: int = 0
     relation_count: int = 0
     relation_keys: list[str] = Field(default_factory=list)
+    ontology_contract: SemanticBackfillOntologyContractStatus = Field(
+        default_factory=SemanticBackfillOntologyContractStatus
+    )
 
 
 class SemanticBackfillGraphStatus(BaseModel):

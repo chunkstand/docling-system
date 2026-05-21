@@ -9,6 +9,7 @@ from app.api.main import app
 from app.db.session import get_db_session
 from app.schemas.semantic_backfill import (
     SemanticBackfillGraphStatus,
+    SemanticBackfillOntologyContractStatus,
     SemanticBackfillReadiness,
     SemanticBackfillRegistryStatus,
     SemanticBackfillStatusResponse,
@@ -48,6 +49,17 @@ def test_semantic_backfill_status_route_returns_machine_readable_payload(monkeyp
                 registry_version="portable-upper-ontology-v1",
                 concept_count=0,
                 relation_count=4,
+                ontology_contract=SemanticBackfillOntologyContractStatus(
+                    contract_path="config/ontology/docling_ontology_contract.json",
+                    contract_version="portable-upper-ontology-v1",
+                    ontology_slice_count=5,
+                    ontology_slice_keys=["core", "report_semantics"],
+                    competency_family_count=4,
+                    competency_family_keys=["claim_support"],
+                    report_semantics_relation_keys=["claim_supported_by_evidence"],
+                    missing_report_semantics_relation_keys=["claim_supported_by_evidence"],
+                    report_semantics_ready=False,
+                ),
             ),
             graph=SemanticBackfillGraphStatus(),
             readiness=SemanticBackfillReadiness(
@@ -69,6 +81,16 @@ def test_semantic_backfill_status_route_returns_machine_readable_payload(monkeyp
     assert response.json()["schema_name"] == "semantic_backfill_status"
     assert response.json()["active_document_count"] == 2
     assert response.json()["readiness"]["ready"] is False
+    assert (
+        response.json()["current_registry"]["ontology_contract"]["contract_path"]
+        == "config/ontology/docling_ontology_contract.json"
+    )
+    assert (
+        response.json()["current_registry"]["ontology_contract"][
+            "missing_report_semantics_relation_keys"
+        ]
+        == ["claim_supported_by_evidence"]
+    )
 
 
 def test_semantic_backfill_run_route_blocks_when_semantics_disabled(monkeypatch) -> None:
